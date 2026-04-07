@@ -125,7 +125,7 @@ export default function BlogPage() {
           </p>
           <a
             href="#"
-            className="mt-8 inline-block rounded-xl bg-[#e87a2a] px-8 py-4 font-syne text-lg font-bold text-white transition hover:bg-[#d06a1f]"
+            className="mt-8 inline-block rounded-xl bg-[#e87a2a] px-8 py-4 font-syne text-lg font-bold text-white transition hover:bg-[#f09050]"
           >
             Essayez Artidoc gratuitement
           </a>
