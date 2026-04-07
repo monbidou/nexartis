@@ -1,0 +1,505 @@
+'use client'
+
+import { useState, useEffect, useRef } from 'react'
+import Image from 'next/image'
+import Link from 'next/link'
+import { usePathname, useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
+import {
+  Home,
+  ClipboardList,
+  FileText,
+  Receipt,
+  ShoppingCart,
+  Calendar,
+  Users,
+  Building2,
+  HardHat,
+  BookOpen,
+  BarChart3,
+  Download,
+  Settings,
+  Search,
+  Bell,
+  Menu,
+  X,
+  MoreHorizontal,
+  LogOut,
+  ChevronDown,
+} from 'lucide-react'
+
+// -------------------------------------------------------------------
+// Types
+// -------------------------------------------------------------------
+
+interface NavItem {
+  label: string
+  href: string
+  icon: React.ElementType
+}
+
+// -------------------------------------------------------------------
+// Constants
+// -------------------------------------------------------------------
+
+const NAV_GROUPS: NavItem[][] = [
+  [{ label: 'Accueil', href: '/dashboard', icon: Home }],
+  [
+    { label: 'Chantiers', href: '/dashboard/chantiers', icon: ClipboardList },
+    { label: 'Devis', href: '/dashboard/devis', icon: FileText },
+    { label: 'Factures', href: '/dashboard/factures', icon: Receipt },
+    { label: 'Achats', href: '/dashboard/achats', icon: ShoppingCart },
+  ],
+  [{ label: 'Planning', href: '/dashboard/planning', icon: Calendar }],
+  [
+    { label: 'Clients', href: '/dashboard/clients', icon: Users },
+    { label: 'Fournisseurs', href: '/dashboard/fournisseurs', icon: Building2 },
+    { label: 'Mon\u00a0\u00e9quipe', href: '/dashboard/equipe', icon: HardHat },
+  ],
+  [
+    { label: 'Biblioth\u00e8que', href: '/dashboard/bibliotheque', icon: BookOpen },
+    { label: 'Statistiques', href: '/dashboard/statistiques', icon: BarChart3 },
+  ],
+  [
+    { label: 'Importer', href: '/dashboard/import', icon: Download },
+    { label: 'Param\u00e8tres', href: '/dashboard/parametres', icon: Settings },
+  ],
+]
+
+const PAGE_TITLES: Record<string, string> = {
+  '/dashboard': 'Tableau de bord',
+  '/dashboard/chantiers': 'Chantiers',
+  '/dashboard/devis': 'Devis',
+  '/dashboard/devis/nouveau': 'Nouveau devis',
+  '/dashboard/factures': 'Factures',
+  '/dashboard/factures/nouveau': 'Nouvelle facture',
+  '/dashboard/achats': 'Achats',
+  '/dashboard/planning': 'Planning',
+  '/dashboard/clients': 'Clients',
+  '/dashboard/fournisseurs': 'Fournisseurs',
+  '/dashboard/equipe': 'Mon \u00e9quipe',
+  '/dashboard/bibliotheque': 'Biblioth\u00e8que',
+  '/dashboard/statistiques': 'Statistiques',
+  '/dashboard/import': 'Importer des donn\u00e9es',
+  '/dashboard/parametres': 'Param\u00e8tres',
+}
+
+const CREATE_OPTIONS = [
+  { label: 'Nouveau devis', href: '/dashboard/devis/nouveau' },
+  { label: 'Nouvelle facture', href: '/dashboard/factures/nouveau' },
+  { label: 'Nouveau chantier', href: '/dashboard/chantiers/nouveau' },
+  { label: 'Nouveau client', href: '/dashboard/clients/nouveau' },
+]
+
+const BOTTOM_NAV: NavItem[] = [
+  { label: 'Accueil', href: '/dashboard', icon: Home },
+  { label: 'Devis', href: '/dashboard/devis', icon: FileText },
+  { label: 'Factures', href: '/dashboard/factures', icon: Receipt },
+  { label: 'Planning', href: '/dashboard/planning', icon: Calendar },
+  { label: 'Plus...', href: '#more', icon: MoreHorizontal },
+]
+
+// -------------------------------------------------------------------
+// Helpers
+// -------------------------------------------------------------------
+
+function isActive(pathname: string, href: string): boolean {
+  if (href === '/dashboard') return pathname === '/dashboard'
+  return pathname.startsWith(href)
+}
+
+function getPageTitle(pathname: string): string {
+  if (PAGE_TITLES[pathname]) return PAGE_TITLES[pathname]
+  // Fallback: find the closest parent match
+  const segments = pathname.split('/')
+  while (segments.length > 1) {
+    segments.pop()
+    const parent = segments.join('/')
+    if (PAGE_TITLES[parent]) return PAGE_TITLES[parent]
+  }
+  return 'Tableau de bord'
+}
+
+// -------------------------------------------------------------------
+// Sidebar component
+// -------------------------------------------------------------------
+
+function Sidebar({
+  collapsed,
+  mobileOpen,
+  onCloseMobile,
+  pathname,
+}: {
+  collapsed: boolean
+  mobileOpen: boolean
+  onCloseMobile: () => void
+  pathname: string
+}) {
+  const router = useRouter()
+  const [createOpen, setCreateOpen] = useState(false)
+  const createRef = useRef<HTMLDivElement>(null)
+
+  // Close create dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (createRef.current && !createRef.current.contains(e.target as Node)) {
+        setCreateOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  async function handleLogout() {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push('/login')
+  }
+
+  const w = collapsed ? 'w-16' : 'w-64'
+
+  return (
+    <>
+      {/* Mobile overlay */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          onClick={onCloseMobile}
+        />
+      )}
+
+      <aside
+        className={`
+          fixed top-0 left-0 z-50 h-full bg-[#0f1a3a] flex flex-col overflow-y-auto overflow-x-hidden
+          transition-all duration-200 ease-in-out
+          ${w}
+          ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
+          md:translate-x-0
+        `}
+      >
+        {/* ---- Top: Logo ---- */}
+        <div className={`flex items-center gap-3 px-4 pt-5 pb-2 ${collapsed ? 'justify-center' : ''}`}>
+          <Image src="/images/logo-artidoc.png" alt="Artidoc" width={80} height={80} quality={100} className="h-10 w-auto flex-shrink-0 object-contain" />
+          {!collapsed && (
+            <span className="font-syne font-extrabold text-white text-xl tracking-tight">
+              Artidoc
+            </span>
+          )}
+          {/* Mobile close */}
+          {mobileOpen && (
+            <button
+              onClick={onCloseMobile}
+              className="ml-auto text-white/60 hover:text-white md:hidden"
+            >
+              <X size={20} />
+            </button>
+          )}
+        </div>
+
+        {/* Company info */}
+        {!collapsed && (
+          <div className="px-4 pb-4">
+            <p className="text-xs text-white/60 leading-tight">
+              Mon Entreprise
+              <br />
+              Plombier
+            </p>
+          </div>
+        )}
+
+        {/* ---- Create button ---- */}
+        <div className={`px-3 mb-2 ${collapsed ? 'px-2' : ''}`} ref={createRef}>
+          <button
+            onClick={() => setCreateOpen(!createOpen)}
+            className={`
+              w-full h-11 rounded-lg bg-[#e87a2a] hover:bg-[#f09050] text-white font-syne font-bold
+              flex items-center justify-center gap-2 transition-colors duration-100
+              ${collapsed ? 'px-0' : ''}
+            `}
+          >
+            <span className="text-lg leading-none">+</span>
+            {!collapsed && <span>Cr\u00e9er</span>}
+          </button>
+
+          {createOpen && (
+            <div className="mt-1 rounded-lg bg-white shadow-xl border border-gray-200 overflow-hidden z-50 relative">
+              {CREATE_OPTIONS.map((opt) => (
+                <Link
+                  key={opt.href}
+                  href={opt.href}
+                  onClick={() => {
+                    setCreateOpen(false)
+                    onCloseMobile()
+                  }}
+                  className="block px-4 py-2.5 text-sm text-[#1a1a2e] font-manrope hover:bg-gray-50 transition-colors duration-100"
+                >
+                  {opt.label}
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* ---- Search bar ---- */}
+        {!collapsed && (
+          <div className="px-3 mb-3">
+            <div className="relative">
+              <Search
+                size={16}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40"
+              />
+              <input
+                type="text"
+                placeholder="Acc\u00e8s rapide..."
+                className="w-full h-10 rounded-lg bg-white/[0.08] pl-9 pr-3 text-sm text-white placeholder:text-white/40 outline-none focus:bg-white/[0.12] transition-colors duration-100"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* ---- Navigation ---- */}
+        <nav className="flex-1 px-1.5 space-y-1">
+          {NAV_GROUPS.map((group, gi) => (
+            <div key={gi}>
+              {gi > 0 && <hr className="border-white/[0.08] my-1.5 mx-2" />}
+              {group.map((item) => {
+                const active = isActive(pathname, item.href)
+                const Icon = item.icon
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={onCloseMobile}
+                    title={collapsed ? item.label : undefined}
+                    className={`
+                      flex items-center gap-3 py-2.5 rounded-md text-sm font-manrope font-medium transition-colors duration-100
+                      ${collapsed ? 'justify-center px-2' : 'px-4'}
+                      ${
+                        active
+                          ? 'bg-[rgba(90,180,224,0.15)] border-l-[3px] border-[#e87a2a] text-white'
+                          : 'border-l-[3px] border-transparent text-white/70 hover:bg-white/[0.06]'
+                      }
+                    `}
+                  >
+                    <Icon size={20} className="flex-shrink-0" />
+                    {!collapsed && <span>{item.label}</span>}
+                  </Link>
+                )
+              })}
+            </div>
+          ))}
+        </nav>
+
+        {/* ---- Bottom: User ---- */}
+        <div className={`mt-auto border-t border-white/[0.08] p-4 ${collapsed ? 'flex flex-col items-center px-2' : ''}`}>
+          <div className={`flex items-center gap-3 ${collapsed ? 'flex-col' : ''}`}>
+            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-[#5ab4e0] flex items-center justify-center">
+              <span className="text-white text-sm font-syne font-bold">JD</span>
+            </div>
+            {!collapsed && (
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-white font-medium truncate">Jean Dupont</p>
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center gap-1 text-xs text-white/50 hover:text-white transition-colors duration-100"
+                >
+                  <LogOut size={12} />
+                  Se d\u00e9connecter
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </aside>
+    </>
+  )
+}
+
+// -------------------------------------------------------------------
+// Header component
+// -------------------------------------------------------------------
+
+function DashboardHeader({
+  title,
+  onMenuClick,
+}: {
+  title: string
+  onMenuClick: () => void
+}) {
+  return (
+    <header className="sticky top-0 z-30 h-[60px] bg-white border-b border-gray-200 flex items-center justify-between px-4 lg:px-6">
+      {/* Left */}
+      <div className="flex items-center gap-3">
+        <button
+          onClick={onMenuClick}
+          className="p-1.5 rounded-md hover:bg-gray-100 md:hidden transition-colors"
+        >
+          <Menu size={22} className="text-[#1a1a2e]" />
+        </button>
+        <h1 className="font-syne font-bold text-xl text-[#1a1a2e]">{title}</h1>
+      </div>
+
+      {/* Right */}
+      <div className="flex items-center gap-3">
+        <button className="relative p-2 rounded-md hover:bg-gray-100 transition-colors">
+          <Bell size={20} className="text-[#6b7280]" />
+          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
+        </button>
+        <div className="w-8 h-8 rounded-full bg-[#5ab4e0] flex items-center justify-center">
+          <span className="text-white text-xs font-syne font-bold">JD</span>
+        </div>
+      </div>
+    </header>
+  )
+}
+
+// -------------------------------------------------------------------
+// Mobile bottom nav
+// -------------------------------------------------------------------
+
+function MobileBottomNav({
+  pathname,
+  onMoreClick,
+}: {
+  pathname: string
+  onMoreClick: () => void
+}) {
+  return (
+    <nav className="fixed bottom-0 left-0 right-0 z-30 h-16 bg-white border-t border-gray-200 flex items-center justify-around md:hidden">
+      {BOTTOM_NAV.map((item) => {
+        const Icon = item.icon
+        const active = item.href !== '#more' && isActive(pathname, item.href)
+        const isMore = item.href === '#more'
+
+        if (isMore) {
+          return (
+            <button
+              key="more"
+              onClick={onMoreClick}
+              className="flex flex-col items-center gap-0.5 text-[#6b7280]"
+            >
+              <Icon size={22} />
+              <span className="text-[10px] font-manrope">{item.label}</span>
+            </button>
+          )
+        }
+
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            className={`flex flex-col items-center gap-0.5 ${
+              active ? 'text-[#e87a2a]' : 'text-[#6b7280]'
+            }`}
+          >
+            <Icon size={22} />
+            <span className="text-[10px] font-manrope">{item.label}</span>
+          </Link>
+        )
+      })}
+    </nav>
+  )
+}
+
+// -------------------------------------------------------------------
+// Layout
+// -------------------------------------------------------------------
+
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  const pathname = usePathname()
+  const [mobileOpen, setMobileOpen] = useState(false)
+  const [collapsed, setCollapsed] = useState(false)
+  const [hovered, setHovered] = useState(false)
+
+  // Determine responsive state
+  // collapsed = true on tablet (768-1024), false on desktop
+  useEffect(() => {
+    function handleResize() {
+      const w = window.innerWidth
+      if (w >= 1024) {
+        setCollapsed(false)
+        setMobileOpen(false)
+      } else if (w >= 768) {
+        setCollapsed(true)
+        setMobileOpen(false)
+      } else {
+        setCollapsed(false) // mobile uses full sidebar when open
+      }
+    }
+    handleResize()
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  // Close mobile sidebar on route change
+  useEffect(() => {
+    setMobileOpen(false)
+  }, [pathname])
+
+  const sidebarCollapsed = collapsed && !hovered
+  const sidebarWidth = sidebarCollapsed ? 64 : 256
+  const pageTitle = getPageTitle(pathname)
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Sidebar hover zone for tablet expand */}
+      <div
+        className="hidden md:block lg:hidden fixed top-0 left-0 z-50 h-full"
+        style={{ width: hovered ? 256 : 64 }}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+      >
+        <Sidebar
+          collapsed={sidebarCollapsed}
+          mobileOpen={false}
+          onCloseMobile={() => {}}
+          pathname={pathname}
+        />
+      </div>
+
+      {/* Sidebar for desktop (always visible) */}
+      <div className="hidden lg:block">
+        <Sidebar
+          collapsed={false}
+          mobileOpen={false}
+          onCloseMobile={() => {}}
+          pathname={pathname}
+        />
+      </div>
+
+      {/* Sidebar for mobile (slide in) */}
+      <div className="md:hidden">
+        <Sidebar
+          collapsed={false}
+          mobileOpen={mobileOpen}
+          onCloseMobile={() => setMobileOpen(false)}
+          pathname={pathname}
+        />
+      </div>
+
+      {/* Main content */}
+      <div
+        className="transition-all duration-200 md:ml-16 lg:ml-64"
+      >
+        <DashboardHeader
+          title={pageTitle}
+          onMenuClick={() => setMobileOpen(true)}
+        />
+
+        <main className="p-4 lg:p-6 pb-20 md:pb-6">
+          {children}
+        </main>
+      </div>
+
+      {/* Mobile bottom nav */}
+      <MobileBottomNav
+        pathname={pathname}
+        onMoreClick={() => setMobileOpen(true)}
+      />
+    </div>
+  )
+}

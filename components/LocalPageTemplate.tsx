@@ -1,0 +1,390 @@
+"use client";
+
+import { motion } from "framer-motion";
+import Link from "next/link";
+
+export interface LocalPageProps {
+  ville: string;
+  region: string;
+  codePostal: string;
+  h1: string;
+  metaTitle: string;
+  metaDescription: string;
+  specificite: string;
+  temoignage: {
+    quote: string;
+    nom: string;
+    metier: string;
+    ville: string;
+  };
+}
+
+const containerVariants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.12 } },
+};
+
+const cardVariants = {
+  hidden: { opacity: 0, y: 32 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" as const } },
+};
+
+const benefits = [
+  {
+    icon: "🏗️",
+    title: "Conçu pour les artisans du bâtiment",
+    text: "Devis, factures, planning — tout ce dont un artisan a besoin, sans les fonctions inutiles des logiciels généralistes.",
+  },
+  {
+    icon: "💶",
+    title: "25€/mois, tout inclus",
+    text: "Pas de version premium, pas de frais cachés. Un prix unique et honnête pour tous les artisans.",
+  },
+  {
+    icon: "⚡",
+    title: "Conforme Factur-X 2026",
+    text: "La facture électronique est obligatoire. Artidoc est déjà certifié conforme — aucune amende à craindre.",
+  },
+  {
+    icon: "📱",
+    title: "Fonctionne sur le terrain",
+    text: "Créez un devis depuis votre chantier, sur votre téléphone. Votre client signe sur le sien.",
+  },
+];
+
+const features = [
+  {
+    icon: "📄",
+    title: "Devis en quelques minutes",
+    text: "Créez vos devis professionnels en quelques clics. Envoyez par email ou SMS.",
+  },
+  {
+    icon: "💶",
+    title: "TVA automatique",
+    text: "Les bons taux de TVA (5.5%, 10%, 20%) sont appliqués automatiquement selon le type de travaux.",
+  },
+  {
+    icon: "📅",
+    title: "Planning intelligent",
+    text: "Organisez vos chantiers sur un calendrier visuel avec détection des conflits d'affectation.",
+  },
+  {
+    icon: "🔔",
+    title: "Relances automatiques",
+    text: "Artidoc envoie des rappels polis aux clients qui n'ont pas payé.",
+  },
+  {
+    icon: "📊",
+    title: "Tableau de bord clair",
+    text: "Chiffre d'affaires, factures en attente, prochains chantiers — en temps réel, depuis un tableau de bord clair.",
+  },
+  {
+    icon: "🤝",
+    title: "Signature électronique",
+    text: "Vos clients signent vos devis directement depuis leur téléphone. Plus rapide, plus pro.",
+  },
+];
+
+export default function LocalPageTemplate({
+  ville,
+  region,
+  codePostal,
+  h1,
+  specificite,
+  temoignage,
+}: LocalPageProps) {
+  const faqs = [
+    {
+      q: `Artidoc est-il utilisé par des artisans de ${ville} ?`,
+      a: `Oui. Des artisans de ${ville} et de ${region} (${codePostal}) utilisent Artidoc au quotidien pour gérer leurs devis, factures et planning de chantiers.`,
+    },
+    {
+      q: "Combien coûte Artidoc ?",
+      a: "25€ par mois, tout inclus. Pas de version premium, pas de frais cachés. 14 jours d'essai gratuit sans carte bancaire.",
+    },
+    {
+      q: "Est-ce que je peux essayer avant de payer ?",
+      a: "Oui. 14 jours d'essai complet, gratuit, sans entrer votre carte bancaire. Vous avez accès à tout pendant ces 14 jours.",
+    },
+    {
+      q: `Y a-t-il un support pour les artisans de ${ville} ?`,
+      a: `Notre support est disponible pour tous les artisans, y compris ceux de ${ville}. Vous pouvez nous contacter par email ou par chat, et nous répondons en moins de 2 heures.`,
+    },
+    {
+      q: "Est-ce qu'Artidoc est conforme à la réglementation Factur-X ?",
+      a: "Oui. Depuis septembre 2026, la facture électronique est obligatoire. Artidoc est certifié conforme Factur-X — vous ne risquez aucune amende.",
+    },
+  ];
+
+  const faqJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faqs.map((faq) => ({
+      "@type": "Question",
+      name: faq.q,
+      acceptedAnswer: { "@type": "Answer", text: faq.a },
+    })),
+  };
+
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+      />
+
+      {/* ── Hero ── */}
+      <section className="relative overflow-hidden bg-navy py-20 lg:py-28">
+        <motion.div
+          className="absolute left-10 top-10 h-72 w-72 rounded-full bg-sky/5 blur-3xl"
+          animate={{ x: [0, 30, 0], y: [0, -20, 0] }}
+          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+        />
+        <motion.div
+          className="absolute bottom-10 right-10 h-96 w-96 rounded-full bg-orange/5 blur-3xl"
+          animate={{ x: [0, -25, 0], y: [0, 25, 0] }}
+          transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+        />
+
+        <div className="relative mx-auto max-w-5xl px-6 text-center">
+          <motion.div
+            className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.4 }}
+          >
+            <span className="text-lg">📍</span>
+            <span className="font-manrope text-sm font-semibold text-white/80">
+              {ville} &middot; {region} ({codePostal})
+            </span>
+          </motion.div>
+
+          <motion.h1
+            className="font-syne text-3xl font-extrabold text-white md:text-4xl lg:text-5xl"
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+          >
+            {h1}
+          </motion.h1>
+
+          <motion.p
+            className="mx-auto mt-6 max-w-2xl font-manrope text-lg text-white/75"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.15 }}
+          >
+            {specificite}
+          </motion.p>
+
+          <motion.div
+            className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.3 }}
+          >
+            <Link
+              href="/register"
+              className="inline-flex h-14 items-center rounded-xl bg-orange px-8 font-syne text-lg font-bold text-white transition-colors hover:bg-orange-hover"
+            >
+              Essai gratuit 14 jours &rarr;
+            </Link>
+            <span className="font-manrope text-sm text-white/50">
+              Sans carte bancaire
+            </span>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ── Benefits ── */}
+      <section className="bg-white py-16 lg:py-20">
+        <div className="mx-auto max-w-6xl px-6">
+          <motion.h2
+            className="text-center font-syne text-2xl font-extrabold text-navy md:text-3xl"
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5 }}
+          >
+            Pourquoi les artisans de {ville} choisissent Artidoc
+          </motion.h2>
+
+          <motion.div
+            className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4"
+            variants={containerVariants}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, amount: 0.15 }}
+          >
+            {benefits.map((b) => (
+              <motion.div
+                key={b.title}
+                variants={cardVariants}
+                className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm transition-transform duration-300 hover:-translate-y-1"
+              >
+                <span className="text-4xl leading-none">{b.icon}</span>
+                <h3 className="mt-4 font-syne text-lg font-bold text-navy">
+                  {b.title}
+                </h3>
+                <p className="mt-2 font-manrope text-sm leading-relaxed text-navy/60">
+                  {b.text}
+                </p>
+              </motion.div>
+            ))}
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ── Features Grid ── */}
+      <section className="bg-cream py-20 lg:py-24">
+        <div className="mx-auto max-w-6xl px-6">
+          <motion.h2
+            className="text-center font-syne text-2xl font-extrabold text-navy md:text-3xl lg:text-4xl"
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5 }}
+          >
+            Tout ce qu&apos;il vous faut, dans un seul logiciel
+          </motion.h2>
+
+          <motion.div
+            className="mt-14 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3"
+            variants={containerVariants}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, amount: 0.15 }}
+          >
+            {features.map((f) => (
+              <motion.div
+                key={f.title}
+                variants={cardVariants}
+                className="flex flex-col rounded-2xl border border-navy/5 bg-white p-8 transition-transform duration-300 hover:-translate-y-1"
+              >
+                <span className="text-4xl leading-none">{f.icon}</span>
+                <h3 className="mt-5 font-syne text-lg font-bold text-navy">
+                  {f.title}
+                </h3>
+                <p className="mt-3 flex-1 font-manrope text-sm leading-relaxed text-navy/60">
+                  {f.text}
+                </p>
+              </motion.div>
+            ))}
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ── Testimonial ── */}
+      <section className="bg-white py-16 lg:py-20">
+        <div className="mx-auto max-w-3xl px-6 text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+          >
+            <span className="mb-6 inline-block text-5xl text-gold">&ldquo;</span>
+            <blockquote className="font-manrope text-xl leading-relaxed text-navy/80 italic md:text-2xl">
+              {temoignage.quote}
+            </blockquote>
+            <div className="mt-8">
+              <p className="font-syne text-base font-bold text-navy">
+                {temoignage.nom}
+              </p>
+              <p className="font-manrope text-sm text-navy/50">
+                {temoignage.metier} &mdash; {temoignage.ville}
+              </p>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ── FAQ ── */}
+      <section className="bg-cream py-20 lg:py-28">
+        <div className="mx-auto max-w-7xl px-6">
+          <motion.h2
+            className="mb-14 text-center font-syne text-2xl font-extrabold text-navy md:text-3xl lg:text-4xl"
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5 }}
+          >
+            Questions fréquentes &mdash; {ville}
+          </motion.h2>
+
+          <div className="mx-auto max-w-3xl">
+            {faqs.map((faq, i) => (
+              <motion.details
+                key={i}
+                className="group border-b border-navy/10 py-5"
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.5 }}
+                transition={{ duration: 0.4, delay: i * 0.05 }}
+              >
+                <summary className="flex cursor-pointer list-none items-center justify-between font-syne text-lg font-bold text-navy [&::-webkit-details-marker]:hidden">
+                  <span>{faq.q}</span>
+                  <span className="ml-4 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xl text-navy transition-transform group-open:rotate-45">
+                    +
+                  </span>
+                </summary>
+                <p className="mt-3 font-manrope text-base leading-relaxed text-gray-600">
+                  {faq.a}
+                </p>
+              </motion.details>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── CTA ── */}
+      <section className="relative overflow-hidden bg-navy py-20 lg:py-28">
+        <motion.div
+          className="absolute left-10 top-10 h-72 w-72 rounded-full bg-sky/5 blur-3xl"
+          animate={{ x: [0, 30, 0], y: [0, -20, 0] }}
+          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+        />
+        <motion.div
+          className="absolute bottom-10 right-10 h-96 w-96 rounded-full bg-orange/5 blur-3xl"
+          animate={{ x: [0, -25, 0], y: [0, 25, 0] }}
+          transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+        />
+
+        <div className="relative mx-auto max-w-7xl px-6">
+          <motion.div
+            className="flex flex-col items-center text-center"
+            initial={{ opacity: 0, y: 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+          >
+            <h2 className="mb-4 font-syne text-3xl font-extrabold text-white md:text-4xl lg:text-5xl">
+              Rejoignez les artisans de {ville} sur Artidoc
+            </h2>
+            <p className="mb-10 max-w-lg font-manrope text-lg font-light text-gray-400">
+              14 jours d&apos;essai gratuit. Sans carte bancaire. Sans
+              engagement.
+            </p>
+
+            <form
+              className="flex w-full max-w-xl flex-col gap-4 sm:flex-row"
+              onSubmit={(e) => e.preventDefault()}
+            >
+              <input
+                type="email"
+                placeholder="Votre adresse email"
+                className="h-16 flex-1 rounded-xl bg-white px-6 font-manrope text-lg text-navy placeholder-gray-400 outline-none focus:ring-2 focus:ring-sky"
+              />
+              <button
+                type="submit"
+                className="h-16 shrink-0 rounded-xl bg-orange px-8 font-syne text-lg font-bold text-white transition-colors hover:bg-orange-hover"
+              >
+                Commencer gratuitement &rarr;
+              </button>
+            </form>
+          </motion.div>
+        </div>
+      </section>
+    </>
+  );
+}
