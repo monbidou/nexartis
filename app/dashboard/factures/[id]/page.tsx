@@ -123,6 +123,8 @@ export default function FactureDetailPage() {
 
   const statutStyle = STATUT_STYLES[facture.statut] ?? 'bg-gray-100 text-gray-600 border-gray-200'
 
+  const fmt = (val: number) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(val || 0)
+
   function formatDate(d: string | undefined) {
     if (!d) return ''
     return new Date(d).toLocaleDateString('fr-FR')
@@ -226,8 +228,8 @@ export default function FactureDetailPage() {
                       <td className="py-2.5 text-sm font-manrope text-[#1a1a2e]">{ligne.designation}</td>
                       <td className="py-2.5 text-sm font-manrope text-gray-500 text-center">{ligne.unite}</td>
                       <td className="py-2.5 text-sm font-manrope text-gray-500 text-center">{ligne.quantite}</td>
-                      <td className="py-2.5 text-sm font-manrope text-gray-600 text-right">{(ligne.prix_unitaire_ht ?? 0).toLocaleString('fr-FR')} \u20ac</td>
-                      <td className="py-2.5 text-sm font-manrope font-medium text-[#1a1a2e] text-right">{(ligne.total_ht ?? 0).toLocaleString('fr-FR')} \u20ac</td>
+                      <td className="py-2.5 text-sm font-manrope text-gray-600 text-right">{fmt(ligne.prix_unitaire_ht ?? 0)}</td>
+                      <td className="py-2.5 text-sm font-manrope font-medium text-[#1a1a2e] text-right">{fmt(ligne.total_ht ?? 0)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -239,15 +241,15 @@ export default function FactureDetailPage() {
               <div className="w-64 space-y-2">
                 <div className="flex justify-between text-sm font-manrope">
                   <span className="text-gray-500">Total HT</span>
-                  <span className="text-[#1a1a2e] font-medium">{totalHT.toLocaleString('fr-FR')} \u20ac</span>
+                  <span className="text-[#1a1a2e] font-medium">{fmt(totalHT)}</span>
                 </div>
                 <div className="flex justify-between text-sm font-manrope">
                   <span className="text-gray-500">TVA</span>
-                  <span className="text-[#1a1a2e] font-medium">{totalTVA.toLocaleString('fr-FR')} \u20ac</span>
+                  <span className="text-[#1a1a2e] font-medium">{fmt(totalTVA)}</span>
                 </div>
                 <div className="flex justify-between text-sm font-manrope pt-2 border-t-2 border-[#0f1a3a]">
                   <span className="font-bold text-[#0f1a3a]">Total TTC</span>
-                  <span className="font-bold text-[#0f1a3a] text-lg">{totalTTC.toLocaleString('fr-FR')} \u20ac</span>
+                  <span className="font-bold text-[#0f1a3a] text-lg">{fmt(totalTTC)}</span>
                 </div>
               </div>
             </div>
@@ -330,15 +332,15 @@ export default function FactureDetailPage() {
             <div className="space-y-2">
               <div className="flex justify-between text-sm font-manrope">
                 <span className="text-gray-500">Total HT</span>
-                <span className="font-medium text-[#1a1a2e]">{totalHT.toLocaleString('fr-FR')} \u20ac</span>
+                <span className="font-medium text-[#1a1a2e]">{fmt(totalHT)}</span>
               </div>
               <div className="flex justify-between text-sm font-manrope">
                 <span className="text-gray-500">TVA</span>
-                <span className="font-medium text-[#1a1a2e]">{totalTVA.toLocaleString('fr-FR')} \u20ac</span>
+                <span className="font-medium text-[#1a1a2e]">{fmt(totalTVA)}</span>
               </div>
               <div className="flex justify-between text-sm font-manrope pt-2 border-t border-gray-100">
                 <span className="font-bold text-[#0f1a3a]">Total TTC</span>
-                <span className="font-bold text-[#0f1a3a]">{totalTTC.toLocaleString('fr-FR')} \u20ac</span>
+                <span className="font-bold text-[#0f1a3a]">{fmt(totalTTC)}</span>
               </div>
             </div>
           </div>
@@ -361,15 +363,15 @@ export default function FactureDetailPage() {
             <div className="space-y-2">
               <div className="flex justify-between text-sm font-manrope">
                 <span className="text-gray-500">Total</span>
-                <span className="font-medium text-[#1a1a2e]">{totalTTC.toLocaleString('fr-FR')} \u20ac</span>
+                <span className="font-medium text-[#1a1a2e]">{fmt(totalTTC)}</span>
               </div>
               <div className="flex justify-between text-sm font-manrope">
                 <span className="text-gray-500">Payé</span>
-                <span className="font-medium text-green-600">{totalPaye.toLocaleString('fr-FR')} \u20ac</span>
+                <span className="font-medium text-green-600">{fmt(totalPaye)}</span>
               </div>
               <div className="flex justify-between text-sm font-manrope">
                 <span className="text-gray-500">Reste</span>
-                <span className="font-medium text-[#1a1a2e]">{resteAPayer.toLocaleString('fr-FR')} \u20ac</span>
+                <span className="font-medium text-[#1a1a2e]">{fmt(resteAPayer)}</span>
               </div>
             </div>
 

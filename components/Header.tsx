@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
 
 const featureItems = [
   {
@@ -48,7 +49,14 @@ export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [mobileSubOpen, setMobileSubOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    createClient().auth.getUser().then(({ data: { user } }) => {
+      setIsLoggedIn(!!user);
+    });
+  }, []);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -177,10 +185,10 @@ export default function Header() {
             📧 contact@nexartis.fr
           </a>
           <Link
-            href="/login"
+            href={isLoggedIn ? "/dashboard" : "/login"}
             className="inline-flex h-[46px] items-center rounded-lg bg-[#e87a2a] px-6 font-syne text-sm font-bold text-white transition-colors hover:bg-[#f09050]"
           >
-            Se connecter&nbsp;&rarr;
+            {isLoggedIn ? "Mon espace\u00a0\u2192" : "Se connecter\u00a0\u2192"}
           </Link>
         </div>
 
@@ -304,11 +312,11 @@ export default function Header() {
           {/* Mobile CTAs at bottom */}
           <div className="mt-auto flex flex-col gap-3 pb-8">
             <Link
-              href="/login"
+              href={isLoggedIn ? "/dashboard" : "/login"}
               onClick={() => setMenuOpen(false)}
               className="flex h-[46px] items-center justify-center rounded-lg bg-[#e87a2a] font-syne text-base font-bold text-white transition-colors hover:bg-[#f09050]"
             >
-              Se connecter&nbsp;&rarr;
+              {isLoggedIn ? "Mon espace \u2192" : "Se connecter \u2192"}
             </Link>
           </div>
         </nav>

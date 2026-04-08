@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 
 const days = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi"] as const;
 
@@ -139,21 +138,13 @@ export default function PlanningDemoSection() {
             </div>
 
             {/* Conflict alert banner */}
-            <AnimatePresence>
-              {showConflict && (
-                <motion.div
-                  className="border-b border-red-500/30 bg-gradient-to-r from-red-500/20 to-orange-500/20 px-5 py-3"
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: "auto", opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.4, ease: "easeOut" }}
-                >
-                  <p className="text-center font-manrope text-sm font-semibold text-white">
-                    ⚠️ Conflit détecté — Michel R. est déjà affecté chez M. Bernard (Pose carrelage) le mercredi après-midi.
-                  </p>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            {showConflict && (
+              <div className="border-b border-red-500/30 bg-gradient-to-r from-red-500/20 to-orange-500/20 px-5 py-3">
+                <p className="text-center font-manrope text-sm font-semibold text-white">
+                  ⚠️ Conflit détecté — Michel R. est déjà affecté chez M. Bernard (Pose carrelage) le mercredi après-midi.
+                </p>
+              </div>
+            )}
 
             {/* Planning grid */}
             <div className="overflow-x-auto p-4 md:p-6">
@@ -188,9 +179,9 @@ export default function PlanningDemoSection() {
                     <div key={dayIdx} className={`flex min-h-[72px] flex-col gap-1 rounded-lg p-1.5 ${entry === null && !showConflict ? "border border-dashed border-gray-600 bg-white/[0.01]" : "bg-white/[0.03]"}`}>
                       {entry && <ChantierCard poseur={entry.poseur} client={entry.client} objet={entry.objet} color={entry.color} />}
                       {showConflict && dayIdx === 2 && (
-                        <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.35, ease: "easeOut" }}>
+                        <div>
                           <ChantierCard poseur={conflictCard.poseur} client={conflictCard.client} objet={conflictCard.objet} color={conflictCard.color} conflict pulsing={conflictPulsing} />
-                        </motion.div>
+                        </div>
                       )}
                       {entry === null && !showConflict && <p className="m-auto text-[10px] text-gray-600">Libre</p>}
                     </div>
