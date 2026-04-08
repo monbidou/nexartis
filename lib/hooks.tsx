@@ -149,17 +149,19 @@ function useEntreprise() {
 
 // ── Specific table hooks ──────────────────────────────────────
 
-function useClients() { return useSupabaseQuery('clients', { orderBy: 'created_at' }) }
-function useFournisseurs() { return useSupabaseQuery('fournisseurs', { orderBy: 'created_at' }) }
-function useIntervenants() { return useSupabaseQuery('intervenants', { orderBy: 'created_at' }) }
-function usePrestations() { return useSupabaseQuery('prestations', { orderBy: 'created_at' }) }
-function useChantiers() { return useSupabaseQuery('chantiers', { orderBy: 'created_at' }) }
-function useDevis() { return useSupabaseQuery('devis', { orderBy: 'created_at' }) }
-function useFactures() { return useSupabaseQuery('factures', { orderBy: 'created_at' }) }
-function useAchats() { return useSupabaseQuery('achats', { orderBy: 'date_achat' }) }
-function usePaiements() { return useSupabaseQuery('paiements', { orderBy: 'date_paiement' }) }
-function usePlanning() { return useSupabaseQuery('planning_interventions', { orderBy: 'date_debut', ascending: true }) }
-function useRelances() { return useSupabaseQuery('relances', { orderBy: 'created_at' }) }
+type Row = Record<string, unknown>
+
+function useClients() { return useSupabaseQuery<Row>('clients', { orderBy: 'created_at' }) }
+function useFournisseurs() { return useSupabaseQuery<Row>('fournisseurs', { orderBy: 'created_at' }) }
+function useIntervenants() { return useSupabaseQuery<Row>('intervenants', { orderBy: 'created_at' }) }
+function usePrestations() { return useSupabaseQuery<Row>('prestations', { orderBy: 'created_at' }) }
+function useChantiers() { return useSupabaseQuery<Row>('chantiers', { orderBy: 'created_at' }) }
+function useDevis() { return useSupabaseQuery<Row>('devis', { orderBy: 'created_at' }) }
+function useFactures() { return useSupabaseQuery<Row>('factures', { orderBy: 'created_at' }) }
+function useAchats() { return useSupabaseQuery<Row>('achats', { orderBy: 'date_achat' }) }
+function usePaiements() { return useSupabaseQuery<Row>('paiements', { orderBy: 'date_paiement' }) }
+function usePlanning() { return useSupabaseQuery<Row>('planning_interventions', { orderBy: 'date_debut', ascending: true }) }
+function useRelances() { return useSupabaseQuery<Row>('relances', { orderBy: 'created_at' }) }
 
 // ── Devis lignes (no user_id, linked via devis_id) ───────────
 

@@ -105,7 +105,7 @@ export default function EquipePage() {
     materiels: null,
   }
 
-  const tabData = (intervenants as Intervenant[]).filter((e) => {
+  const tabData = (intervenants as unknown as Intervenant[]).filter((e) => {
     const contrats = tabContratMap[activeTab]
     if (!contrats) return false
     return contrats.includes(e.type_contrat)

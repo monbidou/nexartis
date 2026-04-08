@@ -61,7 +61,7 @@ export default function ChantiersListPage() {
   const [openActions, setOpenActions] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
 
-  const clientMap = new Map(clients.map((c: Record<string, unknown>) => [c.id as string, c]))
+  const clientMap = new Map(clients.map((c) => [c.id as string, c]))
 
   const filtered = chantiers.filter((c: Record<string, unknown>) => {
     const displayFilter = statutToFilter(c.statut as string)

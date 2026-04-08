@@ -70,20 +70,19 @@ export default function FacturesListPage() {
   // Build a client map for quick lookup
   const clientMap = new Map<string, string>()
   for (const c of clients) {
-    const cl = c as Record<string, unknown>
-    const nom = [cl.nom, cl.prenom].filter(Boolean).join(' ') || (cl.raison_sociale as string) || ''
-    clientMap.set(cl.id as string, nom)
+    const nom = [c.nom, c.prenom].filter(Boolean).join(' ') || (c.raison_sociale as string) || ''
+    clientMap.set(c.id as string, nom)
   }
 
-  const enriched = factures.map((f) => {
-    const fac = f as Record<string, unknown>
-    const montantTtc = (fac.montant_ttc as number) ?? 0
-    const montantPaye = (fac.montant_paye as number) ?? 0
+  type EnrichedFacture = Record<string, unknown> & { paidPercent: number; overdue: number; category: FactureFilter; clientName: string; montantTtc: number; montantPaye: number }
+  const enriched: EnrichedFacture[] = factures.map((f) => {
+    const montantTtc = (f.montant_ttc as number) ?? 0
+    const montantPaye = (f.montant_paye as number) ?? 0
     const paidPercent = montantTtc > 0 ? Math.round((montantPaye / montantTtc) * 100) : 0
-    const overdue = daysOverdue(fac.date_echeance as string | null)
-    const category = getFactureCategory(fac)
-    const clientName = clientMap.get(fac.client_id as string) ?? '\u2014'
-    return { ...fac, paidPercent, overdue, category, clientName, montantTtc, montantPaye }
+    const overdue = daysOverdue(f.date_echeance as string | null)
+    const category = getFactureCategory(f)
+    const clientName = clientMap.get(f.client_id as string) ?? '\u2014'
+    return { ...f, paidPercent, overdue, category, clientName, montantTtc, montantPaye } as EnrichedFacture
   })
 
   const filtered = enriched.filter((f) => {

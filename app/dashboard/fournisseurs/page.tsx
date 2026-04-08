@@ -65,7 +65,7 @@ export default function FournisseursPage() {
 
   const { data: fournisseurs, loading, error, refetch } = useFournisseurs()
 
-  const filtered = (fournisseurs as Fournisseur[]).filter((f) => {
+  const filtered = (fournisseurs as unknown as Fournisseur[]).filter((f) => {
     if (search) {
       const q = search.toLowerCase()
       return (
