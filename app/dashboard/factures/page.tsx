@@ -24,13 +24,13 @@ import { useFactures, useClients, deleteRow, LoadingSkeleton, ErrorBanner } from
 // Types
 // -------------------------------------------------------------------
 
-type FactureFilter = 'Toutes' | 'Encaiss\u00e9es' | 'Partielles' | 'En attente' | 'En retard'
+type FactureFilter = 'Toutes' | 'Encaissées' | 'Partielles' | 'En attente' | 'En retard'
 
-const FILTER_OPTIONS: string[] = ['Toutes', 'Encaiss\u00e9es', 'Partielles', 'En attente', 'En retard']
+const FILTER_OPTIONS: string[] = ['Toutes', 'Encaissées', 'Partielles', 'En attente', 'En retard']
 
 function getFactureCategory(f: Record<string, unknown>): FactureFilter {
   const statut = (f.statut as string) ?? ''
-  if (statut === 'payee') return 'Encaiss\u00e9es'
+  if (statut === 'payee') return 'Encaissées'
   if (statut === 'partielle') return 'Partielles'
   if (statut === 'en_retard') return 'En retard'
   return 'En attente'
@@ -101,7 +101,7 @@ export default function FacturesListPage() {
   // Compute stats
   const totalCount = enriched.length
   const totalHT = enriched.reduce((s, f) => s + ((f.montant_ht as number) ?? 0), 0)
-  const encaissees = enriched.filter((f) => f.category === 'Encaiss\u00e9es')
+  const encaissees = enriched.filter((f) => f.category === 'Encaissées')
   const encaisseesHT = encaissees.reduce((s, f) => s + ((f.montant_ht as number) ?? 0), 0)
   const resteList = enriched.filter((f) => f.category === 'Partielles' || f.category === 'En attente')
   const resteHT = resteList.reduce((s, f) => s + ((f.montant_ht as number) ?? 0), 0)
@@ -135,8 +135,8 @@ export default function FacturesListPage() {
       {/* Stats bar */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard icon={<FileText size={20} />} label="Toutes" value={String(totalCount)} sub={`${formatCurrency(totalHT)} HT`} accent="#5ab4e0" />
-        <StatCard icon={<CheckCircle2 size={20} />} label="Encaiss\u00e9es" value={String(encaissees.length)} sub={`${formatCurrency(encaisseesHT)} HT`} accent="#22c55e" />
-        <StatCard icon={<Clock size={20} />} label="Reste \u00e0 encaisser" value={String(resteList.length)} sub={`${formatCurrency(resteHT)} HT`} accent="#e87a2a" />
+        <StatCard icon={<CheckCircle2 size={20} />} label="Encaissées" value={String(encaissees.length)} sub={`${formatCurrency(encaisseesHT)} HT`} accent="#22c55e" />
+        <StatCard icon={<Clock size={20} />} label="Reste à encaisser" value={String(resteList.length)} sub={`${formatCurrency(resteHT)} HT`} accent="#e87a2a" />
         <StatCard icon={<AlertTriangle size={20} />} label="En retard" value={String(retardList.length)} sub={`${formatCurrency(retardHT)} HT`} accent="#ef4444" bg="bg-red-50" />
       </div>
 
@@ -183,7 +183,7 @@ export default function FacturesListPage() {
         <table className="w-full min-w-[900px]">
           <thead>
             <tr className="bg-gray-50">
-              {['Num\u00e9ro', 'R\u00e8glements', 'Client / Chantier', 'Modifi\u00e9', 'Date', 'Net \u00e0 payer', 'Actions'].map((col) => (
+              {['Numéro', 'Règlements', 'Client / Chantier', 'Modifié', 'Date', 'Net à payer', 'Actions'].map((col) => (
                 <th
                   key={col}
                   className="px-4 py-3 text-left text-xs font-manrope font-semibold uppercase tracking-wider text-gray-500"
@@ -304,7 +304,7 @@ export default function FacturesListPage() {
         {filtered.length === 0 && (
           <div className="py-12 text-center">
             <FileText size={40} className="mx-auto text-gray-300 mb-3" />
-            <p className="text-sm font-manrope text-gray-500">Aucune facture trouv\u00e9e</p>
+            <p className="text-sm font-manrope text-gray-500">Aucune facture trouvée</p>
           </div>
         )}
       </div>
