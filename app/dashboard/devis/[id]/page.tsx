@@ -13,6 +13,7 @@ import {
   FileText,
   Trash2,
 } from 'lucide-react'
+import EnvoyerDevisModal from '@/components/dashboard/EnvoyerDevisModal'
 import {
   useSupabaseRecord,
   useDevisLignes,
@@ -35,6 +36,9 @@ interface DevisRecord {
   date_devis?: string
   date_validite?: string
   conditions_paiement?: string
+  objet?: string
+  description?: string
+  notes_client?: string
   created_at: string
   updated_at?: string
 }
@@ -93,6 +97,7 @@ export default function DevisDetailPage() {
   const { entreprise } = useEntreprise()
   const [actionsOpen, setActionsOpen] = useState(false)
   const [toastMsg, setToastMsg] = useState<string | null>(null)
+  const [sendModalOpen, setSendModalOpen] = useState(false)
 
   async function handleConvertToFacture() {
     if (!devis) return
@@ -204,7 +209,7 @@ export default function DevisDetailPage() {
               {[
                 { label: 'Modifier', icon: Pencil, action: () => router.push(`/dashboard/devis/${id}/modifier`), danger: false },
                 { label: 'Convertir en facture', icon: FileText, action: handleConvertToFacture, danger: false },
-                { label: 'Envoyer par email', icon: SendHorizonal, action: () => { setToastMsg('Fonctionnalité bientôt disponible'); setTimeout(() => setToastMsg(null), 3000) }, danger: false },
+                { label: 'Envoyer par email', icon: SendHorizonal, action: () => setSendModalOpen(true), danger: false },
                 { label: 'Supprimer', icon: Trash2, action: handleDeleteDevis, danger: true },
               ].map((action) => (
                 <button
@@ -382,6 +387,18 @@ export default function DevisDetailPage() {
       )}
 
       {toastMsg && <div className="fixed bottom-6 right-6 bg-[#1a1a2e] text-white px-4 py-2 rounded-lg shadow-lg text-sm font-manrope z-50">{toastMsg}</div>}
+
+      {devis && (
+        <EnvoyerDevisModal
+          open={sendModalOpen}
+          onClose={() => setSendModalOpen(false)}
+          devisId={devis.id}
+          numeroDevis={devis.numero}
+          clientEmail=""
+          chantier={devis.objet || devis.description || ''}
+          onSuccess={() => { setToastMsg('Devis envoyé !'); setTimeout(() => setToastMsg(null), 3000) }}
+        />
+      )}
     </div>
   )
 }
