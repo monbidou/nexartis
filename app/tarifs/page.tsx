@@ -1,33 +1,28 @@
 "use client";
 
 import { useState } from "react";
-import { motion } from "framer-motion";
+
 import PricingSection from "@/components/PricingSection";
 
-const fadeInUp = {
-  initial: { opacity: 0, y: 30 },
-  animate: { opacity: 1, y: 0 },
-};
-
 const detailedComparison = [
-  { label: "Prix mensuel", artidoc: "25\u20ac/mois", obat: "49\u20ac+/mois", tolteck: "25\u20ac/mois", henrri: "Gratuit (limit\u00e9)" },
-  { label: "Devis illimit\u00e9s", artidoc: true, obat: true, tolteck: false, henrri: false },
-  { label: "Factures illimit\u00e9es", artidoc: true, obat: true, tolteck: false, henrri: false },
-  { label: "Signature \u00e9lectronique", artidoc: true, obat: true, tolteck: false, henrri: false },
-  { label: "Planning chantiers", artidoc: true, obat: "partial", tolteck: false, henrri: false },
-  { label: "Alertes conflits planning", artidoc: true, obat: false, tolteck: false, henrri: false },
-  { label: "Sync mobile \u00e9quipe", artidoc: true, obat: false, tolteck: false, henrri: false },
-  { label: "Tableau de bord CA", artidoc: true, obat: true, tolteck: "partial", henrri: false },
-  { label: "TVA auto (5.5/10/20%)", artidoc: true, obat: true, tolteck: true, henrri: false },
-  { label: "Factur-X 2026", artidoc: true, obat: true, tolteck: false, henrri: false },
-  { label: "Relances impay\u00e9s auto", artidoc: true, obat: true, tolteck: false, henrri: false },
-  { label: "Acomptes / situations", artidoc: true, obat: true, tolteck: "partial", henrri: false },
-  { label: "Export comptable", artidoc: true, obat: true, tolteck: true, henrri: "partial" },
-  { label: "Application mobile", artidoc: true, obat: "partial", tolteck: "partial", henrri: false },
-  { label: "Biblioth\u00e8que prestations", artidoc: true, obat: true, tolteck: true, henrri: false },
-  { label: "Support t\u00e9l\u00e9phone", artidoc: true, obat: true, tolteck: false, henrri: false },
-  { label: "Donn\u00e9es h\u00e9berg\u00e9es en France", artidoc: true, obat: true, tolteck: true, henrri: false },
-  { label: "Sans engagement", artidoc: true, obat: false, tolteck: true, henrri: true },
+  { label: "Prix mensuel", nexartis: "25\u20ac/mois", obat: "49\u20ac+/mois", tolteck: "25\u20ac/mois", henrri: "Gratuit (limit\u00e9)" },
+  { label: "Devis illimit\u00e9s", nexartis: true, obat: true, tolteck: false, henrri: false },
+  { label: "Factures illimit\u00e9es", nexartis: true, obat: true, tolteck: false, henrri: false },
+  { label: "Signature \u00e9lectronique", nexartis: true, obat: true, tolteck: false, henrri: false },
+  { label: "Planning chantiers", nexartis: true, obat: "partial", tolteck: false, henrri: false },
+  { label: "Alertes conflits planning", nexartis: true, obat: false, tolteck: false, henrri: false },
+  { label: "Sync mobile \u00e9quipe", nexartis: true, obat: false, tolteck: false, henrri: false },
+  { label: "Tableau de bord CA", nexartis: true, obat: true, tolteck: "partial", henrri: false },
+  { label: "TVA auto (5.5/10/20%)", nexartis: true, obat: true, tolteck: true, henrri: false },
+  { label: "Factur-X 2026", nexartis: true, obat: true, tolteck: false, henrri: false },
+  { label: "Relances impay\u00e9s auto", nexartis: true, obat: true, tolteck: false, henrri: false },
+  { label: "Acomptes / situations", nexartis: true, obat: true, tolteck: "partial", henrri: false },
+  { label: "Export comptable", nexartis: true, obat: true, tolteck: true, henrri: "partial" },
+  { label: "Application mobile", nexartis: true, obat: "partial", tolteck: "partial", henrri: false },
+  { label: "Biblioth\u00e8que prestations", nexartis: true, obat: true, tolteck: true, henrri: false },
+  { label: "Support email/chat", nexartis: true, obat: true, tolteck: false, henrri: false },
+  { label: "Donn\u00e9es h\u00e9berg\u00e9es en France", nexartis: true, obat: true, tolteck: true, henrri: false },
+  { label: "Sans engagement", nexartis: true, obat: false, tolteck: true, henrri: true },
 ];
 
 const faqItems = [
@@ -37,7 +32,7 @@ const faqItems = [
   },
   {
     q: "Puis-je annuler mon abonnement \u00e0 tout moment\u00a0?",
-    a: "Oui, Artidoc est sans engagement. Vous pouvez résilier directement depuis votre espace, \u00e0 tout moment. Vos donn\u00e9es restent accessibles pendant 30 jours apr\u00e8s l\u2019annulation.",
+    a: "Oui, NexArtis est sans engagement. Vous pouvez résilier directement depuis votre espace, \u00e0 tout moment. Vos donn\u00e9es restent accessibles pendant 30 jours apr\u00e8s l\u2019annulation.",
   },
   {
     q: "L\u2019essai gratuit est-il vraiment sans carte bancaire\u00a0?",
@@ -48,8 +43,8 @@ const faqItems = [
     a: "Pas encore. Nous pr\u00e9f\u00e9rons la simplicit\u00e9 d\u2019un tarif unique mensuel sans engagement. Si suffisamment de clients le demandent, nous \u00e9tudierons une offre annuelle avec r\u00e9duction.",
   },
   {
-    q: "Pourquoi Artidoc est-il moins cher qu\u2019Obat\u00a0?",
-    a: "Obat facture 49\u20ac/mois minimum et ajoute des modules payants. Artidoc a \u00e9t\u00e9 con\u00e7u d\u00e8s le d\u00e9part pour tout inclure \u00e0 un prix juste. Notre architecture technique moderne nous permet de r\u00e9duire nos co\u00fbts et de vous en faire profiter.",
+    q: "Pourquoi NexArtis est-il moins cher qu\u2019Obat\u00a0?",
+    a: "Obat facture 49\u20ac/mois minimum et ajoute des modules payants. NexArtis a \u00e9t\u00e9 con\u00e7u d\u00e8s le d\u00e9part pour tout inclure \u00e0 un prix juste. Notre architecture technique moderne nous permet de r\u00e9duire nos co\u00fbts et de vous en faire profiter.",
   },
 ];
 
@@ -90,26 +85,18 @@ export default function TarifsPage() {
       <section className="relative overflow-hidden bg-gradient-to-b from-navy to-[#0d1525] py-20 lg:py-28">
         <div className="pointer-events-none absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")" }} />
         <div className="relative mx-auto max-w-7xl px-6 text-center">
-          <motion.h1
+          <h1
             className="font-syne text-3xl font-extrabold leading-tight text-white md:text-5xl lg:text-6xl"
-            variants={fadeInUp}
-            initial="initial"
-            animate="animate"
-            transition={{ duration: 0.5 }}
           >
             Un seul prix. Tout inclus.
             <br />
             <span className="text-sky">25&euro;/mois.</span>
-          </motion.h1>
-          <motion.p
+          </h1>
+          <p
             className="mx-auto mt-6 max-w-2xl font-manrope text-lg leading-relaxed text-gray-300"
-            variants={fadeInUp}
-            initial="initial"
-            animate="animate"
-            transition={{ duration: 0.5, delay: 0.15 }}
           >
             Chaque fonctionnalit&eacute; est incluse d&egrave;s le premier jour. Aucun module payant.
-          </motion.p>
+          </p>
         </div>
       </section>
 
@@ -119,32 +106,20 @@ export default function TarifsPage() {
       {/* ── Detailed Comparison Table ── */}
       <section className="bg-cream py-20 lg:py-28">
         <div className="mx-auto max-w-5xl px-6">
-          <motion.h2
+          <h2
             className="mb-4 text-center font-syne text-2xl font-extrabold text-navy md:text-3xl lg:text-4xl"
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
           >
             Comparaison d&eacute;taill&eacute;e
-          </motion.h2>
-          <motion.p
+          </h2>
+          <p
             className="mx-auto mb-12 max-w-xl text-center font-manrope text-lg text-gray-500"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5, delay: 0.1 }}
           >
-            Voyez par vous-m&ecirc;me pourquoi Artidoc offre le meilleur rapport
+            Voyez par vous-m&ecirc;me pourquoi NexArtis offre le meilleur rapport
             qualit&eacute;-fonctionnalit&eacute;s du march&eacute;.
-          </motion.p>
+          </p>
 
-          <motion.div
+          <div
             className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-lg"
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, amount: 0.1 }}
-            transition={{ duration: 0.6 }}
           >
             <div className="overflow-x-auto">
               <table className="w-full text-center">
@@ -152,7 +127,7 @@ export default function TarifsPage() {
                   <tr className="border-b-2 border-gray-100">
                     <th className="p-4 text-left font-manrope text-sm font-normal text-gray-400" />
                     <th className="bg-sky/10 p-4 font-syne text-sm font-bold text-sky">
-                      Artidoc
+                      NexArtis
                       <div className="mt-1 font-manrope text-xs font-normal text-gray-500">
                         25&euro;/mois
                       </div>
@@ -191,7 +166,7 @@ export default function TarifsPage() {
                         {row.label}
                       </td>
                       <td className="bg-sky/5 p-4">
-                        <CellIcon value={row.artidoc} />
+                        <CellIcon value={row.nexartis} />
                       </td>
                       <td className="p-4">
                         <CellIcon value={row.obat} />
@@ -207,32 +182,28 @@ export default function TarifsPage() {
                 </tbody>
               </table>
             </div>
-          </motion.div>
+          </div>
+
+          <p className="mt-6 text-center font-manrope text-xs text-gray-400 italic">
+            * Données basées sur les offres publiques de ces services au 1er avril 2026.
+          </p>
         </div>
       </section>
 
       {/* ── FAQ ── */}
       <section className="bg-white py-20 lg:py-28">
         <div className="mx-auto max-w-3xl px-6">
-          <motion.h2
+          <h2
             className="mb-12 text-center font-syne text-2xl font-extrabold text-navy md:text-3xl lg:text-4xl"
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
           >
             Questions sur les tarifs
-          </motion.h2>
+          </h2>
 
           <div className="space-y-3">
             {faqItems.map((item, i) => (
-              <motion.div
+              <div
                 key={i}
                 className="overflow-hidden rounded-xl border border-gray-200 bg-white"
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.4, delay: i * 0.05 }}
               >
                 <button
                   className="flex w-full items-center justify-between px-6 py-5 text-left"
@@ -256,7 +227,7 @@ export default function TarifsPage() {
                     </p>
                   </div>
                 )}
-              </motion.div>
+              </div>
             ))}
           </div>
         </div>
@@ -265,11 +236,7 @@ export default function TarifsPage() {
       {/* ── CTA ── */}
       <section className="bg-navy py-20 lg:py-28">
         <div className="mx-auto max-w-7xl px-6 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
+          <div
           >
             <h2 className="mb-4 font-syne text-3xl font-extrabold text-white md:text-4xl lg:text-5xl">
               Pr&ecirc;t &agrave; essayer&nbsp;?
@@ -281,7 +248,7 @@ export default function TarifsPage() {
             <button className="h-16 rounded-xl bg-orange px-10 font-syne text-lg font-bold text-white transition-colors hover:bg-orange-hover">
               D&eacute;marrer mon essai gratuit &mdash; 14 jours
             </button>
-          </motion.div>
+          </div>
         </div>
       </section>
     </>

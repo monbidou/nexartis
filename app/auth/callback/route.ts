@@ -10,7 +10,11 @@ export async function GET(request: Request) {
     const supabase = createClient()
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
-      return NextResponse.redirect(`${origin}${next}`)
+      const redirectUrl = new URL(next, origin)
+      const response = NextResponse.redirect(redirectUrl)
+      // Force no-cache to ensure middleware picks up the new session
+      response.headers.set('Cache-Control', 'no-store, max-age=0')
+      return response
     }
   }
 

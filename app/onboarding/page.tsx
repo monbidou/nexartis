@@ -60,7 +60,7 @@ export default function OnboardingPage() {
         {/* Logo */}
         <div className="flex items-center justify-center gap-2 mb-8">
           <div className="w-7 h-7 bg-sky rounded-md" />
-          <span className="font-syne font-extrabold text-3xl text-navy">Artidoc</span>
+          <span className="font-syne font-extrabold text-3xl text-navy">NexArtis</span>
         </div>
 
         {/* Progress bar */}

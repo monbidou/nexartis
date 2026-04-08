@@ -90,6 +90,7 @@ const CREATE_OPTIONS = [
   { label: 'Nouvelle facture', href: '/dashboard/factures/nouveau' },
   { label: 'Nouveau chantier', href: '/dashboard/chantiers/nouveau' },
   { label: 'Nouveau client', href: '/dashboard/clients/nouveau' },
+  { label: '🎤 Devis par la voix', href: '/dashboard/devis/nouveau?voice=1' },
 ]
 
 const BOTTOM_NAV: NavItem[] = [
@@ -203,10 +204,10 @@ function Sidebar({
       >
         {/* ---- Top: Logo ---- */}
         <div className={`flex items-center gap-3 px-4 pt-5 pb-2 ${collapsed ? 'justify-center' : ''}`}>
-          <Image src="/images/logo-artidoc.png" alt="Artidoc" width={80} height={80} quality={100} className="h-10 w-auto flex-shrink-0 object-contain" />
+          <Image src="/images/logo-nexartis.png" alt="NexArtis" width={80} height={80} quality={100} className="h-10 w-auto flex-shrink-0 object-contain" />
           {!collapsed && (
             <span className="font-syne font-extrabold text-white text-xl tracking-tight">
-              Artidoc
+              NexArtis
             </span>
           )}
           {/* Mobile close */}
@@ -575,6 +576,23 @@ export default function DashboardLayout({
           userInitials={userInitials}
           userLoading={isLoading}
         />
+
+        {/* Bandeau profil incomplet */}
+        {!isLoading && entreprise && (
+          !entreprise.nom || entreprise.nom === 'Mon Entreprise' || !entreprise.siret
+        ) && (
+          <div className="bg-[#e87a2a] px-4 py-3 flex items-center justify-between gap-3 lg:px-6">
+            <p className="font-manrope text-sm text-white">
+              ⚠️ Complétez votre profil pour que vos devis et factures soient pré-remplis automatiquement
+            </p>
+            <Link
+              href="/dashboard/parametres"
+              className="shrink-0 rounded-lg bg-white px-4 py-1.5 font-syne text-sm font-bold text-[#e87a2a] hover:bg-gray-100 transition-colors"
+            >
+              Configurer maintenant
+            </Link>
+          </div>
+        )}
 
         <main className="p-4 lg:p-6 pb-20 md:pb-6">
           {children}

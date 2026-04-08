@@ -35,15 +35,15 @@ export default function EmptyDashboard({ userName }: EmptyDashboardProps) {
     <div className="min-h-screen bg-gray-50/50 flex items-start justify-center">
       <div className="max-w-2xl w-full mx-auto py-16 px-4 text-center">
         <Image
-          src="/images/logo-artidoc.png"
-          alt="Artidoc"
+          src="/images/logo-nexartis.png"
+          alt="NexArtis"
           width={80}
           height={80}
           className="h-20 w-auto mx-auto"
         />
 
         <h1 className="font-syne font-extrabold text-2xl text-[#1a1a2e] mt-6">
-          Bienvenue sur Artidoc, {userName || 'et bienvenue'} !
+          Bienvenue sur NexArtis, {userName || 'et bienvenue'} !
         </h1>
 
         <p className="font-manrope text-[#6b7280] mt-2">
@@ -74,7 +74,7 @@ export default function EmptyDashboard({ userName }: EmptyDashboardProps) {
             href="/dashboard?demo=true"
             className="text-sm text-[#5ab4e0] hover:underline"
           >
-            Ou découvrir Artidoc avec des données de démonstration →
+            Ou découvrir NexArtis avec des données de démonstration →
           </Link>
         </div>
       </div>

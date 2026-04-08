@@ -81,11 +81,15 @@ function useSupabaseRecord<T>(table: string, id: string | null): SingleState<T> 
 
 // ── Mutations ─────────────────────────────────────────────────
 
+// Tables enfant liées par FK, pas de colonne user_id
+const TABLES_WITHOUT_USER_ID = new Set(['devis_lignes', 'facture_lignes', 'paiements'])
+
 async function insertRow(table: string, values: Record<string, unknown>) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Non connecté')
-  const { data, error } = await supabase.from(table).insert({ ...values, user_id: user.id }).select().single()
+  const row = TABLES_WITHOUT_USER_ID.has(table) ? values : { ...values, user_id: user.id }
+  const { data, error } = await supabase.from(table).insert(row).select().single()
   if (error) throw new Error(error.message)
   return data
 }

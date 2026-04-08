@@ -5,11 +5,19 @@ import { Eye, EyeOff } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Suspense, useState } from 'react'
+import { Suspense, useState, useEffect } from 'react'
 
 function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
+
+  // Auto-redirect if already logged in (after OAuth callback)
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) router.push('/dashboard')
+    })
+  }, [router])
 
   const [mode, setMode] = useState<'login' | 'register'>('login')
   const [email, setEmail] = useState('')
@@ -101,15 +109,15 @@ function LoginForm() {
         {/* Logo */}
         <div className="flex items-center justify-center gap-2 mb-8">
           <Image
-            src="/images/logo-artidoc.png"
-            alt="Artidoc"
+            src="/images/logo-nexartis.png"
+            alt="NexArtis"
             width={192}
             height={192}
             quality={100}
             priority
             className="h-24 w-auto object-contain"
           />
-          <span className="font-syne font-extrabold text-3xl text-navy">Artidoc</span>
+          <span className="font-syne font-extrabold text-3xl text-navy">NexArtis</span>
         </div>
 
         {/* Card */}

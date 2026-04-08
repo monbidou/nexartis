@@ -1,7 +1,5 @@
 "use client";
 
-import { motion } from "framer-motion";
-
 interface FeatureCard {
   icon: string;
   title: string;
@@ -23,7 +21,7 @@ const cards: FeatureCard[] = [
     icon: "📅",
     title: "Planning qui évite les conflits",
     text: "Glissez vos chantiers sur le calendrier. Si vous affectez quelqu'un deux fois le même jour, une alerte orange apparaît immédiatement.",
-    tag: "★ EXCLUSIF ARTIDOC",
+    tag: "★ EXCLUSIF NEXARTIS",
     tagColor: "gold",
     exclusive: true,
   },
@@ -37,14 +35,14 @@ const cards: FeatureCard[] = [
   {
     icon: "🔔",
     title: "Plus d'impayés qui traînent",
-    text: "Artidoc envoie automatiquement des rappels polis à vos clients qui n'ont pas payé. Vous n'avez plus à le faire vous-même.",
+    text: "NexArtis envoie automatiquement des rappels polis à vos clients qui n'ont pas payé. Vous n'avez plus à le faire vous-même.",
     tag: "✓ Automatique",
     tagColor: "green",
   },
   {
     icon: "⚡",
     title: "Conforme à la loi 2026",
-    text: "Depuis septembre 2026, la facture électronique est obligatoire. Artidoc est déjà certifié. Vous ne risquez aucune amende.",
+    text: "Depuis septembre 2026, la facture électronique est obligatoire. NexArtis est déjà certifié. Vous ne risquez aucune amende.",
     tag: "⚠️ Obligatoire en 2026",
     tagColor: "gold",
   },
@@ -57,27 +55,9 @@ const cards: FeatureCard[] = [
   },
 ];
 
-const containerVariants = {
-  hidden: {},
-  visible: {
-    transition: {
-      staggerChildren: 0.12,
-    },
-  },
-};
-
-const cardVariants = {
-  hidden: { opacity: 0, y: 32 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.5, ease: "easeOut" as const },
-  },
-};
-
 export default function FeaturesSection() {
   return (
-    <section id="fonctionnalites" className="bg-[#0f1a3a] py-20 px-4">
+    <section id="fonctionnalites" className="bg-[#0f1a3a] py-14 lg:py-20 px-4">
       <div className="mx-auto max-w-6xl">
         {/* Header */}
         <h2 className="font-syne text-3xl font-extrabold text-white text-center md:text-4xl lg:text-5xl">
@@ -88,17 +68,10 @@ export default function FeaturesSection() {
         </p>
 
         {/* Cards grid */}
-        <motion.div
-          className="mt-14 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3"
-          variants={containerVariants}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, amount: 0.15 }}
-        >
+        <div className="mt-14 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {cards.map((card) => (
-            <motion.div
+            <div
               key={card.title}
-              variants={cardVariants}
               className={`
                 group flex flex-col rounded-2xl bg-[#1a2d5a] p-8
                 transition-transform duration-300 hover:-translate-y-1
@@ -109,20 +82,13 @@ export default function FeaturesSection() {
                 }
               `}
             >
-              {/* Icon */}
               <span className="text-5xl leading-none">{card.icon}</span>
-
-              {/* Title */}
               <h3 className="mt-5 font-syne text-xl font-bold text-white">
                 {card.title}
               </h3>
-
-              {/* Body */}
               <p className="mt-3 flex-1 text-[rgba(255,255,255,0.75)] leading-relaxed">
                 {card.text}
               </p>
-
-              {/* Tag */}
               <span
                 className={`
                   mt-5 inline-flex w-fit items-center rounded-full px-3 py-1 text-xs font-semibold
@@ -135,9 +101,9 @@ export default function FeaturesSection() {
               >
                 {card.tag}
               </span>
-            </motion.div>
+            </div>
           ))}
-        </motion.div>
+        </div>
       </div>
     </section>
   );

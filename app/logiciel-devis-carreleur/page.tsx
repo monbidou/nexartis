@@ -2,7 +2,7 @@ import { Metadata } from "next";
 import MetierPageTemplate from "@/components/MetierPageTemplate";
 
 export const metadata: Metadata = {
-  title: "Logiciel Devis Carreleur — Artidoc | 25€/mois tout inclus",
+  title: "Logiciel Devis Carreleur — NexArtis | 25€/mois tout inclus",
   description:
     "Créez vos devis carrelage en quelques minutes. Fournitures et pose séparées. Conforme Factur-X 2026. Essai gratuit.",
 };
@@ -12,7 +12,7 @@ const data = {
   nomPluriel: "Carreleurs",
   icon: "🔲",
   h1: "Logiciel devis et factures pour carreleurs",
-  metaTitle: "Logiciel Devis Carreleur — Artidoc | 25€/mois tout inclus",
+  metaTitle: "Logiciel Devis Carreleur — NexArtis | 25€/mois tout inclus",
   metaDescription:
     "Créez vos devis carrelage en quelques minutes. Fournitures et pose séparées. Conforme Factur-X 2026. Essai gratuit.",
   tvaNotes:

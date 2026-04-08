@@ -8,7 +8,7 @@ const featureItems = [
   {
     icon: "\u{1F4C4}",
     title: "Devis & Factures",
-    desc: "Cr\u00e9ez vos documents BTP en quelques minutes",
+    desc: "Cr\u00e9ez vos documents en quelques minutes",
     href: "/logiciel-devis-factures",
   },
   {
@@ -81,8 +81,8 @@ export default function Header() {
       <div className="mx-auto flex h-[60px] max-w-7xl items-center justify-between px-5 md:h-[72px] lg:px-8">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2 font-syne text-2xl font-[800] text-navy">
-          <Image src="/images/logo-artidoc.png" alt="Artidoc" width={96} height={96} quality={100} className="h-12 w-auto object-contain" />
-          Artidoc
+          <Image src="/images/logo-nexartis.png" alt="NexArtis" width={96} height={96} quality={100} className="h-12 w-auto object-contain" />
+          NexArtis
         </Link>
 
         {/* Desktop nav */}
@@ -171,22 +171,16 @@ export default function Header() {
         {/* Desktop right side */}
         <div className="hidden items-center gap-4 md:flex">
           <a
-            href="tel:0557000000"
+            href="mailto:contact@nexartis.fr"
             className="font-manrope text-sm font-medium text-navy/70 transition-colors hover:text-navy"
           >
-            📞 05 57 00 00 00
+            📧 contact@nexartis.fr
           </a>
           <Link
             href="/login"
-            className="font-manrope text-sm font-semibold text-navy transition-colors hover:text-orange"
-          >
-            Se connecter
-          </Link>
-          <Link
-            href="/register"
             className="inline-flex h-[46px] items-center rounded-lg bg-[#e87a2a] px-6 font-syne text-sm font-bold text-white transition-colors hover:bg-[#f09050]"
           >
-            Essai gratuit&nbsp;&rarr;
+            Se connecter&nbsp;&rarr;
           </Link>
         </div>
 
@@ -301,10 +295,10 @@ export default function Header() {
 
           {/* Phone number in mobile */}
           <a
-            href="tel:0557000000"
+            href="mailto:contact@nexartis.fr"
             className="flex h-[56px] items-center font-manrope text-base font-medium text-navy/70"
           >
-            📞 05 57 00 00 00
+            📧 contact@nexartis.fr
           </a>
 
           {/* Mobile CTAs at bottom */}
@@ -312,16 +306,9 @@ export default function Header() {
             <Link
               href="/login"
               onClick={() => setMenuOpen(false)}
-              className="flex h-[48px] items-center justify-center font-manrope text-base font-semibold text-navy"
-            >
-              Se connecter
-            </Link>
-            <Link
-              href="/register"
-              onClick={() => setMenuOpen(false)}
               className="flex h-[46px] items-center justify-center rounded-lg bg-[#e87a2a] font-syne text-base font-bold text-white transition-colors hover:bg-[#f09050]"
             >
-              Essai gratuit&nbsp;&rarr;
+              Se connecter&nbsp;&rarr;
             </Link>
           </div>
         </nav>

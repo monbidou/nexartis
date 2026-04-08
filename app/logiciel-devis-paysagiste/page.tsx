@@ -2,7 +2,7 @@ import { Metadata } from "next";
 import MetierPageTemplate from "@/components/MetierPageTemplate";
 
 export const metadata: Metadata = {
-  title: "Logiciel Devis Paysagiste — Artidoc | 25€/mois tout inclus",
+  title: "Logiciel Devis Paysagiste — NexArtis | 25€/mois tout inclus",
   description:
     "Créez vos devis paysagisme et entretien espaces verts en quelques minutes. Conforme Factur-X 2026. Essai gratuit.",
 };
@@ -12,7 +12,7 @@ const data = {
   nomPluriel: "Paysagistes",
   icon: "🌿",
   h1: "Logiciel devis et factures pour paysagistes",
-  metaTitle: "Logiciel Devis Paysagiste — Artidoc | 25€/mois tout inclus",
+  metaTitle: "Logiciel Devis Paysagiste — NexArtis | 25€/mois tout inclus",
   metaDescription:
     "Créez vos devis paysagisme et entretien espaces verts en quelques minutes. Conforme Factur-X 2026. Essai gratuit.",
   tvaNotes:

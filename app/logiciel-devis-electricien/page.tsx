@@ -2,7 +2,7 @@ import { Metadata } from "next";
 import MetierPageTemplate from "@/components/MetierPageTemplate";
 
 export const metadata: Metadata = {
-  title: "Logiciel Devis Électricien — Artidoc | 25€/mois tout inclus",
+  title: "Logiciel Devis Électricien — NexArtis | 25€/mois tout inclus",
   description:
     "Créez vos devis électricité en quelques minutes. Normes NF C 15-100 intégrées. Conforme Factur-X 2026. Essai gratuit.",
 };
@@ -12,7 +12,7 @@ const data = {
   nomPluriel: "Électriciens",
   icon: "⚡",
   h1: "Logiciel devis et factures pour électriciens",
-  metaTitle: "Logiciel Devis Électricien — Artidoc | 25€/mois tout inclus",
+  metaTitle: "Logiciel Devis Électricien — NexArtis | 25€/mois tout inclus",
   metaDescription:
     "Créez vos devis électricité en quelques minutes. Normes NF C 15-100 intégrées. Conforme Factur-X 2026. Essai gratuit.",
   tvaNotes:
@@ -26,7 +26,7 @@ const data = {
   ],
   keywordPrincipal: "logiciel devis électricien",
   specificite:
-    "Artidoc inclut les mentions obligatoires liées aux normes électriques NF C 15-100.",
+    "NexArtis inclut les mentions obligatoires liées aux normes électriques NF C 15-100.",
 };
 
 export default function Page() {

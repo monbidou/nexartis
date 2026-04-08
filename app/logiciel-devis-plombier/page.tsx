@@ -2,7 +2,7 @@ import { Metadata } from "next";
 import MetierPageTemplate from "@/components/MetierPageTemplate";
 
 export const metadata: Metadata = {
-  title: "Logiciel Devis Plombier — Artidoc | 25€/mois tout inclus",
+  title: "Logiciel Devis Plombier — NexArtis | 25€/mois tout inclus",
   description:
     "Créez vos devis plomberie en quelques minutes. TVA 10% et 5.5% automatique. Conforme Factur-X 2026. Essai gratuit 14 jours.",
 };
@@ -12,7 +12,7 @@ const data = {
   nomPluriel: "Plombiers",
   icon: "🔧",
   h1: "Logiciel devis et factures pour plombiers",
-  metaTitle: "Logiciel Devis Plombier — Artidoc | 25€/mois tout inclus",
+  metaTitle: "Logiciel Devis Plombier — NexArtis | 25€/mois tout inclus",
   metaDescription:
     "Créez vos devis plomberie en quelques minutes. TVA 10% et 5.5% automatique. Conforme Factur-X 2026. Essai gratuit 14 jours.",
   tvaNotes:

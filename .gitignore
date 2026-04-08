@@ -15,8 +15,8 @@ out/
 
 # sensitive files
 *.txt
-Logo Artidoc.png
-ARTIDOC_SECURITY_FIX.md
+Logo NexArtis.png
+NEXARTIS_SECURITY_FIX.md
 
 # os
 .DS_Store

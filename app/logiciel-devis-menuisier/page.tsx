@@ -2,7 +2,7 @@ import { Metadata } from "next";
 import MetierPageTemplate from "@/components/MetierPageTemplate";
 
 export const metadata: Metadata = {
-  title: "Logiciel Devis Menuisier — Artidoc | 25€/mois tout inclus",
+  title: "Logiciel Devis Menuisier — NexArtis | 25€/mois tout inclus",
   description:
     "Créez vos devis menuiserie en quelques minutes. Fournitures et pose détaillées. Conforme Factur-X 2026. Essai gratuit.",
 };
@@ -12,7 +12,7 @@ const data = {
   nomPluriel: "Menuisiers",
   icon: "🪚",
   h1: "Logiciel devis et factures pour menuisiers",
-  metaTitle: "Logiciel Devis Menuisier — Artidoc | 25€/mois tout inclus",
+  metaTitle: "Logiciel Devis Menuisier — NexArtis | 25€/mois tout inclus",
   metaDescription:
     "Créez vos devis menuiserie en quelques minutes. Fournitures et pose détaillées. Conforme Factur-X 2026. Essai gratuit.",
   tvaNotes:

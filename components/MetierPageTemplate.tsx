@@ -1,6 +1,4 @@
 "use client";
-
-import { motion } from "framer-motion";
 import Link from "next/link";
 
 export interface MetierPageProps {
@@ -16,16 +14,6 @@ export interface MetierPageProps {
   specificite: string;
 }
 
-const containerVariants = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.12 } },
-};
-
-const cardVariants = {
-  hidden: { opacity: 0, y: 32 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" as const } },
-};
-
 const features = [
   {
     icon: "📄",
@@ -40,7 +28,7 @@ const features = [
   {
     icon: "⚡",
     title: "Conforme Factur-X 2026",
-    text: "La facture électronique est obligatoire depuis septembre 2026. Artidoc est certifié conforme — aucune amende à craindre.",
+    text: "La facture électronique est obligatoire depuis septembre 2026. NexArtis est certifié conforme — aucune amende à craindre.",
   },
   {
     icon: "📅",
@@ -50,7 +38,7 @@ const features = [
   {
     icon: "🔔",
     title: "Relances automatiques",
-    text: "Artidoc envoie des rappels polis aux clients qui n'ont pas payé. Réduisez vos délais de paiement sans démarche manuelle.",
+    text: "NexArtis envoie des rappels polis aux clients qui n'ont pas payé. Réduisez vos délais de paiement sans démarche manuelle.",
   },
   {
     icon: "📱",
@@ -103,20 +91,20 @@ export default function MetierPageTemplate({
 }: MetierPageProps) {
   const faqs = [
     {
-      q: `Est-ce qu'Artidoc est adapté aux ${nomPluriel.toLowerCase()} ?`,
-      a: `Oui. Artidoc a été conçu pour les artisans du bâtiment, y compris les ${nomPluriel.toLowerCase()}. Les prestations, taux de TVA et modèles de devis sont préconfigurés pour votre métier.`,
+      q: `Est-ce qu'NexArtis est adapté aux ${nomPluriel.toLowerCase()} ?`,
+      a: `Oui. NexArtis a été conçu pour les artisans du bâtiment, y compris les ${nomPluriel.toLowerCase()}. Les prestations, taux de TVA et modèles de devis sont préconfigurés pour votre métier.`,
     },
     {
-      q: `Comment fonctionne la TVA pour les ${nomPluriel.toLowerCase()} dans Artidoc ?`,
-      a: `${tvaNotes}. Artidoc applique automatiquement le bon taux selon le type de travaux. Vous n'avez qu'à choisir la prestation.`,
+      q: `Comment fonctionne la TVA pour les ${nomPluriel.toLowerCase()} dans NexArtis ?`,
+      a: `${tvaNotes}. NexArtis applique automatiquement le bon taux selon le type de travaux. Vous n'avez qu'à choisir la prestation.`,
     },
     {
-      q: "Combien coûte Artidoc ?",
+      q: "Combien coûte NexArtis ?",
       a: "25€ par mois, tout inclus. Pas de version premium, pas de frais cachés. 14 jours d'essai gratuit sans carte bancaire.",
     },
     {
       q: "Est-ce que je peux envoyer mes factures à mon comptable ?",
-      a: "Oui. Artidoc exporte vos factures au format que votre comptable utilise, en un clic. Ça lui fait gagner du temps et ça vous coûte moins cher.",
+      a: "Oui. NexArtis exporte vos factures au format que votre comptable utilise, en un clic. Ça lui fait gagner du temps et ça vous coûte moins cher.",
     },
     {
       q: `Puis-je importer mes anciens devis de ${nom.toLowerCase()} ?`,
@@ -160,15 +148,11 @@ export default function MetierPageTemplate({
 
       {/* ── Hero ── */}
       <section className="relative overflow-hidden bg-navy py-20 lg:py-28">
-        <motion.div
+        <div
           className="absolute left-10 top-10 h-72 w-72 rounded-full bg-sky/5 blur-3xl"
-          animate={{ x: [0, 30, 0], y: [0, -20, 0] }}
-          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
         />
-        <motion.div
+        <div
           className="absolute bottom-10 right-10 h-96 w-96 rounded-full bg-orange/5 blur-3xl"
-          animate={{ x: [0, -25, 0], y: [0, 25, 0] }}
-          transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
         />
 
         <div className="relative mx-auto max-w-5xl px-6">
@@ -192,38 +176,26 @@ export default function MetierPageTemplate({
           </nav>
 
           <div className="text-center">
-            <motion.span
+            <span
               className="mb-4 inline-block text-6xl"
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ type: "spring", stiffness: 200, damping: 12 }}
             >
               {icon}
-            </motion.span>
+            </span>
 
-            <motion.h1
+            <h1
               className="font-syne text-3xl font-extrabold text-white md:text-4xl lg:text-5xl"
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
             >
               {h1}
-            </motion.h1>
+            </h1>
 
-            <motion.p
+            <p
               className="mx-auto mt-6 max-w-2xl font-manrope text-lg text-white/75"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.15 }}
             >
               {specificite}
-            </motion.p>
+            </p>
 
-            <motion.div
+            <div
               className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.3 }}
             >
               <Link
                 href="/register"
@@ -234,7 +206,7 @@ export default function MetierPageTemplate({
               <span className="font-manrope text-sm text-white/50">
                 Sans carte bancaire
               </span>
-            </motion.div>
+            </div>
           </div>
         </div>
       </section>
@@ -242,11 +214,7 @@ export default function MetierPageTemplate({
       {/* ── TVA Section ── */}
       <section className="bg-cream py-16 lg:py-20">
         <div className="mx-auto max-w-4xl px-6">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
+          <div
           >
             <h2 className="font-syne text-2xl font-extrabold text-navy md:text-3xl">
               TVA {nom.toLowerCase()} : les taux appliqués automatiquement
@@ -256,33 +224,29 @@ export default function MetierPageTemplate({
             </p>
             <div className="mt-6 rounded-xl border border-navy/10 bg-white p-6">
               <p className="font-manrope text-sm font-semibold text-navy/60 uppercase tracking-wider">
-                Comment Artidoc vous aide
+                Comment NexArtis vous aide
               </p>
               <p className="mt-2 font-manrope text-base leading-relaxed text-navy/80">
-                Quand vous créez un devis, Artidoc pré-remplit le bon taux de TVA
+                Quand vous créez un devis, NexArtis pré-remplit le bon taux de TVA
                 pour chaque ligne de prestation. Vous pouvez toujours le modifier
                 si besoin, mais dans 90% des cas, le taux proposé est le bon.
                 Simplifiez les échanges avec votre expert-comptable grâce à des exports conformes.
               </p>
             </div>
-          </motion.div>
+          </div>
         </div>
       </section>
 
       {/* ── Professional Devis Example ── */}
       <section className="bg-white py-16 lg:py-20">
         <div className="mx-auto max-w-4xl px-6">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
+          <div
           >
             <h2 className="text-center font-syne text-2xl font-extrabold text-navy md:text-3xl">
               Exemple de devis {nom.toLowerCase()}
             </h2>
             <p className="mt-3 text-center font-manrope text-base text-navy/60">
-              Voici à quoi ressemble un devis créé avec Artidoc
+              Voici à quoi ressemble un devis créé avec NexArtis
             </p>
 
             {/* Devis document */}
@@ -460,34 +424,25 @@ export default function MetierPageTemplate({
                 </div>
               </div>
             </div>
-          </motion.div>
+          </div>
         </div>
       </section>
 
       {/* ── Features Grid ── */}
       <section className="bg-navy py-20 lg:py-24">
         <div className="mx-auto max-w-6xl px-6">
-          <motion.h2
+          <h2
             className="text-center font-syne text-2xl font-extrabold text-white md:text-3xl lg:text-4xl"
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
           >
             Les fonctionnalités dont les {nomPluriel.toLowerCase()} ont besoin
-          </motion.h2>
+          </h2>
 
-          <motion.div
+          <div
             className="mt-14 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3"
-            variants={containerVariants}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, amount: 0.15 }}
           >
             {features.map((f) => (
-              <motion.div
+              <div
                 key={f.title}
-                variants={cardVariants}
                 className="flex flex-col rounded-2xl bg-navy-mid p-8 transition-transform duration-300 hover:-translate-y-1"
               >
                 <span className="text-4xl leading-none">{f.icon}</span>
@@ -497,20 +452,16 @@ export default function MetierPageTemplate({
                 <p className="mt-3 flex-1 font-manrope text-sm leading-relaxed text-white/75">
                   {f.text}
                 </p>
-              </motion.div>
+              </div>
             ))}
-          </motion.div>
+          </div>
         </div>
       </section>
 
       {/* ── Lead Magnet ── */}
       <section className="bg-cream py-16 lg:py-20">
         <div className="mx-auto max-w-2xl px-6 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
+          <div
           >
             <span className="mb-4 inline-block text-5xl">{icon}</span>
             <h2 className="font-syne text-2xl font-extrabold text-navy md:text-3xl">
@@ -542,32 +493,24 @@ export default function MetierPageTemplate({
             <p className="mt-4 font-manrope text-xs text-navy/40">
               Vos données restent privées. Aucun spam.
             </p>
-          </motion.div>
+          </div>
         </div>
       </section>
 
       {/* ── FAQ ── */}
       <section className="bg-white py-20 lg:py-28">
         <div className="mx-auto max-w-7xl px-6">
-          <motion.h2
+          <h2
             className="mb-14 text-center font-syne text-2xl font-extrabold text-navy md:text-3xl lg:text-4xl"
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
           >
             Questions fréquentes — {nomPluriel}
-          </motion.h2>
+          </h2>
 
           <div className="mx-auto max-w-3xl">
             {faqs.map((faq, i) => (
-              <motion.details
+              <details
                 key={i}
                 className="group border-b border-gray-200 py-5"
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, amount: 0.5 }}
-                transition={{ duration: 0.4, delay: i * 0.05 }}
               >
                 <summary className="flex cursor-pointer list-none items-center justify-between font-syne text-lg font-bold text-navy [&::-webkit-details-marker]:hidden">
                   <span>{faq.q}</span>
@@ -578,7 +521,7 @@ export default function MetierPageTemplate({
                 <p className="mt-3 font-manrope text-base leading-relaxed text-gray-600">
                   {faq.a}
                 </p>
-              </motion.details>
+              </details>
             ))}
           </div>
         </div>
@@ -587,11 +530,7 @@ export default function MetierPageTemplate({
       {/* ── Autres métiers du bâtiment ── */}
       <section className="bg-cream py-16 lg:py-20">
         <div className="mx-auto max-w-5xl px-6">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
+          <div
           >
             <h2 className="mb-8 text-center font-syne text-2xl font-bold text-navy md:text-3xl">
               Autres métiers du bâtiment
@@ -607,30 +546,22 @@ export default function MetierPageTemplate({
                 </Link>
               ))}
             </div>
-          </motion.div>
+          </div>
         </div>
       </section>
 
       {/* ── CTA ── */}
       <section className="relative overflow-hidden bg-navy py-20 lg:py-28">
-        <motion.div
+        <div
           className="absolute left-10 top-10 h-72 w-72 rounded-full bg-sky/5 blur-3xl"
-          animate={{ x: [0, 30, 0], y: [0, -20, 0] }}
-          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
         />
-        <motion.div
+        <div
           className="absolute bottom-10 right-10 h-96 w-96 rounded-full bg-orange/5 blur-3xl"
-          animate={{ x: [0, -25, 0], y: [0, 25, 0] }}
-          transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
         />
 
         <div className="relative mx-auto max-w-7xl px-6">
-          <motion.div
+          <div
             className="flex flex-col items-center text-center"
-            initial={{ opacity: 0, y: 40 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
           >
             <h2 className="mb-4 font-syne text-3xl font-extrabold text-white md:text-4xl lg:text-5xl">
               Prêt à simplifier votre quotidien de {nom.toLowerCase()} ?
@@ -656,7 +587,7 @@ export default function MetierPageTemplate({
                 Commencer gratuitement &rarr;
               </button>
             </form>
-          </motion.div>
+          </div>
         </div>
       </section>
     </>

@@ -19,18 +19,19 @@ const manrope = Manrope({
 })
 
 export const metadata: Metadata = {
-  title: 'Artidoc — Logiciel devis facture artisan | 25€/mois tout inclus',
+  title: 'NexArtis — Logiciel devis facture artisan | 25€/mois tout inclus',
   description:
-    'Créez vos devis et factures BTP en quelques minutes. Planning intelligent exclusif. Conforme Factur-X 2026. Essai gratuit 14 jours sans CB. Moins cher qu\'Obat et Tolteck.',
+    'Créez vos devis et factures artisan en quelques minutes. Planning intelligent exclusif. Conforme Factur-X 2026. Essai gratuit 14 jours sans CB.',
   keywords:
-    'logiciel devis artisan, logiciel facture artisan, logiciel artisan btp, application artisan',
+    'logiciel devis artisan, logiciel facture artisan, logiciel artisan, application artisan',
   openGraph: {
-    title: 'Artidoc — Logiciel devis facture artisan | 25€/mois tout inclus',
+    title: 'NexArtis — Logiciel devis facture artisan | 25€/mois tout inclus',
     description:
-      'Créez vos devis et factures BTP en quelques minutes. Planning intelligent exclusif. Conforme Factur-X 2026.',
+      'Créez vos devis et factures artisan en quelques minutes. Planning intelligent exclusif. Conforme Factur-X 2026.',
     type: 'website',
     locale: 'fr_FR',
-    siteName: 'Artidoc',
+    siteName: 'NexArtis',
+    url: 'https://nexartis.fr',
   },
 }
 

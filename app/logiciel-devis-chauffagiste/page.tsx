@@ -2,7 +2,7 @@ import { Metadata } from "next";
 import MetierPageTemplate from "@/components/MetierPageTemplate";
 
 export const metadata: Metadata = {
-  title: "Logiciel Devis Chauffagiste — Artidoc | 25€/mois tout inclus",
+  title: "Logiciel Devis Chauffagiste — NexArtis | 25€/mois tout inclus",
   description:
     "Créez vos devis chauffage et climatisation en quelques minutes. TVA réduite automatique. Conforme Factur-X 2026. Essai gratuit.",
 };
@@ -12,7 +12,7 @@ const data = {
   nomPluriel: "Chauffagistes",
   icon: "🔥",
   h1: "Logiciel devis et factures pour chauffagistes",
-  metaTitle: "Logiciel Devis Chauffagiste — Artidoc | 25€/mois tout inclus",
+  metaTitle: "Logiciel Devis Chauffagiste — NexArtis | 25€/mois tout inclus",
   metaDescription:
     "Créez vos devis chauffage et climatisation en quelques minutes. TVA réduite automatique. Conforme Factur-X 2026. Essai gratuit.",
   tvaNotes:

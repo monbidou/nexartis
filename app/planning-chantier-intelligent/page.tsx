@@ -1,12 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
 import PlanningDemoSection from "@/components/PlanningDemoSection";
-
-const fadeInUp = {
-  initial: { opacity: 0, y: 30 },
-  animate: { opacity: 1, y: 0 },
-};
 
 const avantPoints = [
   "Oublis de chantiers fr\u00e9quents",
@@ -54,7 +48,7 @@ const exclusiveFeatures = [
   },
   {
     title: "Alertes conflits en temps r\u00e9el",
-    desc: "Un artisan d\u00e9j\u00e0 affect\u00e9 ailleurs\u00a0? Artidoc vous pr\u00e9vient imm\u00e9diatement avec une alerte visuelle. Fini les surprises.",
+    desc: "Un artisan d\u00e9j\u00e0 affect\u00e9 ailleurs\u00a0? NexArtis vous pr\u00e9vient imm\u00e9diatement avec une alerte visuelle. Fini les surprises.",
     icon: (
       <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
@@ -88,54 +82,36 @@ export default function PlanningChantierPage() {
       <section className="relative overflow-hidden bg-gradient-to-b from-navy to-[#0d1525] py-20 lg:py-28">
         <div className="pointer-events-none absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")" }} />
         <div className="relative mx-auto max-w-7xl px-6 text-center">
-          <motion.div
+          <div
             className="mb-6 flex justify-center"
-            variants={fadeInUp}
-            initial="initial"
-            animate="animate"
-            transition={{ duration: 0.4 }}
           >
-            <motion.span
+            <span
               className="inline-block rounded-full bg-gold px-5 py-2 font-syne text-sm font-bold text-navy"
-              animate={{ scale: [1, 1.03, 1] }}
-              transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
             >
               &#9733; EXCLUSIF
-            </motion.span>
-          </motion.div>
+            </span>
+          </div>
 
-          <motion.h1
+          <h1
             className="font-syne text-3xl font-extrabold leading-tight text-white md:text-5xl lg:text-6xl"
-            variants={fadeInUp}
-            initial="initial"
-            animate="animate"
-            transition={{ duration: 0.5, delay: 0.1 }}
           >
             Planning chantier avec
             <br />
             <span className="text-sky">alertes conflits</span>
             <br />
-            <span className="text-gold">&mdash; Exclusif Artidoc</span>
-          </motion.h1>
+            <span className="text-gold">&mdash; Exclusif NexArtis</span>
+          </h1>
 
-          <motion.p
+          <p
             className="mx-auto mt-6 max-w-2xl font-manrope text-lg leading-relaxed text-gray-300"
-            variants={fadeInUp}
-            initial="initial"
-            animate="animate"
-            transition={{ duration: 0.5, delay: 0.2 }}
           >
             Le seul logiciel artisan qui d&eacute;tecte automatiquement les
             conflits de planning. Fini les oublis, les doubles r&eacute;servations
             et les appels le soir pour pr&eacute;venir l&apos;&eacute;quipe.
-          </motion.p>
+          </p>
 
-          <motion.div
+          <div
             className="mt-8"
-            variants={fadeInUp}
-            initial="initial"
-            animate="animate"
-            transition={{ duration: 0.5, delay: 0.3 }}
           >
             <button className="h-16 rounded-xl bg-orange px-8 font-syne text-lg font-bold text-white transition-colors hover:bg-orange-hover">
               Essayer le planning intelligent &rarr;
@@ -143,31 +119,23 @@ export default function PlanningChantierPage() {
             <p className="mt-3 font-manrope text-sm text-gray-400">
               14 jours gratuits. Sans carte bancaire.
             </p>
-          </motion.div>
+          </div>
         </div>
       </section>
 
       {/* ── Avant / Apr\u00e8s ── */}
       <section className="bg-cream py-20 lg:py-28">
         <div className="mx-auto max-w-6xl px-6">
-          <motion.h2
+          <h2
             className="mb-14 text-center font-syne text-2xl font-extrabold text-navy md:text-3xl lg:text-4xl"
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
           >
-            Avant vs Apr&egrave;s Artidoc
-          </motion.h2>
+            Avant vs Apr&egrave;s NexArtis
+          </h2>
 
           <div className="grid gap-8 md:grid-cols-2">
             {/* Avant */}
-            <motion.div
+            <div
               className="rounded-2xl border border-gray-200 bg-gray-100 p-8"
-              initial={{ opacity: 0, x: -40 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5 }}
             >
               <div className="mb-6 inline-block rounded-full bg-gray-300 px-4 py-1.5">
                 <span className="font-syne text-sm font-bold text-gray-600">
@@ -222,19 +190,15 @@ export default function PlanningChantierPage() {
                   </li>
                 ))}
               </ul>
-            </motion.div>
+            </div>
 
             {/* Apr\u00e8s */}
-            <motion.div
+            <div
               className="rounded-2xl border-2 border-sky/30 bg-white p-8 shadow-lg shadow-sky/5"
-              initial={{ opacity: 0, x: 40 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5 }}
             >
               <div className="mb-6 inline-block rounded-full bg-sky/10 px-4 py-1.5">
                 <span className="font-syne text-sm font-bold text-sky">
-                  APR&Egrave;S ARTIDOC
+                  APR&Egrave;S NEXARTIS
                 </span>
               </div>
 
@@ -284,7 +248,7 @@ export default function PlanningChantierPage() {
                 </div>
               </div>
               <p className="mb-6 text-center font-manrope text-xs italic text-emerald-500">
-                Planning Artidoc &mdash; conflits d&eacute;tect&eacute;s, &eacute;quipe notifi&eacute;e, planning toujours &agrave; jour
+                Planning NexArtis &mdash; conflits d&eacute;tect&eacute;s, &eacute;quipe notifi&eacute;e, planning toujours &agrave; jour
               </p>
 
               <ul className="space-y-3">
@@ -297,7 +261,7 @@ export default function PlanningChantierPage() {
                   </li>
                 ))}
               </ul>
-            </motion.div>
+            </div>
           </div>
         </div>
       </section>
@@ -308,35 +272,23 @@ export default function PlanningChantierPage() {
       {/* ── 4 Exclusive Features ── */}
       <section className="bg-gradient-to-b from-navy to-navy-mid py-20 lg:py-28">
         <div className="mx-auto max-w-7xl px-6">
-          <motion.h2
+          <h2
             className="mb-4 text-center font-syne text-2xl font-extrabold text-white md:text-3xl lg:text-4xl"
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
           >
             4 fonctionnalit&eacute;s que vous ne trouverez nulle part ailleurs
-          </motion.h2>
-          <motion.p
+          </h2>
+          <p
             className="mx-auto mb-14 max-w-xl text-center font-manrope text-lg text-gray-400"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5, delay: 0.1 }}
           >
             Nous avons con&ccedil;u le planning qu&apos;aucun concurrent ne
             propose.
-          </motion.p>
+          </p>
 
           <div className="grid gap-6 sm:grid-cols-2">
             {exclusiveFeatures.map((f, i) => (
-              <motion.div
+              <div
                 key={f.title}
                 className="group rounded-2xl border border-white/10 bg-white/[0.03] p-8 transition-colors hover:bg-white/[0.06]"
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.4, delay: i * 0.1 }}
               >
                 <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-xl bg-sky/10 text-sky">
                   {f.icon}
@@ -347,63 +299,18 @@ export default function PlanningChantierPage() {
                 <p className="font-manrope text-sm leading-relaxed text-gray-400">
                   {f.desc}
                 </p>
-              </motion.div>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── Testimonial ── */}
-      <section className="bg-cream py-20 lg:py-28">
-        <div className="mx-auto max-w-3xl px-6">
-          <motion.div
-            className="rounded-2xl border border-gray-200 bg-white p-8 shadow-lg md:p-12"
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-          >
-            <div className="mb-6 flex text-gold">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <span key={i} className="text-2xl">
-                  &#9733;
-                </span>
-              ))}
-            </div>
-            <blockquote className="mb-8 font-manrope text-lg leading-relaxed text-navy">
-              &laquo;&nbsp;Avant Artidoc, je passais mes soir&eacute;es &agrave;
-              appeler mes gars pour leur dire o&ugrave; aller le lendemain.
-              Maintenant, ils re&ccedil;oivent tout sur leur t&eacute;l&eacute;phone.
-              Et l&apos;alerte conflit m&apos;a d&eacute;j&agrave; sauv&eacute;
-              deux fois o&ugrave; j&apos;avais mis deux &eacute;quipes au m&ecirc;me
-              endroit. Franchement, pour 25&euro; par mois, c&apos;est
-              imbattable.&nbsp;&raquo;
-            </blockquote>
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-navy font-syne text-lg font-bold text-white">
-                SD
-              </div>
-              <div>
-                <p className="font-syne text-base font-bold text-navy">
-                  Sylvain D.
-                </p>
-                <p className="font-manrope text-sm text-gray-500">
-                  Ma&ccedil;on &mdash; 4 salari&eacute;s &mdash; Gironde (33)
-                </p>
-              </div>
-            </div>
-          </motion.div>
-        </div>
-      </section>
+      {/* Testimonial masqué en attendant de vrais avis */}
 
       {/* ── CTA ── */}
       <section className="bg-navy py-20 lg:py-28">
         <div className="mx-auto max-w-7xl px-6 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
+          <div
           >
             <h2 className="mb-4 font-syne text-3xl font-extrabold text-white md:text-4xl lg:text-5xl">
               Organisez vos chantiers sans stress
@@ -415,7 +322,7 @@ export default function PlanningChantierPage() {
             <button className="h-16 rounded-xl bg-orange px-10 font-syne text-lg font-bold text-white transition-colors hover:bg-orange-hover">
               Essayer le planning intelligent &rarr;
             </button>
-          </motion.div>
+          </div>
         </div>
       </section>
     </>

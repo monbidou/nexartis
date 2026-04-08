@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   Building2,
   FileText,
@@ -9,6 +9,7 @@ import {
   User,
   CreditCard,
   Camera,
+  PenTool,
 } from 'lucide-react'
 import {
   useEntreprise,
@@ -27,6 +28,7 @@ type Section =
   | 'notifications'
   | 'compte'
   | 'abonnement'
+  | 'signature'
 
 interface NavItem {
   id: Section
@@ -38,6 +40,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'entreprise', label: 'Entreprise', icon: Building2 },
   { id: 'documents', label: 'Documents', icon: FileText },
   { id: 'facturation', label: 'Facturation', icon: Receipt },
+  { id: 'signature', label: 'Ma signature', icon: PenTool },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'compte', label: 'Compte', icon: User },
   { id: 'abonnement', label: 'Abonnement', icon: CreditCard },
@@ -240,20 +243,8 @@ function EntrepriseSection({
         Informations de l&apos;entreprise
       </h2>
 
-      {/* Logo upload */}
-      <div className="flex items-center gap-4 mb-8">
-        <div className="w-20 h-20 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden">
-          {entreprise.logo_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={entreprise.logo_url as string} alt="Logo" className="w-full h-full object-cover rounded-full" />
-          ) : (
-            <Camera size={24} className="text-[#6b7280]" />
-          )}
-        </div>
-        <button className="font-manrope text-sm text-[#5ab4e0] font-medium hover:underline">
-          Modifier le logo
-        </button>
-      </div>
+      {/* Logo upload with background removal */}
+      <LogoUploadSection entreprise={entreprise} update={update} />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <InputField label="Nom de l'entreprise" value={nom} onChange={setNom} />
@@ -467,13 +458,14 @@ function FacturationSection({
         {/* TVA par defaut */}
         <div>
           <label className="block font-manrope font-medium text-sm text-gray-700 mb-1.5">
-            TVA par defaut
+            Taux de TVA par défaut
           </label>
           <select
             value={tvaDefaut}
             onChange={(e) => setTvaDefaut(e.target.value)}
             className="w-full h-12 rounded-lg border border-gray-200 px-4 font-manrope text-sm text-[#1a1a2e] focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none bg-white"
           >
+            <option value="0">Sans TVA (auto-entrepreneur)</option>
             <option value="5.5">5,5 %</option>
             <option value="10">10 %</option>
             <option value="20">20 %</option>
@@ -585,6 +577,296 @@ function CompteSection({ userEmail }: { userEmail: string }) {
   )
 }
 
+// -------------------------------------------------------------------
+// Logo upload with background removal
+// -------------------------------------------------------------------
+
+function LogoUploadSection({
+  entreprise,
+  update,
+}: {
+  entreprise: Record<string, unknown>
+  update: (v: Record<string, unknown>) => Promise<unknown>
+}) {
+  const [processing, setProcessing] = useState(false)
+  const [originalPreview, setOriginalPreview] = useState<string | null>(null)
+  const [removedBgPreview, setRemovedBgPreview] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const currentLogo = entreprise.logo_url as string | undefined
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = async (ev) => {
+      const dataUrl = ev.target?.result as string
+      setOriginalPreview(dataUrl)
+      setRemovedBgPreview(null)
+      setProcessing(true)
+
+      // Background removal will be loaded on-demand when available
+      setProcessing(false)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const saveLogo = async (dataUrl: string) => {
+    setSaving(true)
+    try {
+      await update({ logo_url: dataUrl })
+      setOriginalPreview(null)
+      setRemovedBgPreview(null)
+    } catch { /* ignored */ }
+    setSaving(false)
+  }
+
+  return (
+    <div className="mb-8">
+      <label className="block font-manrope font-medium text-sm text-gray-700 mb-3">
+        Logo de l&apos;entreprise
+      </label>
+
+      <div className="flex items-start gap-6">
+        {/* Current logo */}
+        <div className="w-20 h-20 rounded-xl border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden bg-white shrink-0">
+          {currentLogo ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={currentLogo} alt="Logo" className="w-full h-full object-contain" />
+          ) : (
+            <Camera size={24} className="text-[#6b7280]" />
+          )}
+        </div>
+
+        <div className="flex-1">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            onChange={handleFileChange}
+            className="hidden"
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="font-manrope text-sm text-[#5ab4e0] font-medium hover:underline"
+          >
+            {currentLogo ? 'Modifier le logo' : 'Ajouter un logo'}
+          </button>
+          <p className="text-xs text-gray-400 mt-1">PNG, JPG ou WebP. Max 2 Mo.</p>
+        </div>
+      </div>
+
+      {/* Processing / Preview */}
+      {processing && (
+        <div className="mt-4 flex items-center gap-3 bg-sky-50 border border-sky-200 rounded-lg px-4 py-3">
+          <div className="w-5 h-5 border-2 border-[#5ab4e0] border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm text-[#5ab4e0] font-manrope">Suppression du fond en cours...</p>
+        </div>
+      )}
+
+      {originalPreview && !processing && !removedBgPreview && (
+        <div className="mt-4 space-y-4">
+          <div>
+            <p className="text-xs font-manrope text-gray-500 mb-2">Aperçu</p>
+            <div className="h-32 w-32 rounded-lg border border-gray-200 bg-white flex items-center justify-center p-2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={originalPreview} alt="Aperçu" className="max-h-full max-w-full object-contain" />
+            </div>
+          </div>
+          <button
+            onClick={() => saveLogo(originalPreview)}
+            disabled={saving}
+            className="h-10 px-6 rounded-lg font-syne font-bold text-white bg-[#e87a2a] hover:bg-[#f09050] transition-colors text-sm disabled:opacity-50"
+          >
+            {saving ? 'Enregistrement...' : 'Enregistrer le logo'}
+          </button>
+        </div>
+      )}
+
+      {originalPreview && removedBgPreview && !processing && (
+        <div className="mt-4 space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-xs font-manrope text-gray-500 mb-2">Original</p>
+              <div className="h-32 rounded-lg border border-gray-200 bg-white flex items-center justify-center p-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={originalPreview} alt="Original" className="max-h-full max-w-full object-contain" />
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-manrope text-gray-500 mb-2">Sans fond</p>
+              <div className="h-32 rounded-lg border border-gray-200 flex items-center justify-center p-2" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'20\' height=\'20\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Crect width=\'10\' height=\'10\' fill=\'%23f0f0f0\'/%3E%3Crect x=\'10\' y=\'10\' width=\'10\' height=\'10\' fill=\'%23f0f0f0\'/%3E%3Crect x=\'10\' width=\'10\' height=\'10\' fill=\'%23ffffff\'/%3E%3Crect y=\'10\' width=\'10\' height=\'10\' fill=\'%23ffffff\'/%3E%3C/svg%3E")' }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={removedBgPreview} alt="Sans fond" className="max-h-full max-w-full object-contain" />
+              </div>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={() => saveLogo(removedBgPreview)}
+              disabled={saving}
+              className="h-10 px-6 rounded-lg font-syne font-bold text-white bg-[#e87a2a] hover:bg-[#f09050] transition-colors text-sm disabled:opacity-50"
+            >
+              {saving ? 'Enregistrement...' : 'Garder sans fond'}
+            </button>
+            <button
+              onClick={() => saveLogo(originalPreview)}
+              disabled={saving}
+              className="h-10 px-6 rounded-lg font-syne font-bold text-[#1a1a2e] border border-gray-200 hover:bg-gray-50 transition-colors text-sm disabled:opacity-50"
+            >
+              Garder original
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// -------------------------------------------------------------------
+// Signature pad
+// -------------------------------------------------------------------
+
+function SignatureSection({
+  entreprise,
+  update,
+}: {
+  entreprise: Record<string, unknown>
+  update: (v: Record<string, unknown>) => Promise<unknown>
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [isDrawing, setIsDrawing] = useState(false)
+  const [hasStrokes, setHasStrokes] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [success, setSuccess] = useState<string | null>(null)
+
+  const currentSignature = entreprise.signature_base64 as string | undefined
+
+  const getPos = (e: React.MouseEvent | React.TouchEvent) => {
+    const canvas = canvasRef.current
+    if (!canvas) return { x: 0, y: 0 }
+    const rect = canvas.getBoundingClientRect()
+    if ('touches' in e) {
+      return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top }
+    }
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top }
+  }
+
+  const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault()
+    const ctx = canvasRef.current?.getContext('2d')
+    if (!ctx) return
+    const { x, y } = getPos(e)
+    ctx.beginPath()
+    ctx.moveTo(x, y)
+    setIsDrawing(true)
+    setHasStrokes(true)
+  }
+
+  const draw = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault()
+    if (!isDrawing) return
+    const ctx = canvasRef.current?.getContext('2d')
+    if (!ctx) return
+    const { x, y } = getPos(e)
+    ctx.lineTo(x, y)
+    ctx.strokeStyle = '#0f1a3a'
+    ctx.lineWidth = 2.5
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+    ctx.stroke()
+  }
+
+  const stopDrawing = () => setIsDrawing(false)
+
+  const clearCanvas = () => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    setHasStrokes(false)
+    setSuccess(null)
+  }
+
+  const saveSignature = async () => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    setSaving(true)
+    setSuccess(null)
+    try {
+      const dataUrl = canvas.toDataURL('image/png')
+      await update({ signature_base64: dataUrl })
+      setSuccess('Signature enregistrée avec succès.')
+    } catch { /* ignored */ }
+    setSaving(false)
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-8">
+      <h2 className="font-syne font-bold text-xl text-[#1a1a2e] mb-2">
+        Ma signature
+      </h2>
+      <p className="font-manrope text-sm text-gray-500 mb-6">
+        Cette signature apparaîtra automatiquement sur vos devis et factures.
+      </p>
+
+      {/* Current saved signature */}
+      {currentSignature && (
+        <div className="mb-6">
+          <p className="text-xs font-manrope text-gray-500 mb-2">Signature actuelle</p>
+          <div className="h-20 w-64 rounded-lg border border-gray-200 bg-white flex items-center justify-center p-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={currentSignature} alt="Signature" className="max-h-full max-w-full object-contain" />
+          </div>
+        </div>
+      )}
+
+      {/* Canvas */}
+      <div className="relative">
+        <canvas
+          ref={canvasRef}
+          width={500}
+          height={180}
+          className="w-full max-w-[500px] h-[180px] rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 cursor-crosshair touch-none"
+          onMouseDown={startDrawing}
+          onMouseMove={draw}
+          onMouseUp={stopDrawing}
+          onMouseLeave={stopDrawing}
+          onTouchStart={startDrawing}
+          onTouchMove={draw}
+          onTouchEnd={stopDrawing}
+        />
+        {!hasStrokes && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none max-w-[500px]">
+            <p className="font-manrope text-sm text-gray-400">Dessinez votre signature ici</p>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-4 flex gap-3">
+        <button
+          onClick={saveSignature}
+          disabled={!hasStrokes || saving}
+          className="h-10 px-6 rounded-lg font-syne font-bold text-white bg-[#e87a2a] hover:bg-[#f09050] transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {saving ? 'Enregistrement...' : 'Enregistrer la signature'}
+        </button>
+        <button
+          onClick={clearCanvas}
+          className="h-10 px-6 rounded-lg font-syne font-bold text-[#1a1a2e] border border-gray-200 hover:bg-gray-50 transition-colors text-sm"
+        >
+          Effacer
+        </button>
+      </div>
+
+      <SuccessMessage message={success} />
+    </div>
+  )
+}
+
 function AbonnementSection() {
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-8">
@@ -596,7 +878,7 @@ function AbonnementSection() {
         <div className="flex items-start justify-between mb-4">
           <div>
             <h3 className="font-syne font-bold text-lg text-[#1a1a2e]">
-              Artidoc &mdash; 25 &euro; / mois HT
+              NexArtis &mdash; 25 &euro; / mois HT
             </h3>
             <p className="font-manrope text-sm text-[#6b7280] mt-1">
               Toutes les fonctionnalites incluses
@@ -679,6 +961,7 @@ export default function ParametresPage() {
         {activeSection === 'entreprise' && entreprise && <EntrepriseSection entreprise={entreprise} update={update} />}
         {activeSection === 'documents' && entreprise && <DocumentsSection entreprise={entreprise} update={update} />}
         {activeSection === 'facturation' && entreprise && <FacturationSection entreprise={entreprise} update={update} />}
+        {activeSection === 'signature' && entreprise && <SignatureSection entreprise={entreprise} update={update} />}
         {activeSection === 'notifications' && <NotificationsSection />}
         {activeSection === 'compte' && <CompteSection userEmail={user?.email ?? ''} />}
         {activeSection === 'abonnement' && <AbonnementSection />}

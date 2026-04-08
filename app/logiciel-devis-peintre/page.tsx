@@ -2,7 +2,7 @@ import { Metadata } from "next";
 import MetierPageTemplate from "@/components/MetierPageTemplate";
 
 export const metadata: Metadata = {
-  title: "Logiciel Devis Peintre — Artidoc | 25€/mois tout inclus",
+  title: "Logiciel Devis Peintre — NexArtis | 25€/mois tout inclus",
   description:
     "Créez vos devis peinture en quelques minutes. Calcul surfaces automatique. Conforme Factur-X 2026. Essai gratuit.",
 };
@@ -12,7 +12,7 @@ const data = {
   nomPluriel: "Peintres",
   icon: "🎨",
   h1: "Logiciel devis et factures pour peintres en bâtiment",
-  metaTitle: "Logiciel Devis Peintre — Artidoc | 25€/mois tout inclus",
+  metaTitle: "Logiciel Devis Peintre — NexArtis | 25€/mois tout inclus",
   metaDescription:
     "Créez vos devis peinture en quelques minutes. Calcul surfaces automatique. Conforme Factur-X 2026. Essai gratuit.",
   tvaNotes:
@@ -26,7 +26,7 @@ const data = {
   ],
   keywordPrincipal: "logiciel devis peintre",
   specificite:
-    "Décrivez vos prestations au m² et Artidoc calcule le total automatiquement.",
+    "Décrivez vos prestations au m² et NexArtis calcule le total automatiquement.",
 };
 
 export default function Page() {

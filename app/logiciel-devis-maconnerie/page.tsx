@@ -2,7 +2,7 @@ import { Metadata } from "next";
 import MetierPageTemplate from "@/components/MetierPageTemplate";
 
 export const metadata: Metadata = {
-  title: "Logiciel Devis Maçon — Artidoc | 25€/mois tout inclus",
+  title: "Logiciel Devis Maçon — NexArtis | 25€/mois tout inclus",
   description:
     "Créez vos devis maçonnerie en quelques minutes. Gestion des situations de travaux. Conforme Factur-X 2026. Essai gratuit.",
 };
@@ -12,11 +12,11 @@ const data = {
   nomPluriel: "Maçons",
   icon: "🧱",
   h1: "Logiciel devis et factures pour maçons",
-  metaTitle: "Logiciel Devis Maçon — Artidoc | 25€/mois tout inclus",
+  metaTitle: "Logiciel Devis Maçon — NexArtis | 25€/mois tout inclus",
   metaDescription:
     "Créez vos devis maçonnerie en quelques minutes. Gestion des situations de travaux. Conforme Factur-X 2026. Essai gratuit.",
   tvaNotes:
-    "TVA 10% sur la rénovation, 20% sur la construction neuve. Artidoc gère les deux automatiquement.",
+    "TVA 10% sur la rénovation, 20% sur la construction neuve. NexArtis gère les deux automatiquement.",
   prestationsExemples: [
     "Coulage dalle béton",
     "Montage murs parpaings",

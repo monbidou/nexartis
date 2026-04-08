@@ -20,6 +20,7 @@ import {
 import {
   useSupabaseRecord,
   useFactureLignes,
+  useEntreprise,
   LoadingSkeleton,
 } from '@/lib/hooks'
 
@@ -79,6 +80,7 @@ export default function FactureDetailPage() {
   const { data: facture, loading: loadingFacture } = useSupabaseRecord<FactureRecord>('factures', id)
   const { data: lignesRaw, loading: loadingLignes } = useFactureLignes(id)
   const { data: client, loading: loadingClient } = useSupabaseRecord<ClientRecord>('clients', facture?.client_id ?? null)
+  const { entreprise } = useEntreprise()
 
   const [activeAction, setActiveAction] = useState<string | null>(null)
 
@@ -174,8 +176,15 @@ export default function FactureDetailPage() {
             {/* Invoice header */}
             <div className="flex justify-between mb-8">
               <div>
-                <h2 className="text-lg font-syne font-bold text-[#0f1a3a]">Artidoc SARL</h2>
-                <p className="text-sm font-manrope text-gray-500 mt-1">45 avenue des Arts, 33700 Mérignac</p>
+                {Boolean(entreprise?.logo_url) && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={entreprise?.logo_url as string} alt="Logo" className="h-10 w-auto object-contain mb-2" />
+                )}
+                <h2 className="text-lg font-syne font-bold text-[#0f1a3a]">{(entreprise?.nom as string) || 'Mon Entreprise'}</h2>
+                <p className="text-sm font-manrope text-gray-500 mt-1">
+                  {Boolean(entreprise?.adresse) && <>{entreprise?.adresse as string}, </>}
+                  {(entreprise?.code_postal as string) || ''} {(entreprise?.ville as string) || ''}
+                </p>
               </div>
               <div className="text-right">
                 <h3 className="text-2xl font-syne font-bold text-[#0f1a3a]">FACTURE</h3>

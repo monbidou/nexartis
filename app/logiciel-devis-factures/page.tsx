@@ -1,12 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
 import { useState } from "react";
-
-const fadeInUp = {
-  initial: { opacity: 0, y: 30 },
-  animate: { opacity: 1, y: 0 },
-};
 
 const features = [
   {
@@ -94,7 +88,7 @@ const prestations = [
 const faqItems = [
   {
     q: "Puis-je cr\u00e9er un devis depuis mon t\u00e9l\u00e9phone\u00a0?",
-    a: "Oui, Artidoc est enti\u00e8rement responsive. Cr\u00e9ez, modifiez et envoyez vos devis directement depuis votre smartphone, m\u00eame sur chantier.",
+    a: "Oui, NexArtis est enti\u00e8rement responsive. Cr\u00e9ez, modifiez et envoyez vos devis directement depuis votre smartphone, m\u00eame sur chantier.",
   },
   {
     q: "La signature \u00e9lectronique a-t-elle une valeur juridique\u00a0?",
@@ -102,7 +96,7 @@ const faqItems = [
   },
   {
     q: "Comment fonctionne la TVA automatique\u00a0?",
-    a: "Lorsque vous cr\u00e9ez un devis, Artidoc d\u00e9tecte automatiquement le taux de TVA applicable (5.5% pour la r\u00e9novation \u00e9nerg\u00e9tique, 10% pour les travaux d\u2019am\u00e9lioration, 20% pour le neuf) en fonction du type de prestation.",
+    a: "Lorsque vous cr\u00e9ez un devis, NexArtis d\u00e9tecte automatiquement le taux de TVA applicable (5.5% pour la r\u00e9novation \u00e9nerg\u00e9tique, 10% pour les travaux d\u2019am\u00e9lioration, 20% pour le neuf) en fonction du type de prestation.",
   },
   {
     q: "Puis-je importer mes anciens devis depuis un autre logiciel\u00a0?",
@@ -110,7 +104,7 @@ const faqItems = [
   },
   {
     q: "Qu\u2019est-ce que la facturation \u00e9lectronique Factur-X 2026\u00a0?",
-    a: "D\u00e8s septembre 2026, toutes les entreprises devront \u00e9mettre des factures au format \u00e9lectronique Factur-X. Artidoc g\u00e9n\u00e8re d\u00e9j\u00e0 vos factures dans ce format, vous \u00eates donc pr\u00eat d\u00e8s aujourd\u2019hui.",
+    a: "D\u00e8s septembre 2026, toutes les entreprises devront \u00e9mettre des factures au format \u00e9lectronique Factur-X. NexArtis g\u00e9n\u00e8re d\u00e9j\u00e0 vos factures dans ce format, vous \u00eates donc pr\u00eat d\u00e8s aujourd\u2019hui.",
   },
 ];
 
@@ -145,34 +139,22 @@ export default function LogicielDevisFacturesPage() {
       <section className="relative overflow-hidden bg-gradient-to-b from-navy to-[#0d1525] py-20 lg:py-28">
         <div className="pointer-events-none absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")" }} />
         <div className="relative mx-auto max-w-7xl px-6 text-center">
-          <motion.h1
+          <h1
             className="font-syne text-3xl font-extrabold leading-tight text-white md:text-5xl lg:text-6xl"
-            variants={fadeInUp}
-            initial="initial"
-            animate="animate"
-            transition={{ duration: 0.5 }}
           >
-            Cr&eacute;ez vos devis et factures BTP
+            Cr&eacute;ez vos devis et factures
             <br />
             <span className="text-sky">rapidement</span>
-          </motion.h1>
-          <motion.p
+          </h1>
+          <p
             className="mx-auto mt-6 max-w-2xl font-manrope text-lg leading-relaxed text-gray-300"
-            variants={fadeInUp}
-            initial="initial"
-            animate="animate"
-            transition={{ duration: 0.5, delay: 0.15 }}
           >
             Fini les soir&eacute;es perdues &agrave; remplir des devis sur Excel.
-            Artidoc g&eacute;n&egrave;re vos documents professionnels en quelques
+            NexArtis g&eacute;n&egrave;re vos documents professionnels en quelques
             clics, avec signature &eacute;lectronique et TVA automatique.
-          </motion.p>
-          <motion.div
+          </p>
+          <div
             className="mt-8"
-            variants={fadeInUp}
-            initial="initial"
-            animate="animate"
-            transition={{ duration: 0.5, delay: 0.3 }}
           >
             <button className="h-16 rounded-xl bg-orange px-8 font-syne text-lg font-bold text-white transition-colors hover:bg-orange-hover">
               Essayer gratuitement 14 jours &rarr;
@@ -180,29 +162,21 @@ export default function LogicielDevisFacturesPage() {
             <p className="mt-3 font-manrope text-sm text-gray-400">
               Sans carte bancaire requise · Sans engagement
             </p>
-          </motion.div>
+          </div>
         </div>
       </section>
 
       {/* ── Devis Mockup ── */}
       <section className="bg-cream py-20 lg:py-28">
         <div className="mx-auto max-w-4xl px-6">
-          <motion.h2
+          <h2
             className="mb-12 text-center font-syne text-2xl font-extrabold text-navy md:text-3xl lg:text-4xl"
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
           >
-            Voici &agrave; quoi ressemble un devis Artidoc
-          </motion.h2>
+            Voici &agrave; quoi ressemble un devis NexArtis
+          </h2>
 
-          <motion.div
+          <div
             className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl shadow-black/10"
-            initial={{ opacity: 0, y: 40 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, amount: 0.15 }}
-            transition={{ duration: 0.6 }}
           >
             {/* Document header */}
             <div className="border-b border-gray-100 px-8 py-6 md:px-10">
@@ -342,42 +316,30 @@ export default function LogicielDevisFacturesPage() {
                 </div>
               </div>
             </div>
-          </motion.div>
+          </div>
         </div>
       </section>
 
       {/* ── Features Grid ── */}
       <section className="bg-white py-20 lg:py-28">
         <div className="mx-auto max-w-7xl px-6">
-          <motion.h2
+          <h2
             className="mb-4 text-center font-syne text-2xl font-extrabold text-navy md:text-3xl lg:text-4xl"
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
           >
             Tout ce qu&apos;il faut pour facturer sereinement
-          </motion.h2>
-          <motion.p
+          </h2>
+          <p
             className="mx-auto mb-14 max-w-xl text-center font-manrope text-lg text-gray-500"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5, delay: 0.1 }}
           >
             8 fonctionnalit&eacute;s essentielles, incluses dans votre abonnement
             &agrave; 25&euro;/mois.
-          </motion.p>
+          </p>
 
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {features.map((f, i) => (
-              <motion.div
+              <div
                 key={f.title}
                 className="group rounded-2xl border border-gray-100 bg-cream/40 p-6 transition-shadow hover:shadow-lg"
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.4, delay: i * 0.06 }}
               >
                 <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-sky/10 text-sky transition-colors group-hover:bg-sky/20">
                   {f.icon}
@@ -388,7 +350,7 @@ export default function LogicielDevisFacturesPage() {
                 <p className="font-manrope text-sm leading-relaxed text-gray-500">
                   {f.desc}
                 </p>
-              </motion.div>
+              </div>
             ))}
           </div>
         </div>
@@ -397,12 +359,8 @@ export default function LogicielDevisFacturesPage() {
       {/* ── Factur-X Legal Section ── */}
       <section className="bg-white py-20 lg:py-28">
         <div className="mx-auto max-w-4xl px-6">
-          <motion.div
+          <div
             className="overflow-hidden rounded-2xl border border-navy/10 bg-gradient-to-br from-navy to-navy-mid p-8 md:p-12"
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
           >
             <div className="mb-6 inline-block rounded-full bg-gold/20 px-4 py-1.5">
               <span className="font-syne text-sm font-bold text-gold">
@@ -428,7 +386,7 @@ export default function LogicielDevisFacturesPage() {
               </p>
               <p>
                 <strong className="text-sky">
-                  Artidoc g&eacute;n&egrave;re d&eacute;j&agrave; toutes vos factures au format
+                  NexArtis g&eacute;n&egrave;re d&eacute;j&agrave; toutes vos factures au format
                   Factur-X.
                 </strong>{" "}
                 Vous n&apos;avez rien &agrave; faire, rien &agrave; changer : vos
@@ -455,32 +413,24 @@ export default function LogicielDevisFacturesPage() {
                 </div>
               ))}
             </div>
-          </motion.div>
+          </div>
         </div>
       </section>
 
       {/* ── FAQ ── */}
       <section className="bg-cream py-20 lg:py-28">
         <div className="mx-auto max-w-3xl px-6">
-          <motion.h2
+          <h2
             className="mb-12 text-center font-syne text-2xl font-extrabold text-navy md:text-3xl lg:text-4xl"
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
           >
             Questions fr&eacute;quentes sur la facturation
-          </motion.h2>
+          </h2>
 
           <div className="space-y-3">
             {faqItems.map((item, i) => (
-              <motion.div
+              <div
                 key={i}
                 className="overflow-hidden rounded-xl border border-gray-200 bg-white"
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.4, delay: i * 0.05 }}
               >
                 <button
                   className="flex w-full items-center justify-between px-6 py-5 text-left"
@@ -504,7 +454,7 @@ export default function LogicielDevisFacturesPage() {
                     </p>
                   </div>
                 )}
-              </motion.div>
+              </div>
             ))}
           </div>
         </div>
@@ -513,14 +463,10 @@ export default function LogicielDevisFacturesPage() {
       {/* ── CTA ── */}
       <section className="bg-navy py-20 lg:py-28">
         <div className="mx-auto max-w-7xl px-6 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
+          <div
           >
             <h2 className="mb-4 font-syne text-3xl font-extrabold text-white md:text-4xl lg:text-5xl">
-              Essayez Artidoc gratuitement
+              Essayez NexArtis gratuitement
             </h2>
             <p className="mx-auto mb-8 max-w-lg font-manrope text-lg text-gray-400">
               14 jours gratuits pour cr&eacute;er vos devis et factures
@@ -529,7 +475,7 @@ export default function LogicielDevisFacturesPage() {
             <button className="h-16 rounded-xl bg-orange px-10 font-syne text-lg font-bold text-white transition-colors hover:bg-orange-hover">
               D&eacute;marrer mon essai gratuit &mdash; 14 jours
             </button>
-          </motion.div>
+          </div>
         </div>
       </section>
     </>

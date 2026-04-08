@@ -73,8 +73,8 @@ export default function RegisterPage() {
       <div className="w-full max-w-[420px]">
         {/* Logo */}
         <div className="flex items-center justify-center gap-2 mb-6">
-          <Image src="/images/logo-artidoc.png" alt="Artidoc" width={192} height={192} quality={100} className="h-24 w-auto object-contain" />
-          <span className="font-syne font-extrabold text-3xl text-navy">Artidoc</span>
+          <Image src="/images/logo-nexartis.png" alt="NexArtis" width={192} height={192} quality={100} className="h-24 w-auto object-contain" />
+          <span className="font-syne font-extrabold text-3xl text-navy">NexArtis</span>
         </div>
 
         {/* Badge */}

@@ -1,9 +1,9 @@
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Blog Artidoc — Conseils pour artisans du BTP',
+  title: 'Blog NexArtis — Conseils pratiques pour artisans',
   description:
-    'Guides, astuces et actualités pour les artisans du bâtiment. Devis, facturation, planning, TVA, Factur-X 2026.',
+    'Guides, astuces et actualités pour les artisans de tous corps de métier. Devis, facturation, planning, TVA, Factur-X 2026.',
 }
 
 const posts = [
@@ -17,7 +17,7 @@ const posts = [
   },
   {
     category: 'Guide',
-    title: 'Comment faire un devis BTP conforme en 2026',
+    title: 'Comment faire un devis artisan conforme en 2026',
     excerpt:
       'Les 12 mentions obligatoires, les erreurs à éviter, et un modèle gratuit à télécharger.',
     date: '8 mars 2026',
@@ -35,7 +35,7 @@ const posts = [
     category: 'Guide',
     title: 'Artisan auto-entrepreneur : comment facturer sans TVA',
     excerpt:
-      'La mention obligatoire, les seuils à connaître, et comment Artidoc vous simplifie la vie.',
+      'La mention obligatoire, les seuils à connaître, et comment NexArtis vous simplifie la vie.',
     date: '22 février 2026',
     time: '6 min',
   },
@@ -121,13 +121,13 @@ export default function BlogPage() {
             Prêt à simplifier votre quotidien&nbsp;?
           </h2>
           <p className="mx-auto mt-4 max-w-xl font-manrope text-gray-600">
-            Rejoignez les artisans qui gagnent du temps avec Artidoc.
+            Rejoignez les artisans qui gagnent du temps avec NexArtis.
           </p>
           <a
             href="/register"
             className="mt-8 inline-block rounded-xl bg-[#e87a2a] px-8 py-4 font-syne text-lg font-bold text-white transition hover:bg-[#f09050]"
           >
-            Essayez Artidoc gratuitement
+            Essayez NexArtis gratuitement
           </a>
         </div>
       </section>

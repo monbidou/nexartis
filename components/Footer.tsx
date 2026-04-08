@@ -35,10 +35,10 @@ export default function Footer() {
           {/* Column 1 — Logo & tagline */}
           <div>
             <Link href="/" className="font-syne text-2xl font-[800] text-white">
-              Artidoc
+              NexArtis
             </Link>
             <p className="font-manrope mt-4 text-sm leading-relaxed text-white/70">
-              Solution de gestion pour artisans du bâtiment — Développée à Bordeaux, Gironde.
+              Solution de gestion pour tous les artisans — Développée à Bordeaux, Gironde.
             </p>
           </div>
 
@@ -67,9 +67,8 @@ export default function Footer() {
               Support client
             </h3>
             <ul className="flex flex-col gap-2 font-manrope text-sm text-white/70">
-              <li>📞 05 57 00 00 00</li>
+              <li>📧 contact@nexartis.fr</li>
               <li>Lun-Ven 9h-18h</li>
-              <li>📧 contact@artidoc.fr</li>
             </ul>
           </div>
 
@@ -117,7 +116,7 @@ export default function Footer() {
       <div className="border-t border-white/10">
         <div className="mx-auto max-w-7xl px-5 py-5 lg:px-8">
           <p className="font-manrope text-center text-xs leading-relaxed text-white/40">
-            &copy; 2026 Artidoc &mdash; Bordeaux, France &middot; Logiciel
+            &copy; 2026 NexArtis &mdash; Bordeaux, France &middot; Logiciel
             certifi&eacute; conforme Factur-X &middot; Donn&eacute;es
             h&eacute;berg&eacute;es en France
           </p>
