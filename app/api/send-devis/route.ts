@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { Resend } from 'resend'
 import { createClient } from '@supabase/supabase-js'
-
-const resend = new Resend(process.env.RESEND_API_KEY)
 
 export async function POST(req: NextRequest) {
   try {
@@ -127,17 +124,26 @@ export async function POST(req: NextRequest) {
 </body>
 </html>`
 
-    // Send email via Resend
-    const { error: sendErr } = await resend.emails.send({
-      from: 'NexArtis <contact@nexartis.fr>',
-      to: emailDestinataire,
-      subject: `Devis n° ${devis.numero} — ${ent.nom || 'NexArtis'}`,
-      html,
+    // Send email via Brevo
+    const brevoResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'accept': 'application/json',
+        'api-key': process.env.BREVO_API_KEY!,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        sender: { name: ent.nom || 'NexArtis', email: 'contact@nexartis.fr' },
+        to: [{ email: emailDestinataire, name: clientNom }],
+        subject: `Votre devis n° ${devis.numero}`,
+        htmlContent: html,
+      }),
     })
 
-    if (sendErr) {
-      console.error('Resend error:', sendErr)
-      return NextResponse.json({ error: sendErr.message }, { status: 500 })
+    if (!brevoResponse.ok) {
+      const brevoErr = await brevoResponse.json()
+      console.error('Brevo error:', brevoErr)
+      return NextResponse.json({ error: brevoErr.message || 'Erreur envoi Brevo' }, { status: 500 })
     }
 
     // Update devis status
