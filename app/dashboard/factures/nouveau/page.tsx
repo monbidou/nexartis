@@ -75,11 +75,13 @@ export default function NouvelleFacturePage() {
   // ── Client autocomplete ──
   const handleClientNomChange = (value: string) => {
     setClientNom(value)
-    if (value.length >= 1) {
-      const filtered = clients.filter(c =>
-        c.nom.toLowerCase().includes(value.toLowerCase()) ||
-        (c.prenom && c.prenom.toLowerCase().includes(value.toLowerCase()))
-      )
+    if (value.length >= 1 && clients && clients.length > 0) {
+      const q = value.toLowerCase().trim()
+      const filtered = clients.filter(c => {
+        const nom = String(c.nom || '').toLowerCase()
+        const prenom = String(c.prenom || '').toLowerCase()
+        return nom.includes(q) || prenom.includes(q) || (prenom + ' ' + nom).includes(q)
+      })
       setClientSuggestions(filtered.slice(0, 8))
       setClientDropdownOpen(filtered.length > 0)
     } else {

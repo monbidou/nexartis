@@ -240,8 +240,8 @@ function NouveauDevisPage() {
   const [duree, setDuree] = useState('')
 
   // Conditions
-  const [selectedPayments, setSelectedPayments] = useState<Set<string>>(new Set(['p30', 'acompte']))
-  const [acomptePercent, setAcomptePercent] = useState('30')
+  const [selectedPayments, setSelectedPayments] = useState<Set<string>>(new Set(['p30']))
+  const [acomptePercent, setAcomptePercent] = useState('')
   const [conditionsLibres, setConditionsLibres] = useState('')
   const [notes, setNotes] = useState('')
 
@@ -304,9 +304,9 @@ function NouveauDevisPage() {
   const totalTVA = Object.values(tvaGroups).reduce((s, g) => s + g.tva, 0)
   const totalTTC = totalHT + totalTVA
   const acomptePct = (() => {
-    if (selectedPayments.has('acompte') && acomptePercent) return parseFloat(acomptePercent)
     if (selectedPayments.has('p30')) return 30
     if (selectedPayments.has('p50')) return 50
+    if (selectedPayments.has('acompte') && acomptePercent) return parseFloat(acomptePercent)
     return 0
   })()
   const acompteMontant = acomptePct > 0 ? totalTTC * (acomptePct / 100) : 0
@@ -457,11 +457,14 @@ function NouveauDevisPage() {
   // --- Client autocomplete ---
   const handleClientNomChange = (value: string) => {
     setClientNom(value)
-    if (value.length >= 1) {
-      const filtered = clients.filter(c =>
-        c.nom.toLowerCase().includes(value.toLowerCase()) ||
-        (c.prenom && c.prenom.toLowerCase().includes(value.toLowerCase()))
-      )
+    if (value.length >= 1 && clients && clients.length > 0) {
+      const q = value.toLowerCase().trim()
+      const filtered = clients.filter(c => {
+        const nom = String(c.nom || '').toLowerCase()
+        const prenom = String(c.prenom || '').toLowerCase()
+        const civilite = String((c as unknown as Record<string,string>).civilite || '').toLowerCase()
+        return nom.includes(q) || prenom.includes(q) || (prenom + ' ' + nom).includes(q) || civilite.includes(q)
+      })
       setClientSuggestions(filtered.slice(0, 8))
       setClientDropdownOpen(filtered.length > 0)
     } else {
@@ -515,9 +518,9 @@ function NouveauDevisPage() {
         next.delete(id)
       } else {
         next.add(id)
-        // p30 / p50 activent automatiquement l'acompte et remplissent le %
-        if (id === 'p30') { setAcomptePercent('30'); next.add('acompte') }
-        if (id === 'p50') { setAcomptePercent('50'); next.add('acompte') }
+        // p30 / p50 sont des conditions indépendantes, pas besoin d'activer acompte séparé
+        if (id === 'p30') { setAcomptePercent('') }
+        if (id === 'p50') { setAcomptePercent('') }
       }
       return next
     })
@@ -529,7 +532,7 @@ function NouveauDevisPage() {
   if (showPreview) {
     return (
       <div className="min-h-screen">
-        <TopBar showPreview setShowPreview={setShowPreview} saving={saving} onDraft={() => handleSave('brouillon')} onFinish={() => handleSave('enregistrer')} onSend={() => handleSave('envoyer')} />
+        <TopBar showPreview setShowPreview={setShowPreview} saving={saving} onDraft={() => handleSave('brouillon')} onFinish={() => handleSave('enregistrer')} />
         <div className="p-6 flex justify-center">
           <div className="max-w-[800px] w-full bg-white shadow-xl rounded-xl p-12">
             <div className="flex justify-between items-start mb-10">
@@ -621,7 +624,7 @@ function NouveauDevisPage() {
   // ===================================================================
   return (
     <div className="min-h-screen">
-      <TopBar showPreview={false} setShowPreview={setShowPreview} saving={saving} onDraft={() => handleSave('brouillon')} onFinish={() => handleSave('enregistrer')} onSend={() => handleSave('envoyer')} />
+      <TopBar showPreview={false} setShowPreview={setShowPreview} saving={saving} onDraft={() => handleSave('brouillon')} onFinish={() => handleSave('enregistrer')} />
 
       <div className="p-6 space-y-6">
         {error && <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3"><p className="text-sm text-red-600 font-manrope">{error}</p></div>}
@@ -879,11 +882,6 @@ function NouveauDevisPage() {
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
             Enregistrer
           </button>
-          <button onClick={() => handleSave('envoyer')} disabled={saving}
-            className="h-12 px-8 rounded-xl bg-[#e87a2a] text-white font-syne font-bold text-sm hover:bg-[#f09050] shadow-md hover:shadow-lg transition-all flex items-center gap-2 disabled:opacity-50">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-            Envoyer
-          </button>
         </div>
       </div>
 
@@ -900,8 +898,8 @@ function NouveauDevisPage() {
 // Top Bar
 // -------------------------------------------------------------------
 
-function TopBar({ showPreview, setShowPreview, saving, onDraft, onFinish, onSend }: {
-  showPreview: boolean; setShowPreview: (v: boolean) => void; saving: boolean; onDraft: () => void; onFinish: () => void; onSend: () => void
+function TopBar({ showPreview, setShowPreview, saving, onDraft, onFinish }: {
+  showPreview: boolean; setShowPreview: (v: boolean) => void; saving: boolean; onDraft: () => void; onFinish: () => void
 }) {
   return (
     <div className="sticky top-0 bg-white border-b border-gray-200 z-10 py-3 px-6 flex items-center justify-between">
@@ -924,11 +922,7 @@ function TopBar({ showPreview, setShowPreview, saving, onDraft, onFinish, onSend
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
           Enregistrer
         </button>
-        <button onClick={onSend} disabled={saving}
-          className="h-9 px-4 rounded-xl bg-[#e87a2a] text-white font-syne font-bold text-sm hover:bg-[#f09050] transition-all flex items-center gap-2 disabled:opacity-50">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-          Envoyer
-        </button>
+
       </div>
     </div>
   )
