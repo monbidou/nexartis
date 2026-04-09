@@ -196,10 +196,12 @@ function NouveauDevisPage() {
   const [clientEmail, setClientEmail] = useState('')
   const [clientCodePostal, setClientCodePostal] = useState('')
   const [clientVille, setClientVille] = useState('')
+  const [clientSuggestions, setClientSuggestions] = useState<ClientRecord[]>([])
   const [clientDropdownOpen, setClientDropdownOpen] = useState(false)
 
-  // Chantier (free text)
+  // Chantier (free text + autocomplete)
   const [chantierDesc, setChantierDesc] = useState('')
+  const [chantierSuggestions, setChantierSuggestions] = useState<ChantierRecord[]>([])
   const [chantierDropdownOpen, setChantierDropdownOpen] = useState(false)
 
   // Lines
@@ -423,6 +425,51 @@ function NouveauDevisPage() {
     }
   }
 
+  // --- Client autocomplete ---
+  const handleClientNomChange = (value: string) => {
+    setClientNom(value)
+    if (value.length >= 1) {
+      const filtered = clients.filter(c =>
+        c.nom.toLowerCase().includes(value.toLowerCase()) ||
+        (c.prenom && c.prenom.toLowerCase().includes(value.toLowerCase()))
+      )
+      setClientSuggestions(filtered.slice(0, 8))
+      setClientDropdownOpen(filtered.length > 0)
+    } else {
+      setClientSuggestions([])
+      setClientDropdownOpen(false)
+    }
+  }
+
+  const selectClientSuggestion = (c: ClientRecord) => {
+    setClientCivilite((c as unknown as Record<string,string>).civilite || '')
+    setClientNom(c.nom)
+    setClientPrenom(c.prenom || '')
+    setClientAdresse(c.adresse || '')
+    setClientCodePostal(c.code_postal || '')
+    setClientVille(c.ville || '')
+    setClientTelephone(c.telephone || '')
+    setClientEmail(c.email || '')
+    setClientSuggestions([])
+    setClientDropdownOpen(false)
+  }
+
+  // --- Chantier autocomplete ---
+  const handleChantierDescChange = (value: string) => {
+    setChantierDesc(value)
+    if (value.length >= 1) {
+      const filtered = chantiers.filter(c =>
+        (c.nom || '').toLowerCase().includes(value.toLowerCase()) ||
+        (c.description || '').toLowerCase().includes(value.toLowerCase())
+      )
+      setChantierSuggestions(filtered.slice(0, 8))
+      setChantierDropdownOpen(filtered.length > 0)
+    } else {
+      setChantierSuggestions([])
+      setChantierDropdownOpen(false)
+    }
+  }
+
   // --- Toggle payment chip ---
   const togglePayment = (id: string) => {
     setSelectedPayments(prev => {
@@ -553,44 +600,46 @@ function NouveauDevisPage() {
           <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
             {/* Client */}
             <div className="bg-white rounded-2xl border-2 border-gray-200 p-5 shadow-sm">
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-sm font-manrope font-medium text-[#1a1a2e]">Client</label>
-                <div className="relative">
-                  <button onClick={() => setClientDropdownOpen(!clientDropdownOpen)} className="text-xs font-manrope text-[#5ab4e0] hover:underline">👤 Clients précédents</button>
-                  {clientDropdownOpen && (
-                    <div className="absolute right-0 top-full mt-1 bg-white rounded-lg border border-gray-200 shadow-lg z-20 w-72 max-h-48 overflow-y-auto">
-                      {clients.map(c => (
-                        <button key={c.id} onClick={() => {
-                          const nomParts = c.nom.split(' ')
-                          setClientCivilite((c as unknown as Record<string,string>).civilite || '')
-                          setClientNom(nomParts[nomParts.length - 1] || c.nom)
-                          setClientPrenom(c.prenom || (nomParts.length > 1 ? nomParts.slice(0, -1).join(' ') : ''))
-                          setClientAdresse(c.adresse || '')
-                          setClientCodePostal(c.code_postal || '')
-                          setClientVille(c.ville || '')
-                          setClientTelephone(c.telephone || '')
-                          setClientEmail(c.email || '')
-                          setClientDropdownOpen(false)
-                        }} className="w-full text-left px-3 py-2 text-sm font-manrope hover:bg-gray-50 border-b border-gray-100 last:border-0">
-                          <span className="font-medium">{c.prenom ? `${c.prenom} ${c.nom}` : c.nom}</span>
-                          {c.adresse && <span className="text-[#6b7280]"> — {c.adresse}</span>}
-                        </button>
-                      ))}
-                      {clients.length === 0 && <p className="px-3 py-3 text-sm text-[#6b7280]">Aucun client enregistré</p>}
-                    </div>
-                  )}
-                </div>
-              </div>
+              <label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-3">Client</label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="flex gap-2">
-                  <select value={clientCivilite} onChange={e => setClientCivilite(e.target.value)} className="w-24 h-10 rounded-lg border border-gray-200 px-2 text-sm font-manrope outline-none focus:border-[#5ab4e0] bg-white">
+                {/* Civilité + Nom avec autocomplete */}
+                <div className="flex gap-2 relative">
+                  <select value={clientCivilite} onChange={e => setClientCivilite(e.target.value)} className="w-24 h-11 rounded-xl border-2 border-gray-200 px-2 text-sm font-manrope outline-none focus:border-[#5ab4e0] bg-white">
                     <option value="">—</option>
                     <option value="M.">M.</option>
                     <option value="Mme">Mme</option>
                     <option value="Société">Société</option>
                   </select>
-                  <input type="text" value={clientNom} onChange={e => setClientNom(e.target.value)} placeholder="Nom" className={inputCls} />
+                  <div className="relative flex-1">
+                    <input
+                      type="text"
+                      value={clientNom}
+                      onChange={e => handleClientNomChange(e.target.value)}
+                      onBlur={() => setTimeout(() => setClientDropdownOpen(false), 150)}
+                      placeholder="Nom"
+                      className={inputCls}
+                      autoComplete="off"
+                    />
+                    {clientDropdownOpen && clientSuggestions.length > 0 && (
+                      <div className="absolute left-0 top-full mt-1 bg-white rounded-xl border border-gray-200 shadow-xl z-30 w-72 max-h-56 overflow-y-auto">
+                        {clientSuggestions.map(c => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onMouseDown={() => selectClientSuggestion(c)}
+                            className="w-full text-left px-4 py-2.5 text-sm font-manrope hover:bg-[#eef7fc] border-b border-gray-100 last:border-0 transition-colors"
+                          >
+                            <span className="font-semibold text-[#1a1a2e]">
+                              {c.prenom ? `${c.prenom} ${c.nom}` : c.nom}
+                            </span>
+                            {c.adresse && <span className="text-[#6b7280] text-xs block">{c.adresse}</span>}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
+                {/* Prénom */}
                 <input type="text" value={clientPrenom} onChange={e => setClientPrenom(e.target.value)} placeholder="Prénom" className={inputCls} />
                 <input type="text" value={clientAdresse} onChange={e => setClientAdresse(e.target.value)} placeholder="Adresse" className={inputCls} />
                 <div className="grid grid-cols-2 gap-2">
@@ -602,23 +651,39 @@ function NouveauDevisPage() {
               </div>
             </div>
 
-            {/* Chantier */}
+            {/* Chantier / Prestation avec autocomplete */}
             <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-sm font-manrope font-medium text-[#1a1a2e]">Chantier / Prestation</label>
-                <div className="relative">
-                  <button onClick={() => setChantierDropdownOpen(!chantierDropdownOpen)} className="text-xs font-manrope text-[#5ab4e0] hover:underline">🏗️ Chantiers précédents</button>
-                  {chantierDropdownOpen && (
-                    <div className="absolute right-0 top-full mt-1 bg-white rounded-lg border border-gray-200 shadow-lg z-20 w-72 max-h-48 overflow-y-auto">
-                      {chantiers.map(c => (
-                        <button key={c.id} onClick={() => { setChantierDesc((c.nom || '') + (c.description ? ` — ${c.description}` : '')); setChantierDropdownOpen(false) }} className="w-full text-left px-3 py-2 text-sm font-manrope hover:bg-gray-50 border-b border-gray-100 last:border-0">{c.nom}</button>
-                      ))}
-                      {chantiers.length === 0 && <p className="px-3 py-3 text-sm text-[#6b7280]">Aucun chantier enregistré</p>}
-                    </div>
-                  )}
-                </div>
+              <label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">Chantier / Prestation</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={chantierDesc}
+                  onChange={e => handleChantierDescChange(e.target.value)}
+                  onBlur={() => setTimeout(() => setChantierDropdownOpen(false), 150)}
+                  placeholder="Description de la prestation / chantier..."
+                  className={inputCls}
+                  autoComplete="off"
+                />
+                {chantierDropdownOpen && chantierSuggestions.length > 0 && (
+                  <div className="absolute left-0 top-full mt-1 bg-white rounded-xl border border-gray-200 shadow-xl z-30 w-full max-h-56 overflow-y-auto">
+                    {chantierSuggestions.map(c => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onMouseDown={() => {
+                          setChantierDesc(c.nom + (c.description ? ` — ${c.description}` : ''))
+                          setChantierSuggestions([])
+                          setChantierDropdownOpen(false)
+                        }}
+                        className="w-full text-left px-4 py-2.5 text-sm font-manrope hover:bg-[#eef7fc] border-b border-gray-100 last:border-0 transition-colors"
+                      >
+                        <span className="font-semibold text-[#1a1a2e]">{c.nom}</span>
+                        {c.description && <span className="text-[#6b7280] text-xs block">{c.description}</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-              <input type="text" value={chantierDesc} onChange={e => setChantierDesc(e.target.value)} placeholder="Description de la prestation / chantier..." className={inputCls} />
             </div>
           </div>
         </div>

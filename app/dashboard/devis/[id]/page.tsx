@@ -270,25 +270,27 @@ export default function DevisDetailPage() {
         <div className="flex-1 min-w-0">
           <div className="bg-white shadow-xl rounded-xl p-8 lg:p-12 print-zone">
 
-            {/* HEADER : titre DEVIS centré en haut */}
-            <div style={{textAlign:'center', marginBottom:16}}>
+            {/* HEADER : titre DEVIS + numéro */}
+            <div style={{textAlign:'center', marginBottom:14}}>
               <div style={{fontSize:36, fontWeight:900, color:'#2563eb', letterSpacing:3, textTransform:'uppercase'}}>DEVIS</div>
               <div style={{fontSize:14, color:'#374151', marginTop:4}}>N° <strong>{devis.numero}</strong></div>
-              <div style={{fontSize:13, color:'#6b7280', marginTop:6, display:'flex', flexWrap:'wrap', justifyContent:'center', gap:'12px'}}>
-                <span>Date : <strong>{formatDate(devis.date_emission || devis.created_at)}</strong></span>
-                {devis.date_validite && <span>Valide jusqu'au : <strong>{formatDate(devis.date_validite)}</strong></span>}
-                {devis.date_debut_travaux && <span>Début travaux : <strong>{formatDate(devis.date_debut_travaux)}</strong></span>}
-                {devis.duree_estimee && <span>Durée : <strong>{devis.duree_estimee}</strong></span>}
-              </div>
             </div>
 
             {/* Ligne dégradé */}
-            <div style={{height:3, background:'linear-gradient(90deg,#2563eb,#93c5fd)', borderRadius:2, marginBottom:16}} />
+            <div style={{height:3, background:'linear-gradient(90deg,#2563eb,#93c5fd)', borderRadius:2, marginBottom:14}} />
 
-            {/* 2 CADRES : artisan gauche, client droite */}
-            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:16, alignItems:'stretch'}}>
-              {/* Cadre artisan — sans logo pour uniformité avec cadre client */}
-              <div style={{border:'1px solid #e5e7eb', borderRadius:8, padding:16, borderTop:'3px solid #2563eb', display:'flex', flexDirection:'column'}}>
+            {/* Dates — sous le trait bleu, au-dessus des cadres */}
+            <div style={{display:'flex', flexWrap:'wrap', justifyContent:'center', gap:'20px', marginBottom:20, padding:'10px 0'}}>
+              <span style={{fontSize:15, color:'#374151'}}>Date : <strong style={{color:'#1a1a2e'}}>{formatDate(devis.date_emission || devis.created_at)}</strong></span>
+              {devis.date_validite && <span style={{fontSize:15, color:'#374151'}}>Valide jusqu&apos;au : <strong style={{color:'#1a1a2e'}}>{formatDate(devis.date_validite)}</strong></span>}
+              {devis.date_debut_travaux && <span style={{fontSize:15, color:'#374151'}}>Début travaux : <strong style={{color:'#1a1a2e'}}>{formatDate(devis.date_debut_travaux)}</strong></span>}
+              {devis.duree_estimee && <span style={{fontSize:15, color:'#374151'}}>Durée : <strong style={{color:'#1a1a2e'}}>{devis.duree_estimee}</strong></span>}
+            </div>
+
+            {/* 2 CADRES : artisan gauche, client droite — bordures complètes colorées */}
+            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:18, alignItems:'stretch'}}>
+              {/* Cadre artisan — bordure bleue complète */}
+              <div style={{border:'2px solid #2563eb', borderRadius:10, padding:16, display:'flex', flexDirection:'column'}}>
                 <div style={{fontSize:10, fontWeight:700, letterSpacing:2, textTransform:'uppercase', color:'#2563eb', marginBottom:10}}>Artisan</div>
                 <div style={{fontSize:16, fontWeight:700, color:'#111', marginBottom:6}}>{(entreprise?.nom as string) || 'Mon Entreprise'}</div>
                 <div style={{fontSize:14, color:'#6b7280', lineHeight:2}}>
@@ -298,8 +300,8 @@ export default function DevisDetailPage() {
                   {Boolean(entreprise?.telephone) && <div>Tél : {entreprise?.telephone as string}</div>}
                 </div>
               </div>
-              {/* Cadre client */}
-              <div style={{border:'1px solid #e5e7eb', borderRadius:8, padding:16, borderTop:'3px solid #10b981', display:'flex', flexDirection:'column'}}>
+              {/* Cadre client — bordure verte complète */}
+              <div style={{border:'2px solid #10b981', borderRadius:10, padding:16, display:'flex', flexDirection:'column'}}>
                 <div style={{fontSize:10, fontWeight:700, letterSpacing:2, textTransform:'uppercase', color:'#10b981', marginBottom:10}}>Client</div>
                 <div style={{lineHeight:2}}>
                   {devis.notes_client ? (() => {
