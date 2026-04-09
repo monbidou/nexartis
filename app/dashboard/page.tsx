@@ -56,6 +56,28 @@ export default function DashboardPage() {
   const entrepriseNom = (entreprise?.nom as string) || '';
   const [mounted, setMounted] = useState(false);
 
+  /* ── Profil incomplet : champs obligatoires manquants ── */
+  const champsObligatoires: { champ: string; label: string }[] = [
+    { champ: 'nom', label: 'Nom de l\'entreprise' },
+    { champ: 'siret', label: 'SIRET' },
+    { champ: 'forme_juridique', label: 'Forme juridique' },
+    { champ: 'adresse', label: 'Adresse' },
+    { champ: 'code_postal', label: 'Code postal' },
+    { champ: 'ville', label: 'Ville' },
+    { champ: 'telephone', label: 'Téléphone' },
+    { champ: 'email', label: 'Email' },
+    { champ: 'assurance_nom', label: 'Nom de l\'assureur décennale' },
+    { champ: 'decennale_numero', label: 'N° de police décennale' },
+    { champ: 'assurance_zone', label: 'Zone couverte décennale' },
+  ];
+  const champsManquants = entreprise
+    ? champsObligatoires.filter(c => {
+        const val = (entreprise as Record<string, unknown>)[c.champ];
+        return !val || String(val).trim() === '';
+      })
+    : [];
+  const profilIncomplet = entreprise && champsManquants.length > 0;
+
   useEffect(() => { setMounted(true); }, []);
 
   const loading = fLoading || dLoading || pLoading;
@@ -299,7 +321,7 @@ export default function DashboardPage() {
   }
 
   if (!hasData) {
-    return <EmptyDashboard userName="" />;
+    return <EmptyDashboard userName="" profilIncomplet={!!profilIncomplet} />;
   }
 
   /* ── Stagger animation ── */
@@ -349,6 +371,35 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen" style={{background: '#f6f8fb'}}>
       <div className="max-w-[1360px] mx-auto" style={{padding: '36px'}}>
+
+        {/* ══════════════ PROFIL INCOMPLET ALERT ══════════════ */}
+        {profilIncomplet && (
+          <div className="mb-6 rounded-xl border-2 border-amber-300 bg-amber-50 p-5" style={stagger(0)}>
+            <div className="flex items-start gap-4">
+              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              </div>
+              <div className="flex-1">
+                <h3 className="font-syne font-bold text-[15px] text-amber-800 mb-1">Profil entreprise incomplet</h3>
+                <p className="font-manrope text-sm text-amber-700 mb-3">
+                  Vos devis et factures ne sont pas conformes à la loi tant que ces informations ne sont pas renseignées.
+                  Risque d&apos;amende jusqu&apos;à <strong>75 000 €</strong>.
+                </p>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {champsManquants.map(c => (
+                    <span key={c.champ} className="inline-flex items-center px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 font-manrope text-xs font-medium">
+                      {c.label}
+                    </span>
+                  ))}
+                </div>
+                <Link href="/dashboard/parametres" className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-600 text-white font-syne font-bold text-sm hover:bg-amber-700 transition-colors">
+                  Compléter mon profil
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ═══════════════════ GREETING ═══════════════════ */}
         <div style={stagger(0)} className="mb-9 flex items-end justify-between flex-wrap gap-5">
