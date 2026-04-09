@@ -328,7 +328,7 @@ function NouveauDevisPage() {
     setError(null)
 
     // Map action to statut values matching the DB CHECK constraint
-    const statutMap = { brouillon: 'brouillon', enregistrer: 'finalise', envoyer: 'envoye' } as const
+    const statutMap = { brouillon: 'brouillon', enregistrer: 'envoye' } as const
     const statut = statutMap[action]
 
     // Generate devis number: D-YYYY-NNNNN
