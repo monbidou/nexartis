@@ -242,7 +242,7 @@ function EntrepriseSection({
         assurance_nom: assuranceNom || null, decennale_numero: decennale, assurance_zone: assuranceZone || null,
         rge, metier,
       })
-      setSuccess('Informations de l\'entreprise enregistrees avec succes.')
+      setSuccess('Informations de l\'entreprise enregistrées avec succès.')
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Erreur lors de la sauvegarde')
     } finally {
@@ -259,8 +259,8 @@ function EntrepriseSection({
       {/* Logo upload with background removal */}
       <LogoUploadSection entreprise={entreprise} update={update} />
 
-            {/* Identit\u00e9 de l'entreprise */}
-      <p className="text-xs font-manrope text-gray-400 uppercase tracking-wider mb-3 mt-2">Identit\u00e9</p>
+            {/* Identité de l'entreprise */}
+      <p className="text-xs font-manrope text-gray-400 uppercase tracking-wider mb-3 mt-2">Identité</p>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <InputField label="Nom de l'entreprise" value={nom} onChange={setNom} />
         <div>
@@ -276,32 +276,32 @@ function EntrepriseSection({
           </select>
         </div>
         <InputField label="SIRET" value={siret} onChange={setSiret} placeholder="123 456 789 00012" />
-        <InputField label="N\u00b0 TVA intracommunautaire" value={tva} onChange={setTva} placeholder="FR 12 345678901" />
+        <InputField label="N° TVA intracommunautaire" value={tva} onChange={setTva} placeholder="FR 12 345678901" />
         <InputField label="Code NAF" value={naf} onChange={setNaf} placeholder="4322A" />
-        <InputField label="RCS / RM (n\u00b0 + ville)" value={rcsRm} onChange={setRcsRm} placeholder="RM Bordeaux 123456789" />
-        <InputField label="Capital social" value={capitalSocial} onChange={setCapitalSocial} placeholder="10 000 \u20ac (laisser vide si EI)" />
-        <InputField label="M\u00e9tier / activit\u00e9" value={metier} onChange={setMetier} />
+        <InputField label="RCS / RM (n° + ville)" value={rcsRm} onChange={setRcsRm} placeholder="RM Bordeaux 123456789" />
+        <InputField label="Capital social" value={capitalSocial} onChange={setCapitalSocial} placeholder="10 000 € (laisser vide si EI)" />
+        <InputField label="Métier / activité" value={metier} onChange={setMetier} />
       </div>
 
-      {/* Coordonn\u00e9es */}
-      <p className="text-xs font-manrope text-gray-400 uppercase tracking-wider mb-3 mt-8">Coordonn\u00e9es</p>
+      {/* Coordonnées */}
+      <p className="text-xs font-manrope text-gray-400 uppercase tracking-wider mb-3 mt-8">Coordonnées</p>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <InputField label="Adresse" value={adresse} onChange={setAdresse} />
         <InputField label="Code postal" value={codePostal} onChange={setCodePostal} />
         <InputField label="Ville" value={ville} onChange={setVille} />
-        <InputField label="T\u00e9l\u00e9phone" value={telephone} onChange={setTelephone} />
+        <InputField label="Téléphone" value={telephone} onChange={setTelephone} />
         <InputField label="Email" value={email} onChange={setEmail} />
       </div>
 
-      {/* Assurance d\u00e9cennale */}
-      <p className="text-xs font-manrope text-gray-400 uppercase tracking-wider mb-3 mt-8">Assurance d\u00e9cennale</p>
+      {/* Assurance décennale */}
+      <p className="text-xs font-manrope text-gray-400 uppercase tracking-wider mb-3 mt-8">Assurance décennale</p>
       <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-4">
-        <p className="text-sm text-amber-700 font-manrope">Obligatoire sur tous vos devis et factures (amende jusqu&apos;\u00e0 75 000 \u20ac). Ces informations appara\u00eetront automatiquement sur vos documents.</p>
+        <p className="text-sm text-amber-700 font-manrope">Obligatoire sur tous vos devis et factures (amende jusqu’à 75 000 €). Ces informations apparaîtront automatiquement sur vos documents.</p>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <InputField label="Nom de l'assureur" value={assuranceNom} onChange={setAssuranceNom} placeholder="AXA, MAAF, SMABTP..." />
-        <InputField label="N\u00b0 de police" value={decennale} onChange={setDecennale} placeholder="POL-2024-XXXXX" />
-        <InputField label="Zone g\u00e9ographique couverte" value={assuranceZone} onChange={setAssuranceZone} placeholder="France enti\u00e8re" />
+        <InputField label="N° de police" value={decennale} onChange={setDecennale} placeholder="POL-2024-XXXXX" />
+        <InputField label="Zone géographique couverte" value={assuranceZone} onChange={setAssuranceZone} placeholder="France entière" />
         <div className="flex items-end">
           <ToggleSwitch label="Certification RGE" checked={rge} onChange={setRge} />
         </div>
@@ -358,7 +358,7 @@ function DocumentsSection({
         conditions_paiement: conditionsPaiement,
         couleur_principale: docColor,
       })
-      setSuccess('Parametres de documents enregistres avec succes.')
+      setSuccess('Paramètres de documents enregistrés avec succès.')
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Erreur lors de la sauvegarde')
     } finally {
@@ -373,13 +373,13 @@ function DocumentsSection({
       </h2>
 
       <div className="space-y-6">
-        {/* Numerotation devis */}
+        {/* Numérotation devis */}
         <div>
           <label className="block font-manrope font-medium text-sm text-gray-700 mb-1.5">
-            Numerotation devis
+            Numérotation devis
           </label>
           <div className="flex items-center gap-3">
-            <span className="font-manrope text-sm text-[#6b7280]">Prefixe :</span>
+            <span className="font-manrope text-sm text-[#6b7280]">Préfixe :</span>
             <input
               type="text"
               value={prefixDevis}
@@ -396,13 +396,13 @@ function DocumentsSection({
           </div>
         </div>
 
-        {/* Numerotation factures */}
+        {/* Numérotation factures */}
         <div>
           <label className="block font-manrope font-medium text-sm text-gray-700 mb-1.5">
-            Numerotation factures
+            Numérotation factures
           </label>
           <div className="flex items-center gap-3">
-            <span className="font-manrope text-sm text-[#6b7280]">Prefixe :</span>
+            <span className="font-manrope text-sm text-[#6b7280]">Préfixe :</span>
             <input
               type="text"
               value={prefixFactures}
@@ -420,13 +420,13 @@ function DocumentsSection({
         </div>
 
         <TextAreaField
-          label="Conditions de paiement par defaut"
+          label="Conditions de paiement par défaut"
           value={conditionsPaiement}
           onChange={setConditionsPaiement}
         />
 
         <TextAreaField
-          label="Mentions legales personnalisees"
+          label="Mentions légales personnalisées"
           value={mentionsLegales}
           onChange={setMentionsLegales}
         />
@@ -466,9 +466,9 @@ function FacturationSection({
 }) {
   const [tvaDefaut, setTvaDefaut] = useState('20')
   const [delaiPaiement, setDelaiPaiement] = useState('30')
-  const [penalites, setPenalites] = useState("3 fois le taux d'interet legal")
+  const [penalites, setPenalites] = useState("3 fois le taux d'intérêt légal")
   const [indemnite, setIndemnite] = useState('40 EUR')
-  const [escompte, setEscompte] = useState('Aucun escompte accorde')
+  const [escompte, setEscompte] = useState('Aucun escompte accordé')
   const [saving, setSaving] = useState(false)
   const [success, setSuccess] = useState<string | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
@@ -489,7 +489,7 @@ function FacturationSection({
         tva_defaut: parseFloat(tvaDefaut),
         delai_paiement_defaut: parseInt(delaiPaiement, 10),
       })
-      setSuccess('Parametres de facturation enregistres avec succes.')
+      setSuccess('Paramètres de facturation enregistrés avec succès.')
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Erreur lors de la sauvegarde')
     } finally {
@@ -504,7 +504,7 @@ function FacturationSection({
       </h2>
 
       <div className="space-y-6">
-        {/* TVA par defaut */}
+        {/* TVA par défaut */}
         <div>
           <label className="block font-manrope font-medium text-sm text-gray-700 mb-1.5">
             Taux de TVA par défaut
@@ -524,14 +524,14 @@ function FacturationSection({
         {/* Delai de paiement */}
         <div>
           <label className="block font-manrope font-medium text-sm text-gray-700 mb-1.5">
-            Delai de paiement par defaut
+            Délai de paiement par défaut
           </label>
           <select
             value={delaiPaiement}
             onChange={(e) => setDelaiPaiement(e.target.value)}
             className="w-full h-12 rounded-lg border border-gray-200 px-4 font-manrope text-sm text-[#1a1a2e] focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none bg-white"
           >
-            <option value="0">A reception</option>
+            <option value="0">À réception</option>
             <option value="15">15 jours</option>
             <option value="30">30 jours</option>
             <option value="45">45 jours</option>
@@ -545,7 +545,7 @@ function FacturationSection({
         />
 
         <InputField
-          label="Indemnite forfaitaire"
+          label="Indemnité forfaitaire"
           value={indemnite}
           onChange={setIndemnite}
         />
@@ -579,11 +579,11 @@ function NotificationsSection() {
       </h2>
 
       <div className="divide-y divide-gray-100">
-        <ToggleSwitch label="Devis signe" checked={devisSigne} onChange={setDevisSigne} />
-        <ToggleSwitch label="Facture payee" checked={facturePayee} onChange={setFacturePayee} />
-        <ToggleSwitch label="Rappel impaye" checked={rappelImpaye} onChange={setRappelImpaye} />
+        <ToggleSwitch label="Devis signé" checked={devisSigne} onChange={setDevisSigne} />
+        <ToggleSwitch label="Facture payée" checked={facturePayee} onChange={setFacturePayee} />
+        <ToggleSwitch label="Rappel impayé" checked={rappelImpaye} onChange={setRappelImpaye} />
         <ToggleSwitch label="Modification planning" checked={modifPlanning} onChange={setModifPlanning} />
-        <ToggleSwitch label="Nouveau message equipe" checked={nouveauMessage} onChange={setNouveauMessage} />
+        <ToggleSwitch label="Nouveau message équipe" checked={nouveauMessage} onChange={setNouveauMessage} />
         <ToggleSwitch label="Rapport hebdomadaire par email" checked={rapportHebdo} onChange={setRapportHebdo} />
       </div>
 
@@ -1076,7 +1076,7 @@ function AbonnementSection() {
             Modifier le moyen de paiement
           </button>
           <button className="font-manrope text-sm text-red-500 hover:text-red-700 hover:underline text-left">
-            Resilier l&apos;abonnement
+            Résilier l’abonnement
           </button>
         </div>
       </div>

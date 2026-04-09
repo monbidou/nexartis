@@ -38,6 +38,7 @@ interface Entreprise {
   decennale_numero?: string
   assurance_zone?: string
   couleur_principale?: string
+  logo_url?: string
 }
 
 interface Ligne {
@@ -188,11 +189,25 @@ export function generateDevisPdf(data: DevisData): string {
   let y = 14
 
   // ── HEADER ──────────────────────────────────────────────────────
-  // Left: logo placeholder / company name
+  // Left: logo + company name
+  let headerTextX = 14
+  if (ent.logo_url) {
+    try {
+      const logoFormat = ent.logo_url.startsWith('data:image/png') ? 'PNG' : 'JPEG'
+      doc.addImage(ent.logo_url, logoFormat, 14, y - 2, 22, 22)
+      headerTextX = 40
+    } catch { /* logo invalide, on continue sans */ }
+  }
   doc.setFontSize(20)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(15, 26, 58)
-  doc.text(ent.nom || 'Mon Entreprise', 14, y + 6)
+  doc.text(ent.nom || 'Mon Entreprise', headerTextX, y + 6)
+  if (ent.forme_juridique) {
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(100)
+    doc.text(ent.forme_juridique, headerTextX, y + 12)
+  }
 
   // Right: DEVIS title
   doc.setFontSize(28)
@@ -206,7 +221,7 @@ export function generateDevisPdf(data: DevisData): string {
   doc.setTextColor(100)
   doc.text(fmtDate(data.date_emission), 196, y + 16, { align: 'right' })
 
-  y += 20
+  y += 22
 
   // ── GRADIENT LINE ──────────────────────────────────────────────
   // Simulate gradient with 2 rects
@@ -550,11 +565,25 @@ export function generateFacturePdf(data: FactureData): string {
   const ent = data.entreprise
   let y = 14
 
-  // Header
+  // Header — logo + company name
+  let headerTextX = 14
+  if (ent.logo_url) {
+    try {
+      const logoFormat = ent.logo_url.startsWith('data:image/png') ? 'PNG' : 'JPEG'
+      doc.addImage(ent.logo_url, logoFormat, 14, y - 2, 22, 22)
+      headerTextX = 40
+    } catch { /* logo invalide, on continue sans */ }
+  }
   doc.setFontSize(20)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(15, 26, 58)
-  doc.text(ent.nom || 'Mon Entreprise', 14, y + 6)
+  doc.text(ent.nom || 'Mon Entreprise', headerTextX, y + 6)
+  if (ent.forme_juridique) {
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(100)
+    doc.text(ent.forme_juridique, headerTextX, y + 12)
+  }
 
   doc.setFontSize(28)
   doc.setFont('helvetica', 'bold')
@@ -566,7 +595,7 @@ export function generateFacturePdf(data: FactureData): string {
   doc.setFontSize(8)
   doc.setTextColor(100)
   doc.text(fmtDate(data.date_emission), 196, y + 16, { align: 'right' })
-  y += 20
+  y += 22
 
   // Gradient line
   doc.setFillColor(37, 99, 235)
