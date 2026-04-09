@@ -358,17 +358,12 @@ export default function DashboardPage() {
             </p>
             <h1 className="font-syne font-extrabold leading-[1.2]" style={{fontSize: '34px', letterSpacing: '-0.025em'}}>
               <span className="inline-block" style={{
-                opacity: mounted ? 1 : 0,
-                transform: mounted ? 'translateY(0)' : 'translateY(20px)',
-                transition: 'all 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.2s',
-              }}>Bonjour </span>
-              <span className="inline-block" style={{
                 background: 'linear-gradient(135deg, #5ab4e0, #2d8bc9)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
                 opacity: mounted ? 1 : 0,
                 transform: mounted ? 'translateY(0) scale(1)' : 'translateY(20px) scale(0.97)',
-                transition: 'all 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.5s',
+                transition: 'all 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.3s',
               }}>{entrepriseNom}</span>
             </h1>
           </div>
