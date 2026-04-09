@@ -186,6 +186,9 @@ function EntrepriseSection({
   const [siret, setSiret] = useState('')
   const [tva, setTva] = useState('')
   const [naf, setNaf] = useState('')
+  const [formeJuridique, setFormeJuridique] = useState('')
+  const [capitalSocial, setCapitalSocial] = useState('')
+  const [rcsRm, setRcsRm] = useState('')
   const [adresse, setAdresse] = useState('')
   const [codePostal, setCodePostal] = useState('')
   const [ville, setVille] = useState('')
@@ -193,7 +196,9 @@ function EntrepriseSection({
   const [email, setEmail] = useState('')
   const [iban, setIban] = useState('')
   const [bic, setBic] = useState('')
+  const [assuranceNom, setAssuranceNom] = useState('')
   const [decennale, setDecennale] = useState('')
+  const [assuranceZone, setAssuranceZone] = useState('')
   const [rge, setRge] = useState(false)
   const [metier, setMetier] = useState('')
   const [saving, setSaving] = useState(false)
@@ -206,6 +211,9 @@ function EntrepriseSection({
       setSiret((entreprise.siret as string) ?? '')
       setTva((entreprise.tva_intracommunautaire as string) ?? '')
       setNaf((entreprise.code_naf as string) ?? '')
+      setFormeJuridique((entreprise.forme_juridique as string) ?? '')
+      setCapitalSocial((entreprise.capital_social as string) ?? '')
+      setRcsRm((entreprise.rcs_rm as string) ?? '')
       setAdresse((entreprise.adresse as string) ?? '')
       setCodePostal((entreprise.code_postal as string) ?? '')
       setVille((entreprise.ville as string) ?? '')
@@ -213,7 +221,9 @@ function EntrepriseSection({
       setEmail((entreprise.email as string) ?? '')
       setIban((entreprise.iban as string) ?? '')
       setBic((entreprise.bic as string) ?? '')
+      setAssuranceNom((entreprise.assurance_nom as string) ?? '')
       setDecennale((entreprise.decennale_numero as string) ?? '')
+      setAssuranceZone((entreprise.assurance_zone as string) ?? '')
       setRge(!!entreprise.rge)
       setMetier((entreprise.metier as string) ?? '')
     }
@@ -226,8 +236,11 @@ function EntrepriseSection({
     try {
       await update({
         nom, siret, tva_intracommunautaire: tva, code_naf: naf,
+        forme_juridique: formeJuridique || null, capital_social: capitalSocial || null, rcs_rm: rcsRm || null,
         adresse, code_postal: codePostal, ville, telephone, email,
-        iban, bic, decennale_numero: decennale, rge, metier,
+        iban, bic,
+        assurance_nom: assuranceNom || null, decennale_numero: decennale, assurance_zone: assuranceZone || null,
+        rge, metier,
       })
       setSuccess('Informations de l\'entreprise enregistrees avec succes.')
     } catch (err) {
@@ -246,23 +259,59 @@ function EntrepriseSection({
       {/* Logo upload with background removal */}
       <LogoUploadSection entreprise={entreprise} update={update} />
 
+            {/* Identit\u00e9 de l'entreprise */}
+      <p className="text-xs font-manrope text-gray-400 uppercase tracking-wider mb-3 mt-2">Identit\u00e9</p>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <InputField label="Nom de l'entreprise" value={nom} onChange={setNom} />
-        <InputField label="SIRET" value={siret} onChange={setSiret} />
-        <InputField label="N° TVA intracommunautaire" value={tva} onChange={setTva} placeholder="FR 12 345678901" />
+        <div>
+          <label className="block font-manrope font-medium text-sm text-gray-700 mb-1.5">Forme juridique</label>
+          <select value={formeJuridique} onChange={e => setFormeJuridique(e.target.value)} className="w-full h-12 rounded-lg border border-gray-200 px-4 font-manrope text-sm text-[#1a1a2e] focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none transition-colors bg-white">
+            <option value="">-- Choisir --</option>
+            <option value="EI">EI (Entreprise Individuelle)</option>
+            <option value="Micro-entreprise">Micro-entreprise (Auto-entrepreneur)</option>
+            <option value="EURL">EURL</option>
+            <option value="SARL">SARL</option>
+            <option value="SAS">SAS</option>
+            <option value="SASU">SASU</option>
+          </select>
+        </div>
+        <InputField label="SIRET" value={siret} onChange={setSiret} placeholder="123 456 789 00012" />
+        <InputField label="N\u00b0 TVA intracommunautaire" value={tva} onChange={setTva} placeholder="FR 12 345678901" />
         <InputField label="Code NAF" value={naf} onChange={setNaf} placeholder="4322A" />
+        <InputField label="RCS / RM (n\u00b0 + ville)" value={rcsRm} onChange={setRcsRm} placeholder="RM Bordeaux 123456789" />
+        <InputField label="Capital social" value={capitalSocial} onChange={setCapitalSocial} placeholder="10 000 \u20ac (laisser vide si EI)" />
+        <InputField label="M\u00e9tier / activit\u00e9" value={metier} onChange={setMetier} />
+      </div>
+
+      {/* Coordonn\u00e9es */}
+      <p className="text-xs font-manrope text-gray-400 uppercase tracking-wider mb-3 mt-8">Coordonn\u00e9es</p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <InputField label="Adresse" value={adresse} onChange={setAdresse} />
         <InputField label="Code postal" value={codePostal} onChange={setCodePostal} />
         <InputField label="Ville" value={ville} onChange={setVille} />
-        <InputField label="Telephone" value={telephone} onChange={setTelephone} />
+        <InputField label="T\u00e9l\u00e9phone" value={telephone} onChange={setTelephone} />
         <InputField label="Email" value={email} onChange={setEmail} />
-        <InputField label="IBAN" type="password" value={iban} onChange={setIban} />
-        <InputField label="BIC" value={bic} onChange={setBic} />
-        <InputField label="Metier" value={metier} onChange={setMetier} />
-        <InputField label="N° assurance decennale" value={decennale} onChange={setDecennale} placeholder="POL-2024-XXXXX" />
+      </div>
+
+      {/* Assurance d\u00e9cennale */}
+      <p className="text-xs font-manrope text-gray-400 uppercase tracking-wider mb-3 mt-8">Assurance d\u00e9cennale</p>
+      <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-4">
+        <p className="text-sm text-amber-700 font-manrope">Obligatoire sur tous vos devis et factures (amende jusqu&apos;\u00e0 75 000 \u20ac). Ces informations appara\u00eetront automatiquement sur vos documents.</p>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <InputField label="Nom de l'assureur" value={assuranceNom} onChange={setAssuranceNom} placeholder="AXA, MAAF, SMABTP..." />
+        <InputField label="N\u00b0 de police" value={decennale} onChange={setDecennale} placeholder="POL-2024-XXXXX" />
+        <InputField label="Zone g\u00e9ographique couverte" value={assuranceZone} onChange={setAssuranceZone} placeholder="France enti\u00e8re" />
         <div className="flex items-end">
           <ToggleSwitch label="Certification RGE" checked={rge} onChange={setRge} />
         </div>
+      </div>
+
+      {/* Bancaire */}
+      <p className="text-xs font-manrope text-gray-400 uppercase tracking-wider mb-3 mt-8">Informations bancaires</p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <InputField label="IBAN" type="password" value={iban} onChange={setIban} />
+        <InputField label="BIC" value={bic} onChange={setBic} />
       </div>
 
       <SaveButton onClick={handleSave} saving={saving} />

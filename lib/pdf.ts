@@ -33,9 +33,9 @@ interface Entreprise {
   forme_juridique?: string
   capital_social?: string
   rcs_rm?: string
-  tva_intra?: string
+  tva_intracommunautaire?: string
   assurance_nom?: string
-  assurance_numero?: string
+  decennale_numero?: string
   assurance_zone?: string
   couleur_principale?: string
 }
@@ -155,13 +155,13 @@ function addFooterLegal(doc: jsPDF, ent: Entreprise, y: number): number {
     ent.adresse ? `${ent.adresse}, ${ent.code_postal || ''} ${ent.ville || ''}`.trim() : '',
     ent.siret ? `SIRET : ${ent.siret}` : '',
     ent.rcs_rm || '',
-    ent.tva_intra ? `TVA : ${ent.tva_intra}` : '',
+    ent.tva_intracommunautaire ? `TVA : ${ent.tva_intracommunautaire}` : '',
   ].filter(Boolean).join(' — ')
   if (id) { doc.text(id, 105, y, { align: 'center', maxWidth: 180 }); y += 3.5 }
 
   // Line 2: insurance
   if (ent.assurance_nom) {
-    const ins = `Assurance décennale : ${ent.assurance_nom}${ent.assurance_numero ? `, police n° ${ent.assurance_numero}` : ''}${ent.assurance_zone ? `, couverture : ${ent.assurance_zone}` : ''}`
+    const ins = `Assurance décennale : ${ent.assurance_nom}${ent.decennale_numero ? `, police n° ${ent.decennale_numero}` : ''}${ent.assurance_zone ? `, couverture : ${ent.assurance_zone}` : ''}`
     doc.text(ins, 105, y, { align: 'center', maxWidth: 180 })
     y += 3.5
   }
@@ -249,7 +249,7 @@ export function generateDevisPdf(data: DevisData): string {
   if (ent.code_postal || ent.ville) { doc.text(`${ent.code_postal || ''} ${ent.ville || ''}`.trim(), lx + 4, ay); ay += 3.2 }
   if (ent.forme_juridique) { doc.text(ent.forme_juridique, lx + 4, ay); ay += 3.2 }
   if (ent.siret) { doc.text(`SIRET : ${ent.siret}`, lx + 4, ay); ay += 3.2 }
-  if (ent.tva_intra) { doc.text(`TVA : ${ent.tva_intra}`, lx + 4, ay); ay += 3.2 }
+  if (ent.tva_intracommunautaire) { doc.text(`TVA : ${ent.tva_intracommunautaire}`, lx + 4, ay); ay += 3.2 }
   if (ent.telephone) { doc.text(`Tél : ${ent.telephone}`, lx + 4, ay); ay += 3.2 }
   if (ent.email) { doc.text(ent.email, lx + 4, ay) }
 
