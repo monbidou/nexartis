@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import {
   ArrowLeft,
   ChevronDown,
@@ -95,11 +95,30 @@ const STATUT_STYLES: Record<string, string> = {
 // Print styles
 // -------------------------------------------------------------------
 
-const printStyles = `@media print {
-  nav, header, aside, .no-print, [class*="lg:w-80"] { display: none !important; }
-  body { background: white !important; }
-  .print-zone { box-shadow: none !important; border: none !important; }
-  .min-h-screen { min-height: auto !important; }
+const printStyles = `
+@page { margin: 8mm 10mm; size: A4 portrait; }
+@media print {
+  nav, header, aside, .no-print, [class*="lg:w-80"],
+  [class*="no-print"], button, a[href] { display: none !important; }
+  body { background: white !important; margin: 0 !important; padding: 0 !important; }
+  html, body { height: auto !important; overflow: visible !important; }
+  .min-h-screen { min-height: 0 !important; height: auto !important; }
+  .print-zone {
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+  }
+  .flex-col, .lg\\:flex-row { flex-direction: column !important; }
+  table { page-break-inside: auto; }
+  tr { page-break-inside: avoid; page-break-after: auto; }
+  thead { display: table-header-group; }
+  tfoot { display: table-footer-group; }
+  .grid { display: block !important; }
+  .grid-cols-2, .grid-cols-1 { display: grid !important; grid-template-columns: 1fr 1fr !important; }
+  p, div { orphans: 3; widows: 3; }
 }`
 
 // -------------------------------------------------------------------
@@ -115,14 +134,25 @@ export default function DevisDetailPage() {
   const { data: lignesRaw, loading: loadingLignes } = useDevisLignes(id)
   const { data: client, loading: loadingClient } = useSupabaseRecord<ClientRecord>('clients', devis?.client_id ?? null)
 
+  const searchParams = useSearchParams()
   const { entreprise } = useEntreprise()
   const [actionsOpen, setActionsOpen] = useState(false)
   const [toastMsg, setToastMsg] = useState<string | null>(null)
   const [sendModalOpen, setSendModalOpen] = useState(false)
+  const [convertTriggered, setConvertTriggered] = useState(false)
 
-  async function handleConvertToFacture() {
+  // Auto-conversion quand ?convert=1 est dans l'URL (depuis la liste devis)
+  useEffect(() => {
+    if (searchParams.get('convert') === '1' && devis && !loading && !convertTriggered) {
+      setConvertTriggered(true)
+      handleConvertToFacture(true)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [devis, loading, searchParams, convertTriggered])
+
+  async function handleConvertToFacture(skipConfirm = false) {
     if (!devis) return
-    if (!confirm('Convertir ce devis en facture ?')) return
+    if (!skipConfirm && !confirm('Convertir ce devis en facture ?')) return
     try {
       const now = new Date()
       const numero = `F-${now.getFullYear()}-${String(Date.now()).slice(-5)}`
@@ -246,7 +276,7 @@ export default function DevisDetailPage() {
             <div className="absolute right-0 top-full mt-1 w-52 bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-20">
               {[
                 { label: 'Modifier', icon: Pencil, action: () => router.push(`/dashboard/devis/${id}/modifier`), danger: false },
-                { label: 'Convertir en facture', icon: FileText, action: handleConvertToFacture, danger: false },
+                { label: 'Convertir en facture', icon: FileText, action: () => handleConvertToFacture(false), danger: false },
                 { label: 'Envoyer par email', icon: SendHorizonal, action: () => setSendModalOpen(true), danger: false },
                 { label: 'Supprimer', icon: Trash2, action: handleDeleteDevis, danger: true },
               ].map((action) => (
@@ -363,7 +393,7 @@ export default function DevisDetailPage() {
             )}
 
             {/* ═══ BAS DE PAGE : 2 colonnes ═══ */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
               {/* Gauche : conditions */}
               <div>
                 {devis.conditions_paiement && (
@@ -414,22 +444,22 @@ export default function DevisDetailPage() {
             </div>
 
             {/* ═══ SIGNATURES ═══ */}
-            <div className="grid grid-cols-2 gap-4 mt-8">
-              <div className="border border-dashed border-gray-300 rounded-lg p-4" style={{ minHeight: 80 }}>
-                <div className="text-[10px] font-bold tracking-widest uppercase text-[#9ca3af] mb-2">Signature artisan</div>
+            <div className="grid grid-cols-2 gap-4 mt-4">
+              <div className="border border-dashed border-gray-300 rounded-lg p-3" style={{ minHeight: 70 }}>
+                <div className="text-[10px] font-bold tracking-widest uppercase text-[#9ca3af] mb-1">Signature artisan</div>
                 {Boolean(entreprise?.signature_base64) && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={entreprise?.signature_base64 as string} alt="Signature" style={{ height: 48, objectFit: 'contain' }} />
                 )}
               </div>
-              <div className="border border-dashed border-gray-300 rounded-lg p-4" style={{ minHeight: 80 }}>
-                <div className="text-[10px] font-bold tracking-widest uppercase text-[#9ca3af] mb-2">Bon pour accord — Signature client</div>
-                <div className="mt-10 border-t border-gray-200 pt-1 text-[11px] text-[#9ca3af]">...... / ...... / ..........</div>
+              <div className="border border-dashed border-gray-300 rounded-lg p-3" style={{ minHeight: 70 }}>
+                <div className="text-[10px] font-bold tracking-widest uppercase text-[#9ca3af] mb-1">Bon pour accord — Signature client</div>
+                <div className="mt-8 border-t border-gray-200 pt-1 text-[11px] text-[#9ca3af]">...... / ...... / ..........</div>
               </div>
             </div>
 
             {/* ═══ FOOTER LÉGAL ═══ */}
-            <div style={{ marginTop: 16, paddingTop: 10, borderTop: '0.5px solid #e5e7eb', fontSize: 9.5, color: '#9ca3af', textAlign: 'center', lineHeight: 1.7 }}>
+            <div style={{ marginTop: 10, paddingTop: 8, borderTop: '0.5px solid #e5e7eb', fontSize: 9.5, color: '#9ca3af', textAlign: 'center', lineHeight: 1.5, pageBreakBefore: 'avoid', breakBefore: 'avoid' }}>
               {entreprise?.nom as string} — {entreprise?.adresse as string}, {entreprise?.code_postal as string} {entreprise?.ville as string}
               {Boolean(entreprise?.siret) && ` — SIRET : ${entreprise?.siret as string}`}
               {Boolean(entreprise?.email) && ` — Email : ${entreprise?.email as string}`}
