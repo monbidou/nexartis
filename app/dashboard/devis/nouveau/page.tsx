@@ -342,41 +342,44 @@ function NouveauDevisPage() {
           ordre: i + 1,
         })
       }
-      // Sauvegarder/mettre à jour le client dans la table clients
-      if (clientNom.trim()) {
+      // Sauvegarder/mettre à jour le client + chantier dans la base de données
+      if (clientNom.trim() || chantierDesc.trim()) {
         try {
           const supabase = createClient()
           const { data: { user } } = await supabase.auth.getUser()
           if (user) {
-            const { data: existing } = await supabase
-              .from('clients')
-              .select('id')
-              .eq('user_id', user.id)
-              .ilike('nom', `%${clientNom.trim()}%`)
-              .single()
-            const clientData = {
-              civilite: clientCivilite || null,
-              nom: clientNom.trim(),
-              prenom: clientPrenom.trim() || null,
-              adresse: clientAdresse || null,
-              code_postal: clientCodePostal || null,
-              ville: clientVille || null,
-              telephone: clientTelephone || null,
-              email: clientEmail || null,
-              user_id: user.id,
+            // Sauvegarder le client
+            if (clientNom.trim()) {
+              const { data: existing } = await supabase
+                .from('clients')
+                .select('id')
+                .eq('user_id', user.id)
+                .ilike('nom', clientNom.trim())
+                .single()
+              const clientData = {
+                civilite: clientCivilite || null,
+                nom: clientNom.trim(),
+                prenom: clientPrenom.trim() || null,
+                adresse: clientAdresse || null,
+                code_postal: clientCodePostal || null,
+                ville: clientVille || null,
+                telephone: clientTelephone || null,
+                email: clientEmail || null,
+                user_id: user.id,
+              }
+              if (!existing) {
+                await supabase.from('clients').insert({ ...clientData, type: 'particulier', actif: true })
+              } else {
+                await supabase.from('clients').update(clientData).eq('id', existing.id)
+              }
             }
-            if (!existing) {
-              await supabase.from('clients').insert(clientData)
-            } else {
-              await supabase.from('clients').update(clientData).eq('id', existing.id)
-            }
-            // Sauvegarder le chantier/prestation dans la table chantiers
+            // Sauvegarder le chantier/prestation (indépendamment du client)
             if (chantierDesc.trim()) {
               const { data: existingChantier } = await supabase
                 .from('chantiers')
                 .select('id')
                 .eq('user_id', user.id)
-                .ilike('nom', `%${chantierDesc.trim()}%`)
+                .ilike('nom', chantierDesc.trim())
                 .single()
               if (!existingChantier) {
                 await supabase.from('chantiers').insert({ nom: chantierDesc.trim(), user_id: user.id })
@@ -474,7 +477,14 @@ function NouveauDevisPage() {
   const togglePayment = (id: string) => {
     setSelectedPayments(prev => {
       const next = new Set(prev)
-      if (next.has(id)) next.delete(id); else next.add(id)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+        // p30 / p50 activent automatiquement l'acompte et remplissent le %
+        if (id === 'p30') { setAcomptePercent('30'); next.add('acompte') }
+        if (id === 'p50') { setAcomptePercent('50'); next.add('acompte') }
+      }
       return next
     })
   }
@@ -701,14 +711,6 @@ function NouveauDevisPage() {
           </div>
         </div>
 
-        {/* Auto-entrepreneur toggle */}
-        <div className="flex flex-wrap items-center gap-4">
-          <label className="flex items-center gap-2 text-sm font-manrope cursor-pointer">
-            <input type="checkbox" checked={autoEntrepreneur} onChange={e => setAutoEntrepreneur(e.target.checked)} className="w-4 h-4 rounded border-gray-300 text-[#5ab4e0] focus:ring-[#5ab4e0]" />
-            Auto-entrepreneur (sans TVA)
-          </label>
-        </div>
-
         {/* LINES TABLE */}
         <>
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -809,17 +811,18 @@ function NouveauDevisPage() {
                 {selectedPayments.has(opt.id) ? '✓ ' : '☐ '}{opt.label}
               </button>
             ))}
-            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-manrope border transition-colors ${selectedPayments.has('acompte') ? 'bg-[#5ab4e0]/10 border-[#5ab4e0] text-[#5ab4e0] font-medium' : 'border-gray-200 text-[#6b7280]'}`}>
-              <button type="button" onClick={() => togglePayment('acompte')} className="shrink-0">
-                {selectedPayments.has('acompte') ? '✓' : '☐'}
-              </button>
+            <div
+              onClick={() => togglePayment('acompte')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-manrope border transition-colors cursor-pointer select-none ${selectedPayments.has('acompte') ? 'bg-[#5ab4e0]/10 border-[#5ab4e0] text-[#5ab4e0] font-medium' : 'border-gray-200 text-[#6b7280] hover:border-gray-400'}`}>
+              <span className="shrink-0">{selectedPayments.has('acompte') ? '✓' : '☐'}</span>
               <span className="shrink-0">Acompte de</span>
               <input
                 type="number"
                 value={acomptePercent}
-                onChange={e => { setAcomptePercent(e.target.value); if (!selectedPayments.has('acompte')) togglePayment('acompte') }}
+                onChange={e => { e.stopPropagation(); setAcomptePercent(e.target.value); if (!selectedPayments.has('acompte')) togglePayment('acompte') }}
                 onClick={e => e.stopPropagation()}
-                className="w-12 text-center bg-transparent outline-none border-b border-current"
+                onFocus={e => e.stopPropagation()}
+                className="w-12 text-center bg-transparent outline-none border-b border-current cursor-text"
                 placeholder="..."
                 min={0} max={100} step={1}
               />

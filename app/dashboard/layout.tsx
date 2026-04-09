@@ -53,6 +53,7 @@ const NAV_GROUPS: NavItem[][] = [
     { label: 'Devis', href: '/dashboard/devis', icon: FilePenLine },
     { label: 'Factures', href: '/dashboard/factures', icon: Banknote },
     { label: 'Achats', href: '/dashboard/achats', icon: ShoppingBag },
+    { label: 'Prestations', href: '/dashboard/prestations', icon: FileText },
   ],
   [{ label: 'Planning', href: '/dashboard/planning', icon: CalendarDays }],
   [

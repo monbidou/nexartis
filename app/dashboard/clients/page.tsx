@@ -181,7 +181,7 @@ export default function ClientsPage() {
   const displayName = (c: ClientRow) =>
     c.type === 'professionnel' && c.raison_sociale
       ? c.raison_sociale
-      : `${c.prenom} ${c.nom}`.trim()
+      : `${c.prenom ? c.prenom + ' ' : ''}${c.nom}`.trim()
 
   const filtered = clients.filter((c) => {
     if (filter === 'Particuliers' && c.type !== 'particulier') return false
