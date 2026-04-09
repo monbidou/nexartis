@@ -61,10 +61,7 @@ const NAV_GROUPS: NavItem[][] = [
     { label: 'Fournisseurs', href: '/dashboard/fournisseurs', icon: Warehouse },
     { label: 'Mon\u00a0équipe', href: '/dashboard/equipe', icon: UsersRound },
   ],
-  [
-    { label: 'Bibliothèque', href: '/dashboard/bibliotheque', icon: Library },
-    { label: 'Statistiques', href: '/dashboard/statistiques', icon: TrendingUp },
-  ],
+  [{ label: 'Statistiques', href: '/dashboard/statistiques', icon: TrendingUp }],
   [
     { label: 'Importer', href: '/dashboard/import', icon: ArrowDownToLine },
     { label: 'Paramètres', href: '/dashboard/parametres', icon: SlidersHorizontal },
