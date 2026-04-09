@@ -31,6 +31,27 @@ interface ChantierRecord { id: string; nom: string; description?: string }
 const UNIT_SUGGESTIONS = ['U', 'm²', 'm', 'ml', 'cm', 'kg', 't', 'h', 'jour', 'demi-journée', 'forfait', 'ensemble', 'lot', 'm³']
 const TVA_RATES = [0, 5.5, 10, 20]
 
+// Liste de prestations intégrées (toujours disponibles, même sans données en base)
+const PRESTATIONS_INTEGREES = [
+  'Installation tableau électrique', 'Remplacement tableau électrique', 'Mise aux normes électriques',
+  'Installation prises de courant', 'Installation interrupteurs', 'Câblage / tirage de câbles',
+  'Installation éclairage intérieur', 'Installation éclairage extérieur', 'Pose spots encastrés',
+  'Installation VMC (ventilation)', 'Installation chauffe-eau électrique', 'Installation radiateurs électriques',
+  'Domotique / automatisation', 'Borne de recharge véhicule électrique', 'Mise à la terre',
+  'Diagnostic électrique', 'Installation alarme / sécurité', 'Sonette / interphone / visiophone',
+  'Installation sanitaires (WC, lavabo, douche)', 'Remplacement robinetterie', 'Débouchage canalisations',
+  'Réparation fuite d\'eau', 'Installation chauffe-eau', 'Remplacement chaudière',
+  'Construction mur / cloison', 'Démolition mur / cloison', 'Ouverture de mur porteur',
+  'Coulage dalle béton', 'Ragréage sol', 'Enduit / crépi extérieur', 'Isolation thermique',
+  'Pose fenêtres double vitrage', 'Pose porte d\'entrée', 'Pose porte intérieure',
+  'Installation volets roulants', 'Pose parquet', 'Construction terrasse bois', 'Pose pergola',
+  'Peinture intérieure', 'Peinture extérieure', 'Pose papier peint', 'Pose carrelage / faïence',
+  'Ravalement de façade', 'Travaux de plomberie générale', 'Travaux de charpente',
+  'Fourniture et pose de matériel', 'Main d\'œuvre', 'Déplacement et frais de chantier',
+  'Nettoyage fin de chantier', 'Dépose / évacuation gravats', 'Visite et diagnostic',
+  'Salle de bain', 'Cuisine', 'Rénovation complète', 'Mise en conformité',
+]
+
 const PAYMENT_OPTIONS = [
   { id: 'p30', label: '30% à la commande, solde à la réception' },
   { id: 'p50', label: '50% à la commande, solde à la réception' },
@@ -201,7 +222,7 @@ function NouveauDevisPage() {
 
   // Chantier (free text + autocomplete)
   const [chantierDesc, setChantierDesc] = useState('')
-  const [chantierSuggestions, setChantierSuggestions] = useState<ChantierRecord[]>([])
+  const [chantierSuggestions, setChantierSuggestions] = useState<string[]>([])
   const [chantierDropdownOpen, setChantierDropdownOpen] = useState(false)
 
   // Lines
@@ -457,16 +478,24 @@ function NouveauDevisPage() {
     setClientDropdownOpen(false)
   }
 
-  // --- Chantier autocomplete ---
+  // --- Chantier autocomplete (DB + liste intégrée) ---
   const handleChantierDescChange = (value: string) => {
     setChantierDesc(value)
     if (value.length >= 1) {
-      const filtered = chantiers.filter(c =>
-        (c.nom || '').toLowerCase().includes(value.toLowerCase()) ||
-        (c.description || '').toLowerCase().includes(value.toLowerCase())
+      const q = value.toLowerCase()
+      // Résultats depuis la base de données
+      const fromDB = chantiers
+        .map(c => c.nom || '')
+        .filter(nom => nom.toLowerCase().includes(q))
+      // Résultats depuis la liste intégrée (non déjà dans DB)
+      const fromDB_set = new Set(fromDB.map(n => n.toLowerCase()))
+      const fromBuiltin = PRESTATIONS_INTEGREES.filter(p =>
+        p.toLowerCase().includes(q) && !fromDB_set.has(p.toLowerCase())
       )
-      setChantierSuggestions(filtered.slice(0, 8))
-      setChantierDropdownOpen(filtered.length > 0)
+      // Fusionner : DB en premier, puis suggestions intégrées
+      const merged = [...fromDB, ...fromBuiltin].slice(0, 10)
+      setChantierSuggestions(merged)
+      setChantierDropdownOpen(merged.length > 0)
     } else {
       setChantierSuggestions([])
       setChantierDropdownOpen(false)
@@ -688,20 +717,20 @@ function NouveauDevisPage() {
                   autoComplete="off"
                 />
                 {chantierDropdownOpen && chantierSuggestions.length > 0 && (
-                  <div className="absolute left-0 top-full mt-1 bg-white rounded-xl border border-gray-200 shadow-xl z-30 w-full max-h-56 overflow-y-auto">
-                    {chantierSuggestions.map(c => (
+                  <div className="absolute left-0 top-full mt-1 bg-white rounded-xl border-2 border-[#5ab4e0] shadow-2xl z-50 w-full max-h-56 overflow-y-auto">
+                    {chantierSuggestions.map((nom, i) => (
                       <button
-                        key={c.id}
+                        key={i}
                         type="button"
-                        onMouseDown={() => {
-                          setChantierDesc(c.nom + (c.description ? ` — ${c.description}` : ''))
+                        onMouseDown={e => {
+                          e.preventDefault()
+                          setChantierDesc(nom)
                           setChantierSuggestions([])
                           setChantierDropdownOpen(false)
                         }}
-                        className="w-full text-left px-4 py-2.5 text-sm font-manrope hover:bg-[#eef7fc] border-b border-gray-100 last:border-0 transition-colors"
+                        className="w-full text-left px-4 py-3 text-sm font-manrope hover:bg-[#eef7fc] border-b border-gray-100 last:border-0 transition-colors text-[#1a1a2e] font-medium"
                       >
-                        <span className="font-semibold text-[#1a1a2e]">{c.nom}</span>
-                        {c.description && <span className="text-[#6b7280] text-xs block">{c.description}</span>}
+                        {nom}
                       </button>
                     ))}
                   </div>
