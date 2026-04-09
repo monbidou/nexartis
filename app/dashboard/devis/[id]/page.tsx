@@ -185,6 +185,8 @@ export default function DevisDetailPage() {
   const { data: lignesRaw, loading: loadingLignes } = useDevisLignes(id)
   const { data: client, loading: loadingClient } = useSupabaseRecord<ClientRecord>('clients', devis?.client_id ?? null)
 
+  const loading = loadingDevis || loadingLignes || loadingClient
+
   const searchParams = useSearchParams()
   const { entreprise } = useEntreprise()
   const [actionsOpen, setActionsOpen] = useState(false)
@@ -274,8 +276,6 @@ export default function DevisDetailPage() {
       alert('Erreur : ' + (err instanceof Error ? err.message : 'Échec'))
     }
   }
-
-  const loading = loadingDevis || loadingLignes || loadingClient
 
   if (loading) {
     return (
