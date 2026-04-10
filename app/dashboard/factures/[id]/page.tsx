@@ -319,39 +319,42 @@ export default function FactureDetailPage() {
 
             <div style={{height:3, background:'linear-gradient(90deg,#2563eb,#93c5fd)', borderRadius:2, marginBottom:14}} />
 
-            {/* Cadres Artisan + Client */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
-              {/* Cadre bleu — Artisan / Émetteur */}
-              <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 14, borderTop: '3px solid #2563eb', flex: '0 0 48%' }}>
-                <div style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.6 }}>
-                  <div style={{ fontWeight: 700, color: '#111', fontSize: 15 }}>{(entreprise?.nom as string) || 'Mon Entreprise'}</div>
+            {/* Cadres Artisan + Client — bordures colorées complètes (comme devis) */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 18, alignItems: 'stretch' }}>
+              {/* Cadre artisan — bordure bleue complète */}
+              <div style={{ border: '2px solid #2563eb', borderRadius: 10, padding: 16, display: 'flex', flexDirection: 'column' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: '#2563eb', marginBottom: 10 }}>Artisan</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: '#111', marginBottom: 6 }}>{(entreprise?.nom as string) || 'Mon Entreprise'}</div>
+                <div style={{ fontSize: 14, color: '#6b7280', lineHeight: 2 }}>
                   {Boolean(entreprise?.adresse) && <div>{entreprise?.adresse as string}</div>}
                   {Boolean(entreprise?.code_postal || entreprise?.ville) && <div>{entreprise?.code_postal as string} {entreprise?.ville as string}</div>}
                   {Boolean(entreprise?.siret) && <div>SIRET : {entreprise?.siret as string}</div>}
                   {Boolean(entreprise?.telephone) && <div>Tél : {entreprise?.telephone as string}</div>}
                 </div>
               </div>
-              {/* Cadre vert — Client */}
-              <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 14, borderTop: '3px solid #10b981', flex: '0 0 48%' }}>
-                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: '#10b981', marginBottom: 8 }}>CLIENT</div>
-                {facture.notes_client ? (
-                  <>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: '#111', marginBottom: 4 }}>{facture.notes_client.split(' | ')[0]}</div>
-                    {facture.notes_client.split(' | ').slice(1).map((info: string, i: number) => (
-                      <div key={i} style={{ fontSize: 12, color: '#6b7280', lineHeight: 1.6 }}>{info}</div>
-                    ))}
-                  </>
-                ) : (
-                  <>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: '#111', marginBottom: 4 }}>{resolvedClientName}</div>
-                    <div style={{ fontSize: 12, color: '#6b7280', lineHeight: 1.6 }}>
-                      {client?.adresse && <div>{client.adresse}</div>}
-                      {(client?.code_postal || client?.ville) && <div>{client.code_postal} {client.ville}</div>}
-                      {client?.telephone && <div>{client.telephone}</div>}
-                      {client?.email && <div>{client.email}</div>}
-                    </div>
-                  </>
-                )}
+              {/* Cadre client — bordure verte complète */}
+              <div style={{ border: '2px solid #10b981', borderRadius: 10, padding: 16, display: 'flex', flexDirection: 'column' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: '#10b981', marginBottom: 10 }}>Client</div>
+                <div style={{ lineHeight: 2 }}>
+                  {facture.notes_client ? (() => {
+                    const parts = facture.notes_client.split(' | ')
+                    return parts.map((info: string, i: number) => (
+                      <div key={i} style={{ fontWeight: i === 0 ? 700 : 400, color: i === 0 ? '#111' : '#6b7280', fontSize: i === 0 ? 16 : 14 }}>
+                        {info}
+                      </div>
+                    ))
+                  })() : (
+                    <>
+                      <div style={{ fontWeight: 700, color: '#111', fontSize: 16 }}>{resolvedClientName}</div>
+                      {client?.adresse && <div style={{ color: '#6b7280', fontSize: 14 }}>{client.adresse}</div>}
+                      {(client?.code_postal || client?.ville) && (
+                        <div style={{ color: '#6b7280', fontSize: 14 }}>{client?.code_postal ?? ''} {client?.ville ?? ''}</div>
+                      )}
+                      {client?.telephone && <div style={{ color: '#6b7280', fontSize: 14 }}>{client.telephone}</div>}
+                      {client?.email && <div style={{ color: '#6b7280', fontSize: 14 }}>{client.email}</div>}
+                    </>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -585,7 +588,7 @@ export default function FactureDetailPage() {
           onClose={() => setSendModalOpen(false)}
           factureId={facture.id}
           numeroFacture={facture.numero}
-          clientEmail={client?.email || facture.client_email || ''}
+          clientEmail={client?.email || facture.client_email || facture.notes_client?.split(' | ').find((p: string) => p.includes('@')) || devisSource?.notes_client?.split(' | ').find((p: string) => p.includes('@')) || ''}
           clientNom={resolvedClientName}
           montantTTC={fmt(totalTTC)}
           onSuccess={() => {

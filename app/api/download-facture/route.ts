@@ -22,19 +22,22 @@ export async function POST(req: NextRequest) {
     let clientAdresse = ''
     let clientType = 'particulier'
     if (facture.client_id) {
-      const { data: client } = await supabase.from('clients').select('nom, prenom, adresse, code_postal, ville, type').eq('id', facture.client_id).single()
+      const { data: client } = await supabase.from('clients').select('nom, prenom, adresse, code_postal, ville, telephone, email, type').eq('id', facture.client_id).single()
       if (client) {
         clientNom = `${client.prenom || ''} ${client.nom || ''}`.trim()
-        clientAdresse = [client.adresse, client.code_postal, client.ville].filter(Boolean).join(' ')
+        const adressParts = [client.adresse, `${client.code_postal || ''} ${client.ville || ''}`.trim()].filter(Boolean)
+        if (client.telephone) adressParts.push(client.telephone)
+        if (client.email) adressParts.push(client.email)
+        clientAdresse = adressParts.join(' | ')
         clientType = client.type || 'particulier'
       }
     }
 
-    // Also try notes_client for client name
+    // Fallback: use notes_client
     if (facture.notes_client) {
       clientNom = facture.notes_client.split(' | ')[0] || clientNom
       const parts = facture.notes_client.split(' | ').slice(1)
-      if (parts.length > 0 && !clientAdresse) clientAdresse = parts.join(', ')
+      if (parts.length > 0 && !clientAdresse) clientAdresse = parts.join(' | ')
     }
 
     const pdfBase64 = generateFacturePdf({
