@@ -217,13 +217,12 @@ function Sidebar({
         <div className={`flex flex-col items-center px-4 pt-6 pb-4 ${collapsed ? 'pt-4 pb-2' : ''}`}>
           {/* Logo dans un rectangle blanc arrondi */}
           <div
-            className="flex items-center justify-center mb-3 bg-white overflow-hidden transition-all duration-200"
+            className="flex items-center justify-center mb-3 bg-white overflow-hidden"
             style={{
               width: collapsed ? 44 : '90%',
-              height: collapsed ? 44 : 100,
-              maxHeight: 100,
+              height: collapsed ? 44 : 80,
               borderRadius: collapsed ? 10 : 14,
-              padding: collapsed ? 4 : 8,
+              padding: collapsed ? 4 : 6,
               flexShrink: 0,
             }}
           >
@@ -232,11 +231,12 @@ function Sidebar({
               <img
                 src={entrepriseLogo}
                 alt={entrepriseNom || 'Logo'}
+                width={collapsed ? 36 : 140}
+                height={collapsed ? 36 : 68}
                 style={{
                   maxWidth: '100%',
-                  maxHeight: 100,
+                  maxHeight: collapsed ? 36 : 68,
                   objectFit: 'contain',
-                  transition: 'all 0.2s ease',
                 }}
               />
             ) : (

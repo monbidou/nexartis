@@ -42,6 +42,14 @@ interface DevisRecord {
   objet?: string
   description?: string
   notes_client?: string
+  dechets_nature?: string
+  dechets_quantite?: string
+  dechets_responsable?: string
+  dechets_tri?: string
+  dechets_collecte_nom?: string
+  dechets_collecte_adresse?: string
+  dechets_collecte_type?: string
+  dechets_cout?: number
   created_at: string
   updated_at?: string
 }
@@ -463,6 +471,55 @@ export default function DevisDetailPage() {
                   ))}
                 </tbody>
               </table>
+            )}
+
+            {/* ═══ GESTION DES DÉCHETS (loi AGEC) ═══ */}
+            {(devis.dechets_nature || devis.dechets_quantite || devis.dechets_collecte_nom) && (
+              <div className="mb-4 p-4 bg-[#fef9f0] rounded-lg border border-[#e87a2a]/30">
+                <h4 className="font-manrope font-semibold text-[#e87a2a] mb-3 uppercase tracking-wider" style={{fontSize:11}}>Gestion des déchets (loi AGEC)</h4>
+                <div className="space-y-1.5">
+                  {devis.dechets_nature && (
+                    <div>
+                      <span className="text-xs font-manrope text-[#6b7280]">Nature : </span>
+                      <span className="text-sm font-manrope text-[#1a1a2e]">{devis.dechets_nature}</span>
+                    </div>
+                  )}
+                  {devis.dechets_quantite && (
+                    <div>
+                      <span className="text-xs font-manrope text-[#6b7280]">Quantité estimée : </span>
+                      <span className="text-sm font-manrope text-[#1a1a2e]">{devis.dechets_quantite}</span>
+                    </div>
+                  )}
+                  {devis.dechets_responsable && (
+                    <div>
+                      <span className="text-xs font-manrope text-[#6b7280]">Enlèvement par : </span>
+                      <span className="text-sm font-manrope text-[#1a1a2e]">{devis.dechets_responsable}</span>
+                    </div>
+                  )}
+                  {devis.dechets_tri && (
+                    <div>
+                      <span className="text-xs font-manrope text-[#6b7280]">Tri : </span>
+                      <span className="text-sm font-manrope text-[#1a1a2e]">{devis.dechets_tri}</span>
+                    </div>
+                  )}
+                  {devis.dechets_collecte_nom && (
+                    <div>
+                      <span className="text-xs font-manrope text-[#6b7280]">Point de collecte : </span>
+                      <span className="text-sm font-manrope text-[#1a1a2e]">
+                        {devis.dechets_collecte_nom}
+                        {devis.dechets_collecte_adresse && ` — ${devis.dechets_collecte_adresse}`}
+                        {devis.dechets_collecte_type && ` (${devis.dechets_collecte_type})`}
+                      </span>
+                    </div>
+                  )}
+                  {devis.dechets_cout != null && devis.dechets_cout > 0 && (
+                    <div>
+                      <span className="text-xs font-manrope text-[#6b7280]">Coût estimé : </span>
+                      <span className="text-sm font-manrope font-medium text-[#1a1a2e]">{formatCurrency(devis.dechets_cout)} TTC</span>
+                    </div>
+                  )}
+                </div>
+              </div>
             )}
 
             {/* ═══ BAS DE PAGE : 2 colonnes ═══ */}

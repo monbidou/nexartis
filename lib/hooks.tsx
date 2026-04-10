@@ -238,6 +238,7 @@ function useAchats() { return useSupabaseQuery<Row>('achats', { orderBy: 'date_a
 function usePaiements() { return useSupabaseQuery<Row>('paiements', { orderBy: 'date_paiement' }) }
 function usePlanning() { return useSupabaseQuery<Row>('planning_interventions', { orderBy: 'date_debut', ascending: true }) }
 function useRelances() { return useSupabaseQuery<Row>('relances', { orderBy: 'created_at' }) }
+function usePointsCollecte() { return useSupabaseQuery<Row>('points_collecte', { orderBy: 'created_at' }) }
 
 // ── Devis lignes (no user_id, linked via devis_id) ───────────
 
@@ -331,6 +332,7 @@ export {
   useRelances,
   useDevisLignes,
   useFactureLignes,
+  usePointsCollecte,
   LoadingSkeleton,
   ErrorBanner,
 }

@@ -72,6 +72,16 @@ export async function POST(req: NextRequest) {
         taux_tva: (l.taux_tva as number) || 10,
       })),
       entreprise: ent,
+      dechets: (devis.dechets_nature || devis.dechets_quantite || devis.dechets_collecte_nom) ? {
+        nature: devis.dechets_nature || undefined,
+        quantite: devis.dechets_quantite || undefined,
+        responsable: devis.dechets_responsable || undefined,
+        tri: devis.dechets_tri || undefined,
+        collecte_nom: devis.dechets_collecte_nom || undefined,
+        collecte_adresse: devis.dechets_collecte_adresse || undefined,
+        collecte_type: devis.dechets_collecte_type || undefined,
+        cout: devis.dechets_cout ?? undefined,
+      } : undefined,
     })
 
     // Build short email body (avoids Gmail truncation)

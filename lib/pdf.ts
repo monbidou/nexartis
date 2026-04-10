@@ -50,10 +50,14 @@ interface Ligne {
 }
 
 interface Dechets {
-  type_dechets?: string
-  point_collecte?: string
-  volume_m3?: number
-  cout_ttc_m3?: number
+  nature?: string
+  quantite?: string
+  responsable?: string
+  tri?: string
+  collecte_nom?: string
+  collecte_adresse?: string
+  collecte_type?: string
+  cout?: number
 }
 
 export interface DevisData {
@@ -349,21 +353,26 @@ export function generateDevisPdf(data: DevisData): string {
 
   // --- COLONNE GAUCHE ---
 
-  // Déchets
-  if (data.dechets && (data.dechets.type_dechets || data.dechets.volume_m3)) {
-    leftY = ensureSpace(doc, leftY, 25)
+  // Déchets (loi AGEC — 4 mentions obligatoires)
+  if (data.dechets && (data.dechets.nature || data.dechets.quantite || data.dechets.collecte_nom)) {
+    leftY = ensureSpace(doc, leftY, 35)
     doc.setFontSize(8)
     doc.setFont('helvetica', 'bold')
     doc.setTextColor(...BLUE)
-    doc.text('Gestion des déchets', leftX, leftY)
+    doc.text('Gestion des déchets (loi AGEC)', leftX, leftY)
     leftY += 4
     doc.setFontSize(7)
     doc.setFont('helvetica', 'normal')
     doc.setTextColor(80)
-    if (data.dechets.type_dechets) { doc.text(`Type : ${data.dechets.type_dechets}`, leftX, leftY); leftY += 3.2 }
-    if (data.dechets.point_collecte) { doc.text(`Point de collecte : ${data.dechets.point_collecte}`, leftX, leftY); leftY += 3.2 }
-    if (data.dechets.volume_m3) { doc.text(`Volume estimé : ${data.dechets.volume_m3} m³`, leftX, leftY); leftY += 3.2 }
-    if (data.dechets.cout_ttc_m3 !== undefined) { doc.text(`Coût : ${fmt(data.dechets.cout_ttc_m3)} TTC/m³`, leftX, leftY); leftY += 3.2 }
+    if (data.dechets.nature) { doc.text(`Nature : ${data.dechets.nature}`, leftX, leftY); leftY += 3.2 }
+    if (data.dechets.quantite) { doc.text(`Quantité estimée : ${data.dechets.quantite}`, leftX, leftY); leftY += 3.2 }
+    if (data.dechets.responsable) { doc.text(`Enlèvement : ${data.dechets.responsable}`, leftX, leftY); leftY += 3.2 }
+    if (data.dechets.tri) { doc.text(`Tri : ${data.dechets.tri}`, leftX, leftY); leftY += 3.2 }
+    if (data.dechets.collecte_nom) {
+      const collecteInfo = [data.dechets.collecte_nom, data.dechets.collecte_adresse, data.dechets.collecte_type].filter(Boolean).join(' — ')
+      doc.text(`Point de collecte : ${collecteInfo}`, leftX, leftY, { maxWidth: 82 }); leftY += data.dechets.collecte_adresse ? 6.4 : 3.2
+    }
+    if (data.dechets.cout !== undefined && data.dechets.cout > 0) { doc.text(`Coût estimé : ${fmt(data.dechets.cout)} TTC`, leftX, leftY); leftY += 3.2 }
     leftY += 3
   }
 
