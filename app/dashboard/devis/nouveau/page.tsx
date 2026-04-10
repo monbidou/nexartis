@@ -918,9 +918,9 @@ function NouveauDevisPage() {
               <div>
                 <label className="block text-[11px] font-manrope text-[#6b7280] mb-1">Coût estimé TTC (€)</label>
                 <input type="number" value={dechetsCout} onChange={e => setDechetsCout(e.target.value)} placeholder="0.00" min={0} step={0.01} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-manrope outline-none focus:border-[#5ab4e0]" />
-                <label className="flex items-center gap-1.5 mt-1.5 cursor-pointer">
-                  <input type="checkbox" checked={dechetsInclureCout} onChange={e => setDechetsInclureCout(e.target.checked)} className="w-3.5 h-3.5 rounded border-gray-300 text-[#5ab4e0] focus:ring-[#5ab4e0]" />
-                  <span className="text-[10px] font-manrope text-[#6b7280]">Inclure dans le total</span>
+                <label className="flex items-center gap-2 mt-2 cursor-pointer">
+                  <input type="checkbox" checked={dechetsInclureCout} onChange={e => setDechetsInclureCout(e.target.checked)} className="w-4 h-4 rounded border-gray-300 text-[#5ab4e0] focus:ring-[#5ab4e0]" />
+                  <span className="text-sm font-manrope text-[#1a1a2e]">Inclure dans le prix total</span>
                 </label>
               </div>
             </div>

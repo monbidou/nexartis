@@ -526,14 +526,35 @@ export default function DevisDetailPage() {
 
             {/* ═══ BAS DE PAGE : 2 colonnes ═══ */}
             <div className="print-bottom grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
-              {/* Gauche : conditions */}
-              <div>
+              {/* Gauche : conditions + mentions légales */}
+              <div className="space-y-4">
                 {devis.conditions_paiement && (
                   <div>
                     <h4 className="font-manrope font-semibold text-sm text-[#1a1a2e] mb-2">Conditions de paiement</h4>
                     <p className="text-sm font-manrope text-[#6b7280] leading-relaxed">{devis.conditions_paiement}</p>
                   </div>
                 )}
+                {/* Mentions légales obligatoires */}
+                <div className="border-t border-gray-100 pt-3">
+                  <h4 className="font-manrope font-semibold text-[11px] text-[#9ca3af] uppercase tracking-wider mb-2">Mentions légales</h4>
+                  <div className="space-y-1.5 text-[11px] font-manrope text-[#6b7280] leading-relaxed">
+                    {(entreprise?.assurance_nom || entreprise?.decennale_numero) && (
+                      <p>
+                        <span className="font-medium text-[#1a1a2e]">Assurance décennale :</span>{' '}
+                        {entreprise?.assurance_nom as string}
+                        {entreprise?.decennale_numero && ` — Police n° ${entreprise?.decennale_numero as string}`}
+                        {entreprise?.assurance_zone && ` — Zone : ${entreprise?.assurance_zone as string}`}
+                      </p>
+                    )}
+                    {entreprise?.mediateur && (
+                      <p>
+                        <span className="font-medium text-[#1a1a2e]">Médiateur de la consommation :</span>{' '}
+                        {entreprise?.mediateur as string}
+                      </p>
+                    )}
+                    <p>Le client dispose d&apos;un délai de rétractation de 14 jours à compter de la signature du devis pour les travaux conclus hors établissement (art. L221-18 du Code de la consommation).</p>
+                  </div>
+                </div>
               </div>
               {/* Droite : totaux */}
               <div>
@@ -576,17 +597,17 @@ export default function DevisDetailPage() {
             </div>
 
             {/* ═══ SIGNATURES ═══ */}
-            <div className="print-sigs grid grid-cols-2 gap-4 mt-4">
-              <div className="print-sig-box border border-dashed border-gray-300 rounded-lg p-3" style={{ minHeight: 70 }}>
-                <div className="text-[10px] font-bold tracking-widest uppercase text-[#9ca3af] mb-1">Signature artisan</div>
+            <div className="print-sigs grid grid-cols-2 gap-4 mt-3">
+              <div className="print-sig-box border border-dashed border-gray-300 rounded-lg p-2.5" style={{ minHeight: 55 }}>
+                <div className="text-[9px] font-bold tracking-widest uppercase text-[#9ca3af] mb-1">Signature artisan</div>
                 {Boolean(entreprise?.signature_base64) && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={entreprise?.signature_base64 as string} alt="Signature" style={{ height: 48, objectFit: 'contain' }} />
+                  <img src={entreprise?.signature_base64 as string} alt="Signature" style={{ height: 38, objectFit: 'contain' }} />
                 )}
               </div>
-              <div className="print-sig-box border border-dashed border-gray-300 rounded-lg p-3" style={{ minHeight: 70 }}>
-                <div className="text-[10px] font-bold tracking-widest uppercase text-[#9ca3af] mb-1">Bon pour accord — Signature client</div>
-                <div className="mt-8 border-t border-gray-200 pt-1 text-[11px] text-[#9ca3af]">...... / ...... / ..........</div>
+              <div className="print-sig-box border border-dashed border-gray-300 rounded-lg p-2.5" style={{ minHeight: 55 }}>
+                <div className="text-[9px] font-bold tracking-widest uppercase text-[#9ca3af] mb-1">Bon pour accord — Signature client</div>
+                <div className="mt-5 border-t border-gray-200 pt-1 text-[10px] text-[#9ca3af]">...... / ...... / ..........</div>
               </div>
             </div>
 

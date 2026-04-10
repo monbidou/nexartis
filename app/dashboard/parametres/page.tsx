@@ -199,6 +199,7 @@ function EntrepriseSection({
   const [assuranceNom, setAssuranceNom] = useState('')
   const [decennale, setDecennale] = useState('')
   const [assuranceZone, setAssuranceZone] = useState('')
+  const [mediateur, setMediateur] = useState('')
   const [rge, setRge] = useState(false)
   const [metier, setMetier] = useState('')
   const [saving, setSaving] = useState(false)
@@ -224,6 +225,7 @@ function EntrepriseSection({
       setAssuranceNom((entreprise.assurance_nom as string) ?? '')
       setDecennale((entreprise.decennale_numero as string) ?? '')
       setAssuranceZone((entreprise.assurance_zone as string) ?? '')
+      setMediateur((entreprise.mediateur as string) ?? '')
       setRge(!!entreprise.rge)
       setMetier((entreprise.metier as string) ?? '')
     }
@@ -240,6 +242,7 @@ function EntrepriseSection({
         adresse, code_postal: codePostal, ville, telephone, email,
         iban, bic,
         assurance_nom: assuranceNom || null, decennale_numero: decennale, assurance_zone: assuranceZone || null,
+        mediateur: mediateur || null,
         rge, metier,
       })
       setSuccess('Informations de l\'entreprise enregistrées avec succès.')
@@ -305,6 +308,15 @@ function EntrepriseSection({
         <div className="flex items-end">
           <ToggleSwitch label="Certification RGE" checked={rge} onChange={setRge} />
         </div>
+      </div>
+
+      {/* Médiateur */}
+      <p className="text-xs font-manrope text-gray-400 uppercase tracking-wider mb-3 mt-8">Médiateur de la consommation</p>
+      <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-4">
+        <p className="text-sm text-amber-700 font-manrope">Obligatoire depuis 2016 sur tous vos documents commerciaux (art. L612-1 du Code de la consommation).</p>
+      </div>
+      <div className="grid grid-cols-1 gap-6">
+        <InputField label="Nom et coordonnées du médiateur" value={mediateur} onChange={setMediateur} placeholder="Ex : Médiation de la consommation — CM2C — 14 rue Saint-Jean 75017 Paris — www.cm2c.net" />
       </div>
 
       {/* Bancaire */}
@@ -808,6 +820,7 @@ function LogoUploadSection({
             {currentLogo ? 'Modifier le logo' : 'Ajouter un logo'}
           </button>
           <p className="text-xs text-gray-400 mt-1">PNG, JPG ou WebP. Max 2 Mo.</p>
+          <p className="text-xs text-gray-400 mt-0.5">Sur mobile, vous pouvez prendre une photo directement.</p>
         </div>
       </div>
 
@@ -1098,15 +1111,18 @@ function TamponUpload({
         </div>
       )}
 
-      <label className="inline-flex items-center gap-2 h-10 px-5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-sm font-syne font-bold text-[#1a1a2e] cursor-pointer transition-colors">
-        {saving ? 'Enregistrement...' : currentTampon ? 'Changer le tampon' : 'Uploader un tampon'}
-        <input
-          type="file"
-          accept="image/png,image/jpeg,image/jpg"
-          onChange={handleUpload}
-          className="hidden"
-        />
-      </label>
+      <div>
+        <label className="inline-flex items-center gap-2 h-10 px-5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-sm font-syne font-bold text-[#1a1a2e] cursor-pointer transition-colors">
+          {saving ? 'Enregistrement...' : currentTampon ? 'Changer le tampon' : 'Uploader un tampon'}
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/jpg"
+            onChange={handleUpload}
+            className="hidden"
+          />
+        </label>
+        <p className="text-xs text-gray-400 mt-1.5">PNG ou JPG. Sur mobile, vous pouvez prendre une photo directement.</p>
+      </div>
 
       <SuccessMessage message={success} />
     </div>
