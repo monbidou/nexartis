@@ -174,6 +174,46 @@ async function purgeCorbeille() {
   await supabase.from('factures').delete().eq('user_id', user.id).not('deleted_at', 'is', null).lt('deleted_at', sevenDaysAgo)
 }
 
+// ── Entreprise interface ──────────────────────────────────────
+
+export interface EntrepriseRecord {
+  id: string
+  user_id: string
+  nom?: string
+  siret?: string
+  tva_intracommunautaire?: string
+  code_naf?: string
+  forme_juridique?: string
+  capital_social?: string
+  rcs_rm?: string
+  adresse?: string
+  code_postal?: string
+  ville?: string
+  telephone?: string
+  email?: string
+  iban?: string
+  bic?: string
+  assurance_nom?: string
+  decennale_numero?: string
+  assurance_zone?: string
+  mediateur?: string
+  metier?: string
+  logo_url?: string
+  signature_base64?: string
+  tampon_base64?: string
+  prefix_devis?: string
+  prefix_factures?: string
+  conditions_paiement?: string
+  couleur_principale?: string
+  auto_entrepreneur?: boolean
+  abonnement_type?: string
+  trial_started_at?: string
+  rge?: boolean
+  created_at?: string
+  updated_at?: string
+  [key: string]: unknown  // permet d'accéder à des colonnes ajoutées dynamiquement
+}
+
 // ── User / Entreprise ─────────────────────────────────────────
 
 function useUser() {
@@ -194,7 +234,7 @@ function useUser() {
 }
 
 function useEntreprise() {
-  const [entreprise, setEntreprise] = useState<Record<string, unknown> | null>(null)
+  const [entreprise, setEntreprise] = useState<EntrepriseRecord | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -203,7 +243,7 @@ function useEntreprise() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { setLoading(false); return }
       const { data } = await supabase.from('entreprises').select('*').eq('user_id', user.id).single()
-      setEntreprise(data)
+      setEntreprise(data as EntrepriseRecord | null)
       setLoading(false)
     }
     fetch()
@@ -214,7 +254,7 @@ function useEntreprise() {
     const supabase = createClient()
     const { data, error } = await supabase.from('entreprises').update(values).eq('id', entreprise.id).select().single()
     if (error) throw new Error(error.message)
-    setEntreprise(data)
+    setEntreprise(data as EntrepriseRecord)
     return data
   }
 
