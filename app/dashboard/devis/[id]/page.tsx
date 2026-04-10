@@ -474,49 +474,47 @@ export default function DevisDetailPage() {
               </table>
             )}
 
-            {/* ═══ GESTION DES DÉCHETS (loi AGEC) — compact, demi-largeur ═══ */}
-            {(devis.dechets_nature || devis.dechets_quantite || devis.dechets_collecte_nom) && (
-              <div className="mb-4 max-w-[50%]">
-                <div className="px-3 py-2 bg-[#fef9f0] rounded border border-[#e87a2a]/20">
-                  <h4 className="font-manrope font-semibold text-[#e87a2a] mb-1 uppercase tracking-wider" style={{fontSize:9}}>Déchets (AGEC)</h4>
-                  <div className="space-y-0.5" style={{fontSize:10}}>
-                    {devis.dechets_nature && (
-                      <div className="font-manrope text-[#374151]"><span className="text-[#9ca3af]">Nature :</span> {devis.dechets_nature}</div>
-                    )}
-                    {devis.dechets_quantite && (
-                      <div className="font-manrope text-[#374151]"><span className="text-[#9ca3af]">Qté :</span> {devis.dechets_quantite}</div>
-                    )}
-                    {devis.dechets_responsable && (
-                      <div className="font-manrope text-[#374151]"><span className="text-[#9ca3af]">Enlèvement :</span> {devis.dechets_responsable}</div>
-                    )}
-                    {devis.dechets_tri && (
-                      <div className="font-manrope text-[#374151]"><span className="text-[#9ca3af]">Tri :</span> {devis.dechets_tri}</div>
-                    )}
-                    {devis.dechets_collecte_nom && (
-                      <div className="font-manrope text-[#374151]"><span className="text-[#9ca3af]">Collecte :</span> {devis.dechets_collecte_nom}{devis.dechets_collecte_adresse && ` — ${devis.dechets_collecte_adresse}`}{devis.dechets_collecte_type && ` (${devis.dechets_collecte_type})`}</div>
-                    )}
-                    {devis.dechets_cout != null && devis.dechets_cout > 0 && (
-                      <div className="font-manrope text-[#374151]"><span className="text-[#9ca3af]">Coût :</span> <span className="font-medium">{formatCurrency(devis.dechets_cout)} TTC</span> <span className="text-[9px] ml-1 px-1 py-px rounded bg-gray-100 text-[#9ca3af]">{devis.dechets_inclure_cout ? 'Inclus' : 'Informatif'}</span></div>
-                    )}
+            {/* ═══ DÉCHETS + TOTAUX : 2 colonnes côte à côte ═══ */}
+            <div className="print-bottom grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+              {/* Gauche : déchets + conditions + mentions légales */}
+              <div className="space-y-3">
+                {/* Déchets compact */}
+                {(devis.dechets_nature || devis.dechets_quantite || devis.dechets_collecte_nom) && (
+                  <div className="px-3 py-2 bg-[#fef9f0] rounded border border-[#e87a2a]/20">
+                    <h4 className="font-manrope font-semibold text-[#e87a2a] mb-1 uppercase tracking-wider" style={{fontSize:9}}>Déchets (AGEC)</h4>
+                    <div className="space-y-0.5" style={{fontSize:10}}>
+                      {devis.dechets_nature && (
+                        <div className="font-manrope text-[#374151]"><span className="text-[#9ca3af]">Nature :</span> {devis.dechets_nature}</div>
+                      )}
+                      {devis.dechets_quantite && (
+                        <div className="font-manrope text-[#374151]"><span className="text-[#9ca3af]">Qté :</span> {devis.dechets_quantite}</div>
+                      )}
+                      {devis.dechets_responsable && (
+                        <div className="font-manrope text-[#374151]"><span className="text-[#9ca3af]">Enlèvement :</span> {devis.dechets_responsable}</div>
+                      )}
+                      {devis.dechets_tri && (
+                        <div className="font-manrope text-[#374151]"><span className="text-[#9ca3af]">Tri :</span> {devis.dechets_tri}</div>
+                      )}
+                      {devis.dechets_collecte_nom && (
+                        <div className="font-manrope text-[#374151]"><span className="text-[#9ca3af]">Collecte :</span> {devis.dechets_collecte_nom}{devis.dechets_collecte_adresse && ` — ${devis.dechets_collecte_adresse}`}{devis.dechets_collecte_type && ` (${devis.dechets_collecte_type})`}</div>
+                      )}
+                      {devis.dechets_cout != null && devis.dechets_cout > 0 && (
+                        <div className="font-manrope text-[#374151]"><span className="text-[#9ca3af]">Coût :</span> <span className="font-medium">{formatCurrency(devis.dechets_cout)} TTC</span> <span className="text-[9px] ml-1 px-1 py-px rounded bg-gray-100 text-[#9ca3af]">{devis.dechets_inclure_cout ? 'Inclus' : 'Informatif'}</span></div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </div>
-            )}
-
-            {/* ═══ BAS DE PAGE : 2 colonnes ═══ */}
-            <div className="print-bottom grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
-              {/* Gauche : conditions + mentions légales */}
-              <div className="space-y-4">
+                )}
+                {/* Conditions de paiement */}
                 {devis.conditions_paiement && (
                   <div>
-                    <h4 className="font-manrope font-semibold text-sm text-[#1a1a2e] mb-2">Conditions de paiement</h4>
+                    <h4 className="font-manrope font-semibold text-sm text-[#1a1a2e] mb-1">Conditions de paiement</h4>
                     <p className="text-sm font-manrope text-[#6b7280] leading-relaxed">{devis.conditions_paiement}</p>
                   </div>
                 )}
                 {/* Mentions légales obligatoires */}
-                <div className="border-t border-gray-100 pt-3">
-                  <h4 className="font-manrope font-semibold text-[11px] text-[#9ca3af] uppercase tracking-wider mb-2">Mentions légales</h4>
-                  <div className="space-y-1.5 text-[11px] font-manrope text-[#6b7280] leading-relaxed">
+                <div className="border-t border-gray-100 pt-2">
+                  <h4 className="font-manrope font-semibold text-[10px] text-[#9ca3af] uppercase tracking-wider mb-1">Mentions légales</h4>
+                  <div className="space-y-1 text-[10px] font-manrope text-[#6b7280] leading-relaxed">
                     {Boolean(entreprise?.assurance_nom || entreprise?.decennale_numero) && (
                       <p>
                         <span className="font-medium text-[#1a1a2e]">Assurance décennale :</span>{' '}
@@ -527,29 +525,29 @@ export default function DevisDetailPage() {
                     )}
                     {Boolean(entreprise?.mediateur) && (
                       <p>
-                        <span className="font-medium text-[#1a1a2e]">Médiateur de la consommation :</span>{' '}
+                        <span className="font-medium text-[#1a1a2e]">Médiateur :</span>{' '}
                         {String(entreprise?.mediateur)}
                       </p>
                     )}
-                    <p>Le client dispose d&apos;un délai de rétractation de 14 jours à compter de la signature du devis pour les travaux conclus hors établissement (art. L221-18 du Code de la consommation).</p>
+                    <p>Délai de rétractation de 14 jours à compter de la signature pour travaux hors établissement (art. L221-18 Code de la consommation).</p>
                   </div>
                 </div>
               </div>
-              {/* Droite : totaux */}
+              {/* Droite : totaux — alignés en haut */}
               <div>
-                <div className="flex justify-between py-2 text-sm font-manrope">
+                <div className="flex justify-between py-1.5 text-sm font-manrope">
                   <span className="text-[#6b7280]">Total HT</span>
                   <span className="text-[#1a1a2e] font-medium">{formatCurrency(totalHT)}</span>
                 </div>
                 {Object.entries(tvaGroups)
                   .sort(([a], [b]) => Number(a) - Number(b))
                   .map(([rate, group]) => (
-                    <div key={rate} className="flex justify-between py-1.5 text-sm font-manrope">
+                    <div key={rate} className="flex justify-between py-1 text-sm font-manrope">
                       <span className="text-[#6b7280]">TVA {rate}%</span>
                       <span className="text-[#1a1a2e] font-medium">{formatCurrency(group.tva)}</span>
                     </div>
                   ))}
-                <div className="border-t border-gray-200 mt-2 pt-2 flex justify-between py-2 text-sm font-manrope">
+                <div className="border-t border-gray-200 mt-1.5 pt-1.5 flex justify-between py-1.5 text-sm font-manrope">
                   <span className="text-[#1a1a2e] font-bold">Total TTC</span>
                   <span className="text-[#1a1a2e] font-bold">{formatCurrency(totalTTC)}</span>
                 </div>
@@ -557,40 +555,40 @@ export default function DevisDetailPage() {
                   const acompteMnt = totalTTC * (devis.acompte_pourcent / 100)
                   return (
                     <>
-                      <div className="flex justify-between py-1.5 text-sm font-manrope border-t mt-1 pt-2">
+                      <div className="flex justify-between py-1 text-sm font-manrope border-t mt-1 pt-1.5">
                         <span className="text-[#2563eb] font-medium">Acompte à verser ({devis.acompte_pourcent}%)</span>
                         <span className="text-[#2563eb] font-semibold">{formatCurrency(acompteMnt)}</span>
                       </div>
-                      <div className="flex justify-between py-1.5 text-sm font-manrope">
+                      <div className="flex justify-between py-1 text-sm font-manrope">
                         <span className="text-[#6b7280]">Reste à facturer</span>
                         <span className="font-semibold">{formatCurrency(totalTTC - acompteMnt)}</span>
                       </div>
                     </>
                   )
                 })()}
-                <div className="bg-[#2563eb] text-white rounded-lg p-3 mt-3 flex justify-between items-center">
+                <div className="bg-[#2563eb] text-white rounded-lg p-2.5 mt-2 flex justify-between items-center">
                   <span className="font-syne font-bold text-sm">NET À PAYER</span>
                   <span className="font-syne font-bold text-lg">{formatCurrency(totalTTC)}</span>
                 </div>
               </div>
             </div>
 
-            {/* ═══ SIGNATURES — compact ═══ */}
-            <div className="print-sigs grid grid-cols-2 gap-3 mt-2">
-              <div className="print-sig-box border border-dashed border-gray-300 rounded p-2" style={{ minHeight: 40 }}>
-                <div className="text-[8px] font-bold tracking-widest uppercase text-[#9ca3af] mb-0.5">Signature artisan</div>
+            {/* ═══ SIGNATURES ═══ */}
+            <div className="print-sigs grid grid-cols-2 gap-4 mt-2">
+              <div className="print-sig-box border border-dashed border-gray-300 rounded-lg p-3" style={{ minHeight: 60 }}>
+                <div className="text-[10px] font-bold tracking-wider uppercase text-[#9ca3af] mb-1">Signature artisan</div>
                 {Boolean(entreprise?.signature_base64) && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={String(entreprise?.signature_base64 || '')} alt="Signature" style={{ height: 28, objectFit: 'contain' }} />
+                  <img src={String(entreprise?.signature_base64 || '')} alt="Signature" style={{ height: 36, objectFit: 'contain' }} />
                 )}
                 {!entreprise?.signature_base64 && Boolean(entreprise?.tampon_base64) && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={String(entreprise?.tampon_base64 || '')} alt="Tampon" style={{ height: 28, objectFit: 'contain' }} />
+                  <img src={String(entreprise?.tampon_base64 || '')} alt="Tampon" style={{ height: 36, objectFit: 'contain' }} />
                 )}
               </div>
-              <div className="print-sig-box border border-dashed border-gray-300 rounded p-2" style={{ minHeight: 40 }}>
-                <div className="text-[8px] font-bold tracking-widest uppercase text-[#9ca3af] mb-0.5">Bon pour accord — Signature client</div>
-                <div className="mt-3 border-t border-gray-200 pt-0.5 text-[9px] text-[#9ca3af]">...... / ...... / ..........</div>
+              <div className="print-sig-box border border-dashed border-gray-300 rounded-lg p-3" style={{ minHeight: 60 }}>
+                <div className="text-[10px] font-bold tracking-wider uppercase text-[#9ca3af] mb-1">Bon pour accord — Signature client</div>
+                <div className="mt-4 border-t border-gray-200 pt-1 text-[10px] text-[#9ca3af]">...... / ...... / ..........</div>
               </div>
             </div>
 
