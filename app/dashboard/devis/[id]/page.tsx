@@ -393,47 +393,47 @@ export default function DevisDetailPage() {
             {/* Ligne dégradé */}
             <div style={{height:3, background:'linear-gradient(90deg,#2563eb,#93c5fd)', borderRadius:2, marginBottom:14}} />
 
-            {/* Dates — sous le trait bleu, au-dessus des cadres */}
-            <div className="print-dates" style={{display:'flex', flexWrap:'wrap', justifyContent:'center', gap:'20px', marginBottom:20, padding:'10px 0'}}>
-              <span style={{fontSize:15, color:'#374151'}}>Date : <strong style={{color:'#1a1a2e'}}>{formatDate(devis.date_emission || devis.created_at)}</strong></span>
-              {devis.date_validite && <span style={{fontSize:15, color:'#374151'}}>Valide jusqu&apos;au : <strong style={{color:'#1a1a2e'}}>{formatDate(devis.date_validite)}</strong></span>}
-              {devis.date_debut_travaux && <span style={{fontSize:15, color:'#374151'}}>Début travaux : <strong style={{color:'#1a1a2e'}}>{formatDate(devis.date_debut_travaux)}</strong></span>}
-              {devis.duree_estimee && <span style={{fontSize:15, color:'#374151'}}>Durée : <strong style={{color:'#1a1a2e'}}>{devis.duree_estimee}</strong></span>}
+            {/* Dates — sous le trait bleu */}
+            <div className="print-dates" style={{display:'flex', flexWrap:'wrap', justifyContent:'center', gap:'16px', marginBottom:14, padding:'6px 0'}}>
+              <span style={{fontSize:11, color:'#374151'}}>Date : <strong style={{color:'#1a1a2e'}}>{formatDate(devis.date_emission || devis.created_at)}</strong></span>
+              {devis.date_validite && <span style={{fontSize:11, color:'#374151'}}>Valide jusqu&apos;au : <strong style={{color:'#1a1a2e'}}>{formatDate(devis.date_validite)}</strong></span>}
+              {devis.date_debut_travaux && <span style={{fontSize:11, color:'#374151'}}>Début travaux : <strong style={{color:'#1a1a2e'}}>{formatDate(devis.date_debut_travaux)}</strong></span>}
+              {devis.duree_estimee && <span style={{fontSize:11, color:'#374151'}}>Durée : <strong style={{color:'#1a1a2e'}}>{devis.duree_estimee}</strong></span>}
             </div>
 
-            {/* 2 CADRES : artisan gauche, client droite — bordures complètes colorées */}
-            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:18, alignItems:'stretch'}}>
-              {/* Cadre artisan — bordure bleue complète */}
-              <div className="print-info-box" style={{border:'2px solid #2563eb', borderRadius:10, padding:16, display:'flex', flexDirection:'column'}}>
-                <div style={{fontSize:10, fontWeight:700, letterSpacing:2, textTransform:'uppercase', color:'#2563eb', marginBottom:10}}>Artisan</div>
-                <div style={{fontSize:16, fontWeight:700, color:'#111', marginBottom:6}}>{String(entreprise?.nom || 'Mon Entreprise')}</div>
-                <div className="print-info-lines" style={{fontSize:14, color:'#6b7280', lineHeight:2}}>
+            {/* 2 CADRES : artisan gauche, client droite */}
+            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12, alignItems:'stretch'}}>
+              {/* Cadre artisan */}
+              <div className="print-info-box" style={{border:'1.5px solid #2563eb', borderRadius:8, padding:10, display:'flex', flexDirection:'column'}}>
+                <div style={{fontSize:9, fontWeight:700, letterSpacing:2, textTransform:'uppercase', color:'#2563eb', marginBottom:6}}>Artisan</div>
+                <div style={{fontSize:12, fontWeight:700, color:'#111', marginBottom:3}}>{String(entreprise?.nom || 'Mon Entreprise')}</div>
+                <div className="print-info-lines" style={{fontSize:11, color:'#6b7280', lineHeight:1.7}}>
                   {Boolean(entreprise?.adresse) && <div>{String(entreprise?.adresse || '')}</div>}
                   {Boolean(entreprise?.code_postal || entreprise?.ville) && <div>{String(entreprise?.code_postal || '')} {String(entreprise?.ville || '')}</div>}
                   {Boolean(entreprise?.siret) && <div>SIRET : {String(entreprise?.siret || '')}</div>}
                   {Boolean(entreprise?.telephone) && <div>Tél : {String(entreprise?.telephone || '')}</div>}
                 </div>
               </div>
-              {/* Cadre client — bordure verte complète */}
-              <div className="print-info-box" style={{border:'2px solid #10b981', borderRadius:10, padding:16, display:'flex', flexDirection:'column'}}>
-                <div style={{fontSize:10, fontWeight:700, letterSpacing:2, textTransform:'uppercase', color:'#10b981', marginBottom:10}}>Client</div>
-                <div className="print-info-lines" style={{lineHeight:2}}>
+              {/* Cadre client */}
+              <div className="print-info-box" style={{border:'1.5px solid #10b981', borderRadius:8, padding:10, display:'flex', flexDirection:'column'}}>
+                <div style={{fontSize:9, fontWeight:700, letterSpacing:2, textTransform:'uppercase', color:'#10b981', marginBottom:6}}>Client</div>
+                <div className="print-info-lines" style={{lineHeight:1.7}}>
                   {devis.notes_client ? (() => {
                     const parts = devis.notes_client.split(' | ')
                     return parts.map((info: string, i: number) => (
-                      <div key={i} style={{fontWeight: i === 0 ? 700 : 400, color: i === 0 ? '#111' : '#6b7280', fontSize: i === 0 ? 16 : 14}}>
+                      <div key={i} style={{fontWeight: i === 0 ? 700 : 400, color: i === 0 ? '#111' : '#6b7280', fontSize: i === 0 ? 12 : 11}}>
                         {info}
                       </div>
                     ))
                   })() : (
                     <>
-                      <div style={{fontWeight:700, color:'#111', fontSize:16}}>{client?.prenom ? `${client.prenom} ${client.nom}` : (client?.nom ?? 'Non renseigné')}</div>
-                      {client?.adresse && <div style={{color:'#6b7280', fontSize:14}}>{client.adresse}</div>}
+                      <div style={{fontWeight:700, color:'#111', fontSize:12}}>{client?.prenom ? `${client.prenom} ${client.nom}` : (client?.nom ?? 'Non renseigné')}</div>
+                      {client?.adresse && <div style={{color:'#6b7280', fontSize:11}}>{client.adresse}</div>}
                       {(client?.code_postal || client?.ville) && (
-                        <div style={{color:'#6b7280', fontSize:14}}>{client?.code_postal ?? ''} {client?.ville ?? ''}</div>
+                        <div style={{color:'#6b7280', fontSize:11}}>{client?.code_postal ?? ''} {client?.ville ?? ''}</div>
                       )}
-                      {client?.telephone && <div style={{color:'#6b7280', fontSize:14}}>{client.telephone}</div>}
-                      {client?.email && <div style={{color:'#6b7280', fontSize:14}}>{client.email}</div>}
+                      {client?.telephone && <div style={{color:'#6b7280', fontSize:11}}>{client.telephone}</div>}
+                      {client?.email && <div style={{color:'#6b7280', fontSize:11}}>{client.email}</div>}
                     </>
                   )}
                 </div>
@@ -442,21 +442,21 @@ export default function DevisDetailPage() {
 
             {/* ═══ OBJET ═══ */}
             {devis.objet && (
-              <div className="mb-4 p-3 bg-[#eff6ff] rounded-lg border-l-[3px] border-[#2563eb]">
-                <span className="text-xs font-manrope font-bold text-[#2563eb] uppercase tracking-wider">Objet : </span>
-                <span className="text-sm font-manrope text-[#374151]">{devis.objet}</span>
+              <div className="mb-3 p-2 bg-[#eff6ff] rounded-lg border-l-[3px] border-[#2563eb]">
+                <span className="text-[10px] font-manrope font-bold text-[#2563eb] uppercase tracking-wider">Objet : </span>
+                <span className="text-[11px] font-manrope text-[#374151]">{devis.objet}</span>
               </div>
             )}
 
-            {/* ═══ TABLEAU (sans colonne TVA) — compact ═══ */}
+            {/* ═══ TABLEAU — taille harmonisée avec le reste ═══ */}
             {lignes.length > 0 && (
-              <table className="w-full mb-4 print-table">
+              <table className="w-full mb-3 print-table">
                 <thead>
                   <tr className="bg-[#2563eb] text-white">
                     <th className="px-2 py-1.5 text-left text-[10px] font-manrope font-semibold uppercase w-8">N°</th>
                     <th className="px-2 py-1.5 text-left text-[10px] font-manrope font-semibold uppercase">Désignation</th>
-                    <th className="px-2 py-1.5 text-center text-[10px] font-manrope font-semibold uppercase w-12">Qté</th>
-                    <th className="px-2 py-1.5 text-center text-[10px] font-manrope font-semibold uppercase w-12">Unité</th>
+                    <th className="px-2 py-1.5 text-center text-[10px] font-manrope font-semibold uppercase w-14">Qté</th>
+                    <th className="px-2 py-1.5 text-center text-[10px] font-manrope font-semibold uppercase w-14">Unité</th>
                     <th className="px-2 py-1.5 text-right text-[10px] font-manrope font-semibold uppercase w-20">Prix U. HT</th>
                     <th className="px-2 py-1.5 text-right text-[10px] font-manrope font-semibold uppercase w-20">Total HT</th>
                   </tr>
@@ -464,12 +464,12 @@ export default function DevisDetailPage() {
                 <tbody>
                   {lignes.map((l, i) => (
                     <tr key={l.id ?? i} className={i % 2 === 1 ? 'bg-[#f8faff]' : ''}>
-                      <td className="px-2 py-1 text-xs font-manrope text-[#6b7280]">{i + 1}</td>
-                      <td className="px-2 py-1 text-xs font-manrope text-[#1a1a2e]">{l.designation}</td>
-                      <td className="px-2 py-1 text-xs font-manrope text-center text-[#1a1a2e]">{l.quantite}</td>
-                      <td className="px-2 py-1 text-xs font-manrope text-center text-[#6b7280]">{l.unite}</td>
-                      <td className="px-2 py-1 text-xs font-manrope text-right text-[#1a1a2e]">{formatCurrency(l.prix_unitaire_ht)}</td>
-                      <td className="px-2 py-1 text-xs font-manrope text-right font-semibold text-[#1a1a2e]">{formatCurrency(l.quantite * l.prix_unitaire_ht)}</td>
+                      <td className="px-2 py-1.5 text-[11px] font-manrope text-[#6b7280]">{i + 1}</td>
+                      <td className="px-2 py-1.5 text-[11px] font-manrope text-[#1a1a2e]">{l.designation}</td>
+                      <td className="px-2 py-1.5 text-[11px] font-manrope text-center text-[#1a1a2e]">{l.quantite}</td>
+                      <td className="px-2 py-1.5 text-[11px] font-manrope text-center text-[#6b7280]">{l.unite}</td>
+                      <td className="px-2 py-1.5 text-[11px] font-manrope text-right text-[#1a1a2e]">{formatCurrency(l.prix_unitaire_ht)}</td>
+                      <td className="px-2 py-1.5 text-[11px] font-manrope text-right font-semibold text-[#1a1a2e]">{formatCurrency(l.quantite * l.prix_unitaire_ht)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -556,37 +556,37 @@ export default function DevisDetailPage() {
                   <span className="font-syne font-bold text-xs">NET À PAYER</span>
                   <span className="font-syne font-bold text-base">{formatCurrency(totalTTC)}</span>
                 </div>
-              </div>
-            </div>
-
-            {/* ═══ SIGNATURE ARTISAN + STATUT CLIENT ═══ */}
-            <div className="grid grid-cols-[1fr_auto] gap-4 mt-2 items-end">
-              {/* Signature artisan — cadre imposant */}
-              <div className="border-2 border-gray-300 rounded-lg p-3 flex flex-col items-center justify-center" style={{ width: 200, height: 90 }}>
-                <div className="text-[8px] font-manrope font-bold text-[#9ca3af] uppercase tracking-widest mb-1">Signature artisan</div>
-                {(Boolean(entreprise?.signature_base64) || Boolean(entreprise?.tampon_base64)) ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={String(entreprise?.signature_base64 || entreprise?.tampon_base64 || '')}
-                    alt={entreprise?.signature_base64 ? 'Signature' : 'Tampon'}
-                    className="max-w-full"
-                    style={{ height: 60, objectFit: 'contain' }}
-                  />
-                ) : null}
-              </div>
-              {/* Zone client — discret, juste un statut */}
-              <div className="text-right pb-1">
-                {devis.date_signature ? (
-                  <div>
-                    <div className="text-[10px] font-manrope font-semibold text-green-600">Signé électroniquement</div>
-                    <div className="text-[9px] font-manrope text-[#6b7280]">
-                      le {new Date(devis.date_signature).toLocaleDateString('fr-FR')}
-                      {devis.signed_by && ` par ${devis.signed_by}`}
-                    </div>
+                {/* ═══ SIGNATURES — sous NET À PAYER, 2 cadres identiques ═══ */}
+                <div className="grid grid-cols-2 gap-2 mt-3">
+                  {/* Signature artisan */}
+                  <div className="border border-gray-300 rounded p-2 flex flex-col items-center justify-center" style={{ height: 70 }}>
+                    <div className="text-[8px] font-manrope font-bold text-[#9ca3af] uppercase tracking-widest mb-1">Artisan</div>
+                    {(Boolean(entreprise?.signature_base64) || Boolean(entreprise?.tampon_base64)) ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={String(entreprise?.signature_base64 || entreprise?.tampon_base64 || '')}
+                        alt={entreprise?.signature_base64 ? 'Signature' : 'Tampon'}
+                        className="max-w-full"
+                        style={{ height: entreprise?.tampon_base64 && !entreprise?.signature_base64 ? 48 : 42, objectFit: 'contain' }}
+                      />
+                    ) : null}
                   </div>
-                ) : (
-                  <div className="text-[9px] font-manrope text-[#9ca3af] italic">En attente de signature client</div>
-                )}
+                  {/* Signature client */}
+                  <div className="border border-gray-300 rounded p-2 flex flex-col items-center justify-center" style={{ height: 70 }}>
+                    <div className="text-[8px] font-manrope font-bold text-[#9ca3af] uppercase tracking-widest mb-1">Client</div>
+                    {devis.date_signature ? (
+                      <div className="text-center">
+                        <div className="text-[9px] font-manrope font-semibold text-green-600">Signé</div>
+                        <div className="text-[8px] font-manrope text-[#6b7280]">
+                          {new Date(devis.date_signature).toLocaleDateString('fr-FR')}
+                          {devis.signed_by && ` — ${devis.signed_by}`}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-[8px] font-manrope text-[#c0c0c0] italic">En attente</div>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
 
