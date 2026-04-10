@@ -219,10 +219,10 @@ function Sidebar({
           <div
             className="flex items-center justify-center mb-3 bg-white overflow-hidden"
             style={{
-              width: collapsed ? 44 : '85%',
-              height: collapsed ? 44 : 70,
+              width: collapsed ? 44 : '90%',
+              height: collapsed ? 44 : 100,
               borderRadius: collapsed ? 10 : 14,
-              padding: collapsed ? 4 : 10,
+              padding: collapsed ? 4 : 8,
               flexShrink: 0,
             }}
           >

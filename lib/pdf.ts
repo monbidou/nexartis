@@ -189,55 +189,58 @@ export function generateDevisPdf(data: DevisData): string {
   let y = 14
 
   // ── HEADER ──────────────────────────────────────────────────────
-  // Logo à gauche (imposant), DEVIS centré, pas de nom entreprise
-  const logoW = 50
-  const logoH = 50
+  // Logo à gauche (proportionnel), DEVIS centré — compact comme le PDF web
+  const logoW = 30
+  const logoH = 30
   const pageW = 210
-  let headerHeight = 22
 
   if (ent.logo_url && ent.logo_url.startsWith('data:image')) {
     try {
       const logoFormat = ent.logo_url.includes('image/png') ? 'PNG' : 'JPEG'
-      doc.addImage(ent.logo_url, logoFormat, 10, y - 4, logoW, logoH)
-      headerHeight = logoH + 2
+      doc.addImage(ent.logo_url, logoFormat, 14, y - 2, logoW, logoH)
     } catch { /* logo invalide, on continue sans */ }
   }
 
-  // DEVIS centré sur la page
-  doc.setFontSize(30)
+  // DEVIS centré sur la page (à droite du logo, même ligne)
+  doc.setFontSize(26)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(...BLUE)
-  doc.text('DEVIS', pageW / 2, y + 6, { align: 'center' })
-  doc.setFontSize(11)
+  doc.text('DEVIS', pageW / 2 + 10, y + 6, { align: 'center' })
+  doc.setFontSize(10)
   doc.setTextColor(60)
-  doc.text(`N° ${data.numero}`, pageW / 2, y + 14, { align: 'center' })
-  doc.setFontSize(8)
-  doc.setTextColor(100)
-  doc.text(fmtDate(data.date_emission), pageW / 2, y + 20, { align: 'center' })
+  doc.text(`N° ${data.numero}`, pageW / 2 + 10, y + 13, { align: 'center' })
 
-  y += headerHeight
+  y += Math.max(logoH + 2, 22)
 
   // ── GRADIENT LINE ──────────────────────────────────────────────
-  // Simulate gradient with 2 rects
   const gradW = 182
   doc.setFillColor(37, 99, 235)
-  doc.rect(14, y, gradW / 2, 1.2, 'F')
+  doc.rect(14, y, gradW / 2, 1, 'F')
   doc.setFillColor(147, 197, 253)
-  doc.rect(14 + gradW / 2, y, gradW / 2, 1.2, 'F')
-  y += 5
+  doc.rect(14 + gradW / 2, y, gradW / 2, 1, 'F')
+  y += 4
 
-  // ── 2 CADRES: ARTISAN + CLIENT ─────────────────────────────────
-  const boxH = 38
+  // ── DATES en ligne (comme le PDF web) ──────────────────────────
+  doc.setFontSize(7.5)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(80)
+  const dateParts: string[] = []
+  dateParts.push(`Date : ${fmtDate(data.date_emission)}`)
+  if (data.date_validite) dateParts.push(`Valide jusqu'au : ${fmtDate(data.date_validite)}`)
+  if (data.date_debut_travaux) dateParts.push(`Début travaux : ${fmtDate(data.date_debut_travaux)}`)
+  if (data.duree_travaux) dateParts.push(`Durée : ${data.duree_travaux}`)
+  doc.text(dateParts.join('    '), pageW / 2, y + 2, { align: 'center' })
+  y += 7
+
+  // ── 2 CADRES: ARTISAN + CLIENT (bordures colorées complètes) ──
+  const boxH = 36
   const boxW = 86
   const lx = 14
   const rx = 14 + boxW + 10
 
-  // Artisan box
+  // Artisan box — bordure bleue complète
   doc.setDrawColor(37, 99, 235)
-  doc.setLineWidth(0.8)
-  doc.line(lx, y, lx + boxW, y) // top border blue
-  doc.setDrawColor(200)
-  doc.setLineWidth(0.3)
+  doc.setLineWidth(0.6)
   doc.rect(lx, y, boxW, boxH)
 
   doc.setFontSize(7)
@@ -262,12 +265,9 @@ export function generateDevisPdf(data: DevisData): string {
   if (ent.telephone) { doc.text(`Tél : ${ent.telephone}`, lx + 4, ay); ay += 3.2 }
   if (ent.email) { doc.text(ent.email, lx + 4, ay) }
 
-  // Client box
+  // Client box — bordure verte complète
   doc.setDrawColor(16, 185, 129)
-  doc.setLineWidth(0.8)
-  doc.line(rx, y, rx + boxW, y)
-  doc.setDrawColor(200)
-  doc.setLineWidth(0.3)
+  doc.setLineWidth(0.6)
   doc.rect(rx, y, boxW, boxH)
 
   doc.setFontSize(7)
@@ -293,31 +293,7 @@ export function generateDevisPdf(data: DevisData): string {
     }
   }
 
-  y += boxH + 5
-
-  // ── 4 META CASES ───────────────────────────────────────────────
-  const metaItems: [string, string][] = [
-    ['Date du devis', fmtDate(data.date_emission)],
-    ['Date de validité', fmtDate(data.date_validite)],
-    ['Début travaux', fmtDate(data.date_debut_travaux) || '—'],
-    ['Durée estimée', data.duree_travaux || '—'],
-  ]
-  const caseW = (182 - 9) / 4
-  metaItems.forEach(([label, value], i) => {
-    const cx = 14 + i * (caseW + 3)
-    doc.setFillColor(248, 250, 255)
-    doc.setDrawColor(219, 234, 254)
-    doc.roundedRect(cx, y, caseW, 14, 1, 1, 'FD')
-    doc.setFontSize(6.5)
-    doc.setFont('helvetica', 'normal')
-    doc.setTextColor(130)
-    doc.text(label, cx + 3, y + 5)
-    doc.setFontSize(8.5)
-    doc.setFont('helvetica', 'bold')
-    doc.setTextColor(37, 99, 235)
-    doc.text(value || '—', cx + 3, y + 11)
-  })
-  y += 19
+  y += boxH + 4
 
   // ── OBJET ──────────────────────────────────────────────────────
   if (data.objet) {
@@ -562,57 +538,62 @@ export function generateFacturePdf(data: FactureData): string {
   const ent = data.entreprise
   let y = 14
 
-  // Header — Logo à gauche (imposant), FACTURE centré
-  const logoW = 50
-  const logoH = 50
+  // Header — Logo à gauche (compact), FACTURE centré — même style que devis
+  const logoW = 30
+  const logoH = 30
   const pageW = 210
-  let headerHeight = 22
 
   if (ent.logo_url && ent.logo_url.startsWith('data:image')) {
     try {
       const logoFormat = ent.logo_url.includes('image/png') ? 'PNG' : 'JPEG'
-      doc.addImage(ent.logo_url, logoFormat, 10, y - 4, logoW, logoH)
-      headerHeight = logoH + 2
+      doc.addImage(ent.logo_url, logoFormat, 14, y - 2, logoW, logoH)
     } catch { /* logo invalide, on continue sans */ }
   }
 
-  // FACTURE centré sur la page
-  doc.setFontSize(30)
+  // FACTURE centré
+  doc.setFontSize(26)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(...BLUE)
-  doc.text('FACTURE', pageW / 2, y + 6, { align: 'center' })
-  doc.setFontSize(11)
+  doc.text('FACTURE', pageW / 2 + 10, y + 6, { align: 'center' })
+  doc.setFontSize(10)
   doc.setTextColor(60)
-  doc.text(`N° ${data.numero}`, pageW / 2, y + 14, { align: 'center' })
-  doc.setFontSize(8)
-  doc.setTextColor(100)
-  doc.text(fmtDate(data.date_emission), pageW / 2, y + 20, { align: 'center' })
-  y += headerHeight
+  doc.text(`N° ${data.numero}`, pageW / 2 + 10, y + 13, { align: 'center' })
+
+  y += Math.max(logoH + 2, 22)
 
   // Gradient line
   doc.setFillColor(37, 99, 235)
-  doc.rect(14, y, 91, 1.2, 'F')
+  doc.rect(14, y, 91, 1, 'F')
   doc.setFillColor(147, 197, 253)
-  doc.rect(105, y, 91, 1.2, 'F')
-  y += 5
+  doc.rect(105, y, 91, 1, 'F')
+  y += 4
 
-  // 2 boxes
-  const boxH = 34
+  // Dates en ligne
+  doc.setFontSize(7.5)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(80)
+  const dateParts: string[] = []
+  dateParts.push(`Date : ${fmtDate(data.date_emission)}`)
+  if (data.date_echeance) dateParts.push(`Échéance : ${fmtDate(data.date_echeance)}`)
+  if (data.date_prestation) dateParts.push(`Prestation : ${fmtDate(data.date_prestation)}`)
+  doc.text(dateParts.join('    '), pageW / 2, y + 2, { align: 'center' })
+  y += 7
+
+  // 2 boxes — bordures colorées complètes
+  const boxH = 36
   const boxW = 86
   const lx = 14
   const rx = 14 + boxW + 10
 
+  // Artisan box
   doc.setDrawColor(37, 99, 235)
-  doc.setLineWidth(0.8)
-  doc.line(lx, y, lx + boxW, y)
-  doc.setDrawColor(200)
-  doc.setLineWidth(0.3)
+  doc.setLineWidth(0.6)
   doc.rect(lx, y, boxW, boxH)
 
   doc.setFontSize(7)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(...BLUE)
-  doc.text('ÉMETTEUR', lx + 4, y + 5)
+  doc.text('ARTISAN', lx + 4, y + 5)
   doc.setFontSize(10)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(26, 26, 46)
@@ -628,16 +609,13 @@ export function generateFacturePdf(data: FactureData): string {
   if (ent.telephone) { doc.text(`Tél : ${ent.telephone}`, lx + 4, ey) }
 
   doc.setDrawColor(...GREEN)
-  doc.setLineWidth(0.8)
-  doc.line(rx, y, rx + boxW, y)
-  doc.setDrawColor(200)
-  doc.setLineWidth(0.3)
+  doc.setLineWidth(0.6)
   doc.rect(rx, y, boxW, boxH)
 
   doc.setFontSize(7)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(...GREEN)
-  doc.text('FACTURÉ À', rx + 4, y + 5)
+  doc.text('CLIENT', rx + 4, y + 5)
   doc.setFontSize(10)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(26, 26, 46)
@@ -657,32 +635,6 @@ export function generateFacturePdf(data: FactureData): string {
   }
 
   y += boxH + 4
-
-  // Meta: Date + Échéance + Date prestation
-  {
-    const metaItems: [string, string][] = [
-      ['Date de facture', fmtDate(data.date_emission)],
-      ['Échéance', fmtDate(data.date_echeance) || '\u2014'],
-    ]
-    if (data.date_prestation) metaItems.push(['Date prestation', fmtDate(data.date_prestation)])
-    const caseW = metaItems.length === 3 ? 56 : 86
-    const gap = metaItems.length === 3 ? 7 : 10
-    metaItems.forEach(([label, value], i) => {
-      const cx = 14 + i * (caseW + gap)
-      doc.setFillColor(248, 250, 255)
-      doc.setDrawColor(219, 234, 254)
-      doc.roundedRect(cx, y, caseW, 12, 1, 1, 'FD')
-      doc.setFontSize(6.5)
-      doc.setFont('helvetica', 'normal')
-      doc.setTextColor(130)
-      doc.text(label, cx + 3, y + 4.5)
-      doc.setFontSize(8.5)
-      doc.setFont('helvetica', 'bold')
-      doc.setTextColor(37, 99, 235)
-      doc.text(value || '—', cx + 3, y + 10)
-    })
-    y += 16
-  }
 
   // Table
   autoTable(doc, {
