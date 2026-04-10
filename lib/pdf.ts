@@ -284,11 +284,14 @@ export function generateDevisPdf(data: DevisData): string {
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(80)
   let cy = y + 14
-  if (data.clientAdresse) { doc.text(data.clientAdresse, rx + 4, cy, { maxWidth: boxW - 8 }); cy += 6 }
-  const typeLabel = data.clientType === 'professionnel' ? 'Professionnel' : 'Particulier'
-  doc.setFontSize(7)
-  doc.setTextColor(120)
-  doc.text(typeLabel, rx + 4, y + boxH - 3)
+  // Afficher chaque info client sur une ligne séparée (séparées par |)
+  if (data.clientAdresse) {
+    const clientParts = data.clientAdresse.split('|').map(s => s.trim()).filter(Boolean)
+    for (const part of clientParts) {
+      doc.text(part, rx + 4, cy, { maxWidth: boxW - 8 })
+      cy += 3.5
+    }
+  }
 
   y += boxH + 5
 
@@ -642,7 +645,16 @@ export function generateFacturePdf(data: FactureData): string {
   doc.setFontSize(7.5)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(80)
-  if (data.clientAdresse) { doc.text(data.clientAdresse, rx + 4, y + 14, { maxWidth: boxW - 8 }) }
+  {
+    let fy = y + 14
+    if (data.clientAdresse) {
+      const clientParts = data.clientAdresse.split('|').map(s => s.trim()).filter(Boolean)
+      for (const part of clientParts) {
+        doc.text(part, rx + 4, fy, { maxWidth: boxW - 8 })
+        fy += 3.5
+      }
+    }
+  }
 
   y += boxH + 4
 

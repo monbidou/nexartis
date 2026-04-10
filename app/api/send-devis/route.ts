@@ -22,20 +22,23 @@ export async function POST(req: NextRequest) {
     const { data: lignes } = await supabase.from('devis_lignes').select('*').eq('devis_id', devisId).order('ordre')
     const { data: entreprise } = await supabase.from('entreprises').select('*').eq('user_id', devis.user_id).single()
 
-    // Resolve client
+    // Resolve client — extraire toutes les infos
     let clientNom = 'Client'
     let clientAdresse = ''
     let clientType = 'particulier'
     if (devis.client_id) {
-      const { data: client } = await supabase.from('clients').select('nom, prenom, adresse, code_postal, ville, type').eq('id', devis.client_id).single()
+      const { data: client } = await supabase.from('clients').select('nom, prenom, adresse, code_postal, ville, type, telephone, email').eq('id', devis.client_id).single()
       if (client) {
         clientNom = `${client.prenom || ''} ${client.nom || ''}`.trim()
-        clientAdresse = [client.adresse, client.code_postal, client.ville].filter(Boolean).join(' ')
+        clientAdresse = [client.adresse, `${client.code_postal || ''} ${client.ville || ''}`.trim(), client.telephone, client.email].filter(Boolean).join(' | ')
         clientType = client.type || 'particulier'
       }
     }
-    if (clientNom === 'Client' && devis.notes_client) {
-      clientNom = devis.notes_client.split(' | ')[0]
+    // Fallback sur notes_client si pas de client_id ou client non trouvé
+    if (devis.notes_client) {
+      const parts = devis.notes_client.split(' | ').map((s: string) => s.trim())
+      if (clientNom === 'Client' && parts[0]) clientNom = parts[0]
+      if (!clientAdresse && parts.length > 1) clientAdresse = parts.slice(1).join(' | ')
     }
 
     const ent = entreprise || {}
