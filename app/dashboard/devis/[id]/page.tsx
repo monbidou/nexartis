@@ -549,7 +549,7 @@ export default function DevisDetailPage() {
                     {Boolean(entreprise?.mediateur) && (
                       <p>
                         <span className="font-medium text-[#1a1a2e]">Médiateur de la consommation :</span>{' '}
-                        {String(entreprise.mediateur)}
+                        {String(entreprise?.mediateur)}
                       </p>
                     )}
                     <p>Le client dispose d&apos;un délai de rétractation de 14 jours à compter de la signature du devis pour les travaux conclus hors établissement (art. L221-18 du Code de la consommation).</p>
