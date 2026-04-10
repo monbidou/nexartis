@@ -58,6 +58,7 @@ interface Dechets {
   collecte_adresse?: string
   collecte_type?: string
   cout?: number
+  inclure_cout?: boolean
 }
 
 export interface DevisData {
@@ -372,7 +373,7 @@ export function generateDevisPdf(data: DevisData): string {
       const collecteInfo = [data.dechets.collecte_nom, data.dechets.collecte_adresse, data.dechets.collecte_type].filter(Boolean).join(' — ')
       doc.text(`Point de collecte : ${collecteInfo}`, leftX, leftY, { maxWidth: 82 }); leftY += data.dechets.collecte_adresse ? 6.4 : 3.2
     }
-    if (data.dechets.cout !== undefined && data.dechets.cout > 0) { doc.text(`Coût estimé : ${fmt(data.dechets.cout)} TTC`, leftX, leftY); leftY += 3.2 }
+    if (data.dechets.cout !== undefined && data.dechets.cout > 0) { doc.text(`Coût estimé : ${fmt(data.dechets.cout)} TTC${data.dechets.inclure_cout ? ' (inclus dans le total)' : ' (à titre informatif)'}`, leftX, leftY); leftY += 3.2 }
     leftY += 3
   }
 

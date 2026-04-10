@@ -81,6 +81,7 @@ export async function POST(req: NextRequest) {
         collecte_adresse: devis.dechets_collecte_adresse || undefined,
         collecte_type: devis.dechets_collecte_type || undefined,
         cout: devis.dechets_cout ?? undefined,
+        inclure_cout: devis.dechets_inclure_cout ?? false,
       } : undefined,
     })
 

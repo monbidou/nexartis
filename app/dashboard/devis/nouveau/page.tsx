@@ -256,6 +256,7 @@ function NouveauDevisPage() {
   const [dechetsCollecteAdresse, setDechetsCollecteAdresse] = useState('')
   const [dechetsCollecteType, setDechetsCollecteType] = useState('Déchetterie')
   const [dechetsCout, setDechetsCout] = useState('')
+  const [dechetsInclureCout, setDechetsInclureCout] = useState(false)
   const [dechetteriesProches, setDechetteriesProches] = useState<{nom:string;adresse:string;code_postal:string;commune:string;distance_km:number;accepte_pro:string;accepte_construction:boolean;accepte_deee:boolean}[]>([])
   const [loadingDechetteries, setLoadingDechetteries] = useState(false)
 
@@ -331,7 +332,8 @@ function NouveauDevisPage() {
   }
 
   const totalTVA = Object.values(tvaGroups).reduce((s, g) => s + g.tva, 0)
-  const totalTTC = totalHT + totalTVA
+  const dechetsCoutNum = dechetsCout ? parseFloat(dechetsCout) : 0
+  const totalTTC = totalHT + totalTVA + (dechetsInclureCout ? dechetsCoutNum : 0)
   const acomptePct = (() => {
     if (selectedPayments.has('p30')) return 30
     if (selectedPayments.has('p50')) return 50
@@ -390,6 +392,7 @@ function NouveauDevisPage() {
         dechets_collecte_adresse: dechetsCollecteAdresse || null,
         dechets_collecte_type: dechetsCollecteType || null,
         dechets_cout: dechetsCout ? parseFloat(dechetsCout) : null,
+        dechets_inclure_cout: dechetsInclureCout,
       }
       const devis = await insertRow('devis', devisData)
       for (let i = 0; i < lines.length; i++) {
@@ -483,7 +486,7 @@ function NouveauDevisPage() {
       setError((err as Error).message)
       setSaving(false)
     }
-  }, [clientCivilite, clientNom, clientPrenom, clientAdresse, clientCodePostal, clientVille, clientTelephone, clientEmail, dateDevis, dateValidite, dateTravaux, duree, chantierDesc, conditionsStr, notes, totalHT, totalTVA, totalTTC, effectiveTva, lines, router, acomptePct, dechetsNature, dechetsQuantite, dechetsResponsable, dechetsTri, dechetsCollecteNom, dechetsCollecteAdresse, dechetsCollecteType, dechetsCout])
+  }, [clientCivilite, clientNom, clientPrenom, clientAdresse, clientCodePostal, clientVille, clientTelephone, clientEmail, dateDevis, dateValidite, dateTravaux, duree, chantierDesc, conditionsStr, notes, totalHT, totalTVA, totalTTC, effectiveTva, lines, router, acomptePct, dechetsNature, dechetsQuantite, dechetsResponsable, dechetsTri, dechetsCollecteNom, dechetsCollecteAdresse, dechetsCollecteType, dechetsCout, dechetsInclureCout])
 
   useEffect(() => {
     autosaveTimer.current = setInterval(() => { handleSave('brouillon') }, 60000)
@@ -915,6 +918,10 @@ function NouveauDevisPage() {
               <div>
                 <label className="block text-[11px] font-manrope text-[#6b7280] mb-1">Coût estimé TTC (€)</label>
                 <input type="number" value={dechetsCout} onChange={e => setDechetsCout(e.target.value)} placeholder="0.00" min={0} step={0.01} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-manrope outline-none focus:border-[#5ab4e0]" />
+                <label className="flex items-center gap-1.5 mt-1.5 cursor-pointer">
+                  <input type="checkbox" checked={dechetsInclureCout} onChange={e => setDechetsInclureCout(e.target.checked)} className="w-3.5 h-3.5 rounded border-gray-300 text-[#5ab4e0] focus:ring-[#5ab4e0]" />
+                  <span className="text-[10px] font-manrope text-[#6b7280]">Inclure dans le total</span>
+                </label>
               </div>
             </div>
             {/* Point de collecte */}
@@ -961,6 +968,9 @@ function NouveauDevisPage() {
             {showTvaOnDevis && !autoEntrepreneur && Object.entries(tvaGroups).filter(([r]) => Number(r) > 0).sort(([a], [b]) => Number(a) - Number(b)).map(([rate, group]) => (
               <div key={rate} className="flex justify-between py-2 text-sm font-manrope"><span className="text-[#6b7280]">TVA {rate}%</span><span className="font-medium">{formatCurrency(group.tva)}</span></div>
             ))}
+            {dechetsInclureCout && dechetsCoutNum > 0 && (
+              <div className="flex justify-between py-2 text-sm font-manrope"><span className="text-[#e87a2a]">Gestion déchets TTC</span><span className="font-medium text-[#e87a2a]">{formatCurrency(dechetsCoutNum)}</span></div>
+            )}
             <div className="border-t mt-2 pt-2 flex justify-between py-2"><span className="text-[#6b7280]">{showTvaOnDevis && !autoEntrepreneur ? 'Total TTC' : 'Total'}</span><span className="font-semibold">{formatCurrency(showTvaOnDevis ? totalTTC : totalHT)}</span></div>
             {autoEntrepreneur && <p className="text-xs text-[#6b7280] italic mt-1">TVA non applicable, art. 293 B du CGI</p>}
             {acompteMontant > 0 && (

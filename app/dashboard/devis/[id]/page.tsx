@@ -50,6 +50,7 @@ interface DevisRecord {
   dechets_collecte_adresse?: string
   dechets_collecte_type?: string
   dechets_cout?: number
+  dechets_inclure_cout?: boolean
   created_at: string
   updated_at?: string
 }
@@ -516,6 +517,7 @@ export default function DevisDetailPage() {
                     <div>
                       <span className="text-xs font-manrope text-[#6b7280]">Coût estimé : </span>
                       <span className="text-sm font-manrope font-medium text-[#1a1a2e]">{formatCurrency(devis.dechets_cout)} TTC</span>
+                      <span className="text-[10px] font-manrope ml-2 px-1.5 py-0.5 rounded bg-gray-100 text-[#6b7280]">{devis.dechets_inclure_cout ? 'Inclus dans le total' : 'À titre informatif'}</span>
                     </div>
                   )}
                 </div>
