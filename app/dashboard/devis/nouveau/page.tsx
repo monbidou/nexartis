@@ -381,9 +381,8 @@ function NouveauDevisPage() {
                 .select('id')
                 .eq('user_id', user.id)
                 .ilike('nom', clientNom.trim())
-                .single()
-              const clientData = {
-                civilite: clientCivilite || null,
+                .maybeSingle()
+              const clientData: Record<string, unknown> = {
                 nom: clientNom.trim(),
                 prenom: clientPrenom.trim() || null,
                 adresse: clientAdresse || null,
@@ -393,10 +392,14 @@ function NouveauDevisPage() {
                 email: clientEmail || null,
                 user_id: user.id,
               }
+              // Ajouter civilite seulement si la valeur est définie
+              if (clientCivilite) clientData.civilite = clientCivilite
               if (!existing) {
-                await supabase.from('clients').insert({ ...clientData, type: 'particulier', actif: true })
+                const { error: insertErr } = await supabase.from('clients').insert({ ...clientData, type: 'particulier', actif: true })
+                if (insertErr) console.error('Erreur sauvegarde client:', insertErr.message)
               } else {
-                await supabase.from('clients').update(clientData).eq('id', existing.id)
+                const { error: updateErr } = await supabase.from('clients').update(clientData).eq('id', existing.id)
+                if (updateErr) console.error('Erreur mise à jour client:', updateErr.message)
               }
             }
             // Sauvegarder le chantier/prestation (indépendamment du client)
@@ -406,13 +409,13 @@ function NouveauDevisPage() {
                 .select('id')
                 .eq('user_id', user.id)
                 .ilike('nom', chantierDesc.trim())
-                .single()
+                .maybeSingle()
               if (!existingChantier) {
                 await supabase.from('chantiers').insert({ nom: chantierDesc.trim(), user_id: user.id })
               }
             }
           }
-        } catch { /* silencieux si échec */ }
+        } catch (err) { console.error('Erreur sauvegarde client/chantier:', err) }
       }
 
       if (action === 'brouillon') {

@@ -144,7 +144,7 @@ export default function NouvelleFacturePage() {
         montant_ttc: totalTTC,
       }
 
-      // Chercher client_id si le client existe
+      // Sauvegarder/mettre à jour le client dans la base de données
       if (clientNom.trim()) {
         try {
           const supabase = createClient()
@@ -155,12 +155,35 @@ export default function NouvelleFacturePage() {
               .select('id')
               .eq('user_id', user.id)
               .ilike('nom', clientNom.trim())
-              .single()
+              .maybeSingle()
+
+            const clientData: Record<string, unknown> = {
+              nom: clientNom.trim(),
+              prenom: clientPrenom.trim() || null,
+              adresse: clientAdresse || null,
+              code_postal: clientCodePostal || null,
+              ville: clientVille || null,
+              telephone: clientTelephone || null,
+              email: clientEmail || null,
+              user_id: user.id,
+            }
+            if (clientCivilite) clientData.civilite = clientCivilite
+
             if (existingClient) {
               factureData.client_id = existingClient.id
+              // Mettre à jour les infos du client existant
+              await supabase.from('clients').update(clientData).eq('id', existingClient.id)
+            } else {
+              // Créer le client automatiquement
+              const { data: newClient } = await supabase
+                .from('clients')
+                .insert({ ...clientData, type: 'particulier', actif: true })
+                .select('id')
+                .single()
+              if (newClient) factureData.client_id = newClient.id
             }
           }
-        } catch { /* silencieux */ }
+        } catch (err) { console.error('Erreur sauvegarde client:', err) }
       }
 
       const facture = await insertRow('factures', factureData)
