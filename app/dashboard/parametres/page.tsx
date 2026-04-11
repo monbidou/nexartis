@@ -675,8 +675,29 @@ function LogoUploadSection({
 
   const currentLogo = entreprise.logo_url as string | undefined
 
-  const removeBackground = (dataUrl: string): Promise<string> => {
-    return new Promise((resolve) => {
+  const removeBackground = async (dataUrl: string): Promise<string> => {
+    // Utilise @imgly/background-removal — un modèle IA qui tourne dans le navigateur
+    // Détourage professionnel sans envoyer l'image sur un serveur externe
+    const { removeBackground: removeBg } = await import('@imgly/background-removal')
+
+    // Convertir le data URL en Blob pour la librairie
+    const response = await fetch(dataUrl)
+    const blob = await response.blob()
+
+    // Lancer le détourage IA (peut prendre 5-15 secondes selon la taille)
+    const resultBlob = await removeBg(blob, {
+      output: { format: 'image/png', quality: 1 },
+    })
+
+    // Convertir le résultat en data URL
+    const resultDataUrl = await new Promise<string>((resolve) => {
+      const reader = new FileReader()
+      reader.onloadend = () => resolve(reader.result as string)
+      reader.readAsDataURL(resultBlob)
+    })
+
+    // Recadrer le logo (supprimer les marges transparentes restantes)
+    return new Promise<string>((resolve) => {
       const img = new window.Image()
       img.onload = () => {
         const canvas = document.createElement('canvas')
@@ -684,58 +705,10 @@ function LogoUploadSection({
         canvas.height = img.height
         const ctx = canvas.getContext('2d')!
         ctx.drawImage(img, 0, 0)
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-        const data = imageData.data
-        const w = canvas.width
-        const h = canvas.height
-
-        // Échantillonner plus de pixels en bordure pour une meilleure détection du fond
-        const borderPixels: number[][] = []
-        const sampleStep = Math.max(1, Math.floor(Math.min(w, h) / 20))
-        // Bord haut et bas
-        for (let x = 0; x < w; x += sampleStep) {
-          borderPixels.push([data[x * 4], data[x * 4 + 1], data[x * 4 + 2]])
-          const bottomIdx = ((h - 1) * w + x) * 4
-          borderPixels.push([data[bottomIdx], data[bottomIdx + 1], data[bottomIdx + 2]])
-        }
-        // Bord gauche et droit
-        for (let yy = 0; yy < h; yy += sampleStep) {
-          const leftIdx = yy * w * 4
-          borderPixels.push([data[leftIdx], data[leftIdx + 1], data[leftIdx + 2]])
-          const rightIdx = (yy * w + w - 1) * 4
-          borderPixels.push([data[rightIdx], data[rightIdx + 1], data[rightIdx + 2]])
-        }
-
-        // Couleur de fond moyenne
-        const bgR = Math.round(borderPixels.reduce((s, c) => s + c[0], 0) / borderPixels.length)
-        const bgG = Math.round(borderPixels.reduce((s, c) => s + c[1], 0) / borderPixels.length)
-        const bgB = Math.round(borderPixels.reduce((s, c) => s + c[2], 0) / borderPixels.length)
-
-        // Double seuil : en dessous du bas → transparent, entre les deux → semi-transparent (lissage)
-        const thresholdLow = 35
-        const thresholdHigh = 65
-
-        for (let i = 0; i < data.length; i += 4) {
-          const r = data[i], g = data[i + 1], b = data[i + 2]
-          const dist = Math.sqrt((r - bgR) ** 2 + (g - bgG) ** 2 + (b - bgB) ** 2)
-          if (dist < thresholdLow) {
-            // Fond certain → entièrement transparent
-            data[i + 3] = 0
-          } else if (dist < thresholdHigh) {
-            // Zone de transition → semi-transparent (lissage progressif)
-            const alpha = Math.round(((dist - thresholdLow) / (thresholdHigh - thresholdLow)) * data[i + 3])
-            data[i + 3] = alpha
-          }
-          // Au-dessus de thresholdHigh → garder le pixel tel quel
-        }
-
-        ctx.putImageData(imageData, 0, 0)
-
-        // Recadrer le logo (supprimer les marges transparentes)
         const trimmed = trimTransparent(canvas)
         resolve(trimmed.toDataURL('image/png'))
       }
-      img.src = dataUrl
+      img.src = resultDataUrl
     })
   }
 
@@ -844,9 +817,12 @@ function LogoUploadSection({
 
       {/* Processing / Preview */}
       {processing && (
-        <div className="mt-4 flex items-center gap-3 bg-sky-50 border border-sky-200 rounded-lg px-4 py-3">
-          <div className="w-5 h-5 border-2 border-[#5ab4e0] border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-[#5ab4e0] font-manrope">Suppression du fond en cours...</p>
+        <div className="mt-4 bg-sky-50 border border-sky-200 rounded-lg px-4 py-4">
+          <div className="flex items-center gap-3">
+            <div className="w-5 h-5 border-2 border-[#5ab4e0] border-t-transparent rounded-full animate-spin" />
+            <p className="text-sm text-[#5ab4e0] font-manrope font-medium">Détourage IA en cours...</p>
+          </div>
+          <p className="text-xs text-gray-400 font-manrope mt-2 ml-8">Le modèle d&apos;intelligence artificielle analyse votre logo pour un détourage professionnel. Cela peut prendre 10 à 20 secondes.</p>
         </div>
       )}
 
@@ -1253,9 +1229,12 @@ function TamponUpload({
 
       {/* Processing */}
       {processing && (
-        <div className="mt-4 flex items-center gap-3 bg-sky-50 border border-sky-200 rounded-lg px-4 py-3">
-          <div className="w-5 h-5 border-2 border-[#5ab4e0] border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-[#5ab4e0] font-manrope">Suppression du fond en cours...</p>
+        <div className="mt-4 bg-sky-50 border border-sky-200 rounded-lg px-4 py-4">
+          <div className="flex items-center gap-3">
+            <div className="w-5 h-5 border-2 border-[#5ab4e0] border-t-transparent rounded-full animate-spin" />
+            <p className="text-sm text-[#5ab4e0] font-manrope font-medium">Détourage IA en cours...</p>
+          </div>
+          <p className="text-xs text-gray-400 font-manrope mt-2 ml-8">Le modèle d&apos;intelligence artificielle analyse votre logo pour un détourage professionnel. Cela peut prendre 10 à 20 secondes.</p>
         </div>
       )}
 
