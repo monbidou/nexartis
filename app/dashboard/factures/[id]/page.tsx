@@ -438,7 +438,34 @@ export default function FactureDetailPage() {
               </div>
             </div>
 
-            {/* FOOTER LÉGAL */}
+            {/* MENTIONS LÉGALES — générées automatiquement selon le statut */}
+            <div style={{ marginTop: 12, paddingTop: 8, borderTop: '0.5px solid #e5e7eb' }}>
+              <p style={{ fontSize: 9, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 3 }}>Mentions légales</p>
+              <div style={{ fontSize: 9, color: '#9ca3af', lineHeight: 1.6 }}>
+                {Boolean(entreprise?.assurance_nom || entreprise?.decennale_numero) && (
+                  <p>
+                    Assurance décennale : {String(entreprise?.assurance_nom || '')}
+                    {Boolean(entreprise?.decennale_numero) && ` — n° ${String(entreprise?.decennale_numero)}`}
+                    {Boolean(entreprise?.assurance_zone) && ` — Zone : ${String(entreprise?.assurance_zone)}`}
+                  </p>
+                )}
+                {Boolean(entreprise?.franchise_tva) && (
+                  <p style={{ fontWeight: 600 }}>TVA non applicable — art. 293 B du CGI.</p>
+                )}
+                {(entreprise?.forme_juridique === 'EI' || entreprise?.forme_juridique === 'Micro-entreprise') && (
+                  <p>{String(entreprise?.nom || '')} — {entreprise?.forme_juridique === 'Micro-entreprise' ? 'Entrepreneur individuel (Micro-entreprise)' : 'Entrepreneur individuel (EI)'}</p>
+                )}
+                {Boolean(entreprise?.capital_social) && ['EURL', 'SARL', 'SAS', 'SASU'].includes(String(entreprise?.forme_juridique || '')) && (
+                  <p>{String(entreprise?.forme_juridique)} au capital de {String(entreprise?.capital_social)}</p>
+                )}
+                {Boolean(entreprise?.rcs_rm) && <p>{String(entreprise?.rcs_rm)}</p>}
+                {Boolean(entreprise?.qualification_pro) && <p>Qualification : {String(entreprise?.qualification_pro)}</p>}
+                {Boolean(entreprise?.mediateur) && <p>Médiateur : {String(entreprise?.mediateur)}</p>}
+                {Boolean(entreprise?.mentions_legales_custom) && <p>{String(entreprise?.mentions_legales_custom)}</p>}
+              </div>
+            </div>
+
+            {/* FOOTER COORDONNÉES */}
             <div style={{ marginTop: 16, paddingTop: 10, borderTop: '0.5px solid #e5e7eb', fontSize: 9.5, color: '#9ca3af', textAlign: 'center', lineHeight: 1.7 }}>
               {String(entreprise?.nom || '')} — {String(entreprise?.adresse || '')}, {String(entreprise?.code_postal || '')} {String(entreprise?.ville || '')}
               {Boolean(entreprise?.siret) && ` — SIRET : ${String(entreprise?.siret || '')}`}

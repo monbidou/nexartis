@@ -202,6 +202,8 @@ function EntrepriseSection({
   const [mediateur, setMediateur] = useState('')
   const [rge, setRge] = useState(false)
   const [metier, setMetier] = useState('')
+  const [franchiseTva, setFranchiseTva] = useState(false)
+  const [qualificationPro, setQualificationPro] = useState('')
   const [saving, setSaving] = useState(false)
   const [success, setSuccess] = useState<string | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
@@ -228,6 +230,8 @@ function EntrepriseSection({
       setMediateur((entreprise.mediateur as string) ?? '')
       setRge(!!entreprise.rge)
       setMetier((entreprise.metier as string) ?? '')
+      setFranchiseTva(!!entreprise.franchise_tva)
+      setQualificationPro((entreprise.qualification_pro as string) ?? '')
     }
   }, [entreprise])
 
@@ -244,6 +248,8 @@ function EntrepriseSection({
         assurance_nom: assuranceNom || null, decennale_numero: decennale, assurance_zone: assuranceZone || null,
         mediateur: mediateur || null,
         rge, metier,
+        franchise_tva: franchiseTva,
+        qualification_pro: qualificationPro || null,
       })
       setSuccess('Informations de l\'entreprise enregistrées avec succès.')
     } catch (err) {
@@ -284,6 +290,16 @@ function EntrepriseSection({
         <InputField label="RCS / RM (n° + ville)" value={rcsRm} onChange={setRcsRm} placeholder="RM Bordeaux 123456789" />
         <InputField label="Capital social" value={capitalSocial} onChange={setCapitalSocial} placeholder="10 000 € (laisser vide si EI)" />
         <InputField label="Métier / activité" value={metier} onChange={setMetier} />
+        <InputField label="Qualification professionnelle" value={qualificationPro} onChange={setQualificationPro} placeholder="Ex : CAP Électricien, BTS Électrotechnique..." />
+      </div>
+
+      {/* TVA */}
+      <p className="text-xs font-manrope text-gray-400 uppercase tracking-wider mb-3 mt-8">Régime TVA</p>
+      <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 mb-4">
+        <p className="text-sm text-blue-700 font-manrope">Si vous êtes en franchise de TVA (micro-entreprise sous les seuils, ou EI non assujettie), activez cette option. La mention légale &quot;TVA non applicable — art. 293 B du CGI&quot; sera ajoutée automatiquement sur tous vos devis et factures.</p>
+      </div>
+      <div className="flex items-center">
+        <ToggleSwitch label="Franchise en base de TVA (non assujetti)" checked={franchiseTva} onChange={setFranchiseTva} />
       </div>
 
       {/* Coordonnées */}
@@ -355,6 +371,7 @@ function DocumentsSection({
       setPrefixDevis((entreprise.prefix_devis as string) ?? 'D')
       setPrefixFactures((entreprise.prefix_factures as string) ?? 'F')
       setConditionsPaiement((entreprise.conditions_paiement as string) ?? '')
+      setMentionsLegales((entreprise.mentions_legales_custom as string) ?? '')
       setDocColor((entreprise.couleur_principale as string) ?? '#5ab4e0')
     }
   }, [entreprise])
@@ -368,6 +385,7 @@ function DocumentsSection({
         prefix_devis: prefixDevis,
         prefix_factures: prefixFactures,
         conditions_paiement: conditionsPaiement,
+        mentions_legales_custom: mentionsLegales || null,
         couleur_principale: docColor,
       })
       setSuccess('Paramètres de documents enregistrés avec succès.')
@@ -1046,9 +1064,9 @@ function SignatureSection({
         <div className="relative">
           <canvas
             ref={canvasRef}
-            width={500}
-            height={180}
-            className="w-full max-w-[500px] h-[180px] rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 cursor-crosshair touch-none"
+            width={600}
+            height={250}
+            className="w-full max-w-[600px] h-[250px] rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 cursor-crosshair touch-none"
             onMouseDown={startDrawing}
             onMouseMove={draw}
             onMouseUp={stopDrawing}
@@ -1058,7 +1076,7 @@ function SignatureSection({
             onTouchEnd={stopDrawing}
           />
           {!hasStrokes && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none max-w-[500px]">
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none max-w-[600px]">
               <p className="font-manrope text-sm text-gray-400">Dessinez votre signature ici</p>
             </div>
           )}

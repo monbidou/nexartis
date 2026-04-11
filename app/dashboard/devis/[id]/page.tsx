@@ -164,6 +164,16 @@ const printStyles = `
   .print-table th, .print-table td { padding-top: 3px !important; padding-bottom: 3px !important; padding-left: 6px !important; padding-right: 6px !important; font-size: 11px !important; line-height: 1.3 !important; }
   .print-table thead tr th { padding-top: 4px !important; padding-bottom: 4px !important; font-size: 9.5px !important; }
 
+  /* ── Forcer les backgrounds à l'impression (NET À PAYER bleu, etc.) ── */
+  .print-zone { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
+  .print-net-payer { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; background: #2563eb !important; color: white !important; }
+
+  /* ── Centrage titre DEVIS en print ── */
+  .print-header-flex { display: flex !important; align-items: center !important; justify-content: center !important; }
+  .print-header-flex .print-logo-col { flex: 0 0 auto !important; }
+  .print-header-flex .print-title-col { flex: 1 !important; text-align: center !important; }
+  .print-header-flex .print-spacer-col { display: none !important; }
+
   /* ── Compactage bas de page ── */
   .print-bottom { gap: 8px !important; margin-bottom: 4px !important; }
   .print-bottom .py-2 { padding-top: 4px !important; padding-bottom: 4px !important; }
@@ -374,20 +384,20 @@ export default function DevisDetailPage() {
         {/* Main -- preview card */}
         <div className="flex-1 min-w-0">
           <div className="bg-white shadow-xl rounded-xl p-8 lg:p-12 print-zone">
-            <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14}}>
+            <div className="print-header-flex" style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14}}>
               {/* Logo à gauche — imposant */}
-              <div style={{flex:'0 0 auto', marginRight: 16}}>
+              <div className="print-logo-col" style={{flex:'0 0 auto', marginRight: 16}}>
                 {Boolean(entreprise?.logo_url) && (
                   <img src={String(entreprise?.logo_url || '')} alt="Logo" style={{ height: 120, maxWidth: 280, objectFit: 'contain', mixBlendMode: 'multiply' }} />
                 )}
               </div>
               {/* DEVIS + Numéro centré */}
-              <div style={{textAlign:'center', flex:1}}>
+              <div className="print-title-col" style={{textAlign:'center', flex:1}}>
                 <div className="print-devis-title" style={{fontSize:38, fontWeight:900, color:'#2563eb', letterSpacing:4, textTransform:'uppercase'}}>DEVIS</div>
                 <div style={{fontSize:14, color:'#374151', marginTop:4}}>N° <strong>{devis.numero}</strong></div>
               </div>
-              {/* Espace symétrique pour centrer le titre */}
-              <div style={{flex:'0 0 auto', width: Boolean(entreprise?.logo_url) ? 280 : 0}} />
+              {/* Espace symétrique pour centrer le titre — masqué en print */}
+              <div className="print-spacer-col" style={{flex:'0 0 auto', width: Boolean(entreprise?.logo_url) ? 280 : 0}} />
             </div>
 
             {/* Ligne dégradé */}
@@ -487,10 +497,11 @@ export default function DevisDetailPage() {
                     <p className="text-xs font-manrope text-[#6b7280] leading-relaxed">{devis.conditions_paiement}</p>
                   </div>
                 )}
-                {/* Mentions légales obligatoires */}
+                {/* Mentions légales obligatoires — générées automatiquement selon le statut */}
                 <div className="border-t border-gray-100 pt-1.5">
                   <h4 className="font-manrope font-semibold text-[9px] text-[#9ca3af] uppercase tracking-wider mb-0.5">Mentions légales</h4>
                   <div className="space-y-0.5 text-[9px] font-manrope text-[#9ca3af] leading-relaxed">
+                    {/* Assurance décennale */}
                     {Boolean(entreprise?.assurance_nom || entreprise?.decennale_numero) && (
                       <p>
                         Assurance décennale : {String(entreprise?.assurance_nom || '')}
@@ -498,10 +509,36 @@ export default function DevisDetailPage() {
                         {Boolean(entreprise?.assurance_zone) && ` — Zone : ${String(entreprise?.assurance_zone)}`}
                       </p>
                     )}
+                    {/* Franchise TVA — auto-entrepreneur / micro-entreprise */}
+                    {Boolean(entreprise?.franchise_tva) && (
+                      <p className="font-semibold">TVA non applicable — art. 293 B du CGI.</p>
+                    )}
+                    {/* Forme juridique EI → mention obligatoire depuis mai 2022 */}
+                    {(entreprise?.forme_juridique === 'EI' || entreprise?.forme_juridique === 'Micro-entreprise') && (
+                      <p>{String(entreprise?.nom || '')} — {entreprise?.forme_juridique === 'Micro-entreprise' ? 'Entrepreneur individuel (Micro-entreprise)' : 'Entrepreneur individuel (EI)'}</p>
+                    )}
+                    {/* Capital social pour les sociétés */}
+                    {Boolean(entreprise?.capital_social) && ['EURL', 'SARL', 'SAS', 'SASU'].includes(String(entreprise?.forme_juridique || '')) && (
+                      <p>{String(entreprise?.forme_juridique)} au capital de {String(entreprise?.capital_social)}</p>
+                    )}
+                    {/* RCS / RM */}
+                    {Boolean(entreprise?.rcs_rm) && (
+                      <p>{String(entreprise?.rcs_rm)}</p>
+                    )}
+                    {/* Qualification professionnelle */}
+                    {Boolean(entreprise?.qualification_pro) && (
+                      <p>Qualification : {String(entreprise?.qualification_pro)}</p>
+                    )}
+                    {/* Médiateur */}
                     {Boolean(entreprise?.mediateur) && (
                       <p>Médiateur : {String(entreprise?.mediateur)}</p>
                     )}
+                    {/* Rétractation — toujours affichée */}
                     <p>Rétractation 14 jours pour travaux hors établissement (art. L221-18 C. conso.).</p>
+                    {/* Mentions personnalisées */}
+                    {Boolean(entreprise?.mentions_legales_custom) && (
+                      <p>{String(entreprise?.mentions_legales_custom)}</p>
+                    )}
                   </div>
                 </div>
                 {/* Déchets — discret, grisé, tout en bas */}
@@ -552,7 +589,7 @@ export default function DevisDetailPage() {
                     </>
                   )
                 })()}
-                <div className="bg-[#2563eb] text-white rounded-lg p-2 mt-1.5 flex justify-between items-center">
+                <div className="print-net-payer bg-[#2563eb] text-white rounded-lg p-2 mt-1.5 flex justify-between items-center">
                   <span className="font-syne font-bold text-xs">NET À PAYER</span>
                   <span className="font-syne font-bold text-base">{formatCurrency(totalTTC)}</span>
                 </div>
