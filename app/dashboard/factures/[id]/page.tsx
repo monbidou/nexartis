@@ -298,23 +298,22 @@ export default function FactureDetailPage() {
         <div className="lg:col-span-2">
           <div className="bg-white rounded-xl border border-gray-200 p-8 print-zone">
 
-            {/* HEADER — Logo + titre centré */}
-            <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14}}>
-              <div style={{flex:'0 0 auto', marginRight: 16}}>
-                {Boolean(entreprise?.logo_url) && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={String(entreprise?.logo_url || '')} alt="Logo" style={{ height: 120, maxWidth: 280, objectFit: 'contain', mixBlendMode: 'multiply' }} />
-                )}
-              </div>
-              <div style={{textAlign:'center', flex:1}}>
-                <div style={{fontSize:38, fontWeight:900, color:'#2563eb', letterSpacing:4, textTransform:'uppercase'}}>FACTURE</div>
-                <div style={{fontSize:14, color:'#374151', marginTop:4}}>N° <strong>{facture.numero}</strong></div>
-                <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>
+            {/* HEADER — Logo absolu à gauche, FACTURE centré au milieu (identique au devis) */}
+            <div style={{position:'relative', marginBottom:10}}>
+              {/* FACTURE + Numéro + Date — centré au milieu de la page */}
+              <div style={{display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', paddingTop:0, paddingBottom:0}}>
+                <div style={{fontSize:38, fontWeight:900, color:'#2563eb', letterSpacing:4, textTransform:'uppercase', lineHeight:1}}>FACTURE</div>
+                <div style={{fontSize:14, color:'#374151', marginTop:10, lineHeight:1}}>N° <strong>{facture.numero}</strong></div>
+                <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>
                   {formatDate(facture.date_emission || facture.created_at)}
                   {facture.date_echeance && ` · Échéance ${formatDate(facture.date_echeance)}`}
                 </div>
               </div>
-              <div style={{flex:'0 0 auto', width: Boolean(entreprise?.logo_url) ? 280 : 0}} />
+              {/* Logo — positionné à gauche, hauteur = du haut de FACTURE au bas du numéro */}
+              {Boolean(entreprise?.logo_url) && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={String(entreprise?.logo_url || '')} alt="Logo" style={{ position:'absolute', left:0, top:0, height:'100%', width:'auto', maxWidth: 180, objectFit: 'contain', mixBlendMode: 'multiply' }} />
+              )}
             </div>
 
             <div style={{height:3, background:'linear-gradient(90deg,#2563eb,#93c5fd)', borderRadius:2, marginBottom:14}} />
