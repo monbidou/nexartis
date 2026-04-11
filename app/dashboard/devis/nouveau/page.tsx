@@ -22,7 +22,7 @@ interface LineItem {
 }
 
 interface ClientRecord { id: string; nom: string; prenom?: string; adresse?: string; telephone?: string; email?: string; code_postal?: string; ville?: string }
-interface ChantierRecord { id: string; nom: string; description?: string }
+interface ChantierRecord { id: string; titre: string; description?: string }
 
 // -------------------------------------------------------------------
 // Constants
