@@ -279,6 +279,19 @@ function usePaiements() { return useSupabaseQuery<Row>('paiements', { orderBy: '
 function usePlanning() { return useSupabaseQuery<Row>('planning_interventions', { orderBy: 'date_debut', ascending: true }) }
 function useRelances() { return useSupabaseQuery<Row>('relances', { orderBy: 'created_at' }) }
 function usePointsCollecte() { return useSupabaseQuery<Row>('points_collecte', { orderBy: 'created_at' }) }
+function useChantierNotes(chantierId?: string) {
+  return useSupabaseQuery<Row>('chantier_notes', {
+    orderBy: 'created_at',
+    ascending: false,
+    ...(chantierId ? { filters: { chantier_id: chantierId } } : {})
+  })
+}
+function useSousTraitantPaiements(chantierId?: string) {
+  return useSupabaseQuery<Row>('sous_traitant_paiements', {
+    orderBy: 'created_at',
+    ...(chantierId ? { filters: { chantier_id: chantierId } } : {})
+  })
+}
 
 // ── Devis lignes (no user_id, linked via devis_id) ───────────
 
@@ -369,6 +382,8 @@ export {
   useAchats,
   usePaiements,
   usePlanning,
+  useChantierNotes,
+  useSousTraitantPaiements,
   useRelances,
   useDevisLignes,
   useFactureLignes,

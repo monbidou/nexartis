@@ -1,77 +1,55 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import {
-  ArrowLeft,
-  Pencil,
-  User,
-  MapPin,
-  Phone,
-  Mail,
-  Calendar,
-  HardHat,
-  FileText,
-  Receipt,
-  Clock,
-  Camera,
-  FolderOpen,
-  Plus,
+  ArrowLeft, Pencil, User, Phone, Calendar, HardHat,
+  FileText, Receipt, Clock, Plus, Download,
+  ChevronLeft, ChevronRight, Check, X,
 } from 'lucide-react'
 import {
-  useSupabaseRecord,
-  LoadingSkeleton,
+  useSupabaseRecord, useClients, useIntervenants, useDevis, useFactures,
+  usePlanning, useAchats, useChantierNotes, useSousTraitantPaiements,
+  insertRow, updateRow, deleteRow, LoadingSkeleton,
 } from '@/lib/hooks'
 
 // -------------------------------------------------------------------
-// Types
+// Types & helpers
 // -------------------------------------------------------------------
-
-interface ChantierRecord {
-  id: string
-  nom: string
-  client_id?: string
-  client_nom?: string
-  statut: string
-  adresse?: string
-  telephone?: string
-  email?: string
-  date_debut?: string
-  date_fin?: string
-  devis_ttc?: number
-  facture_ttc?: number
-  encaisse?: number
-  marge_estimee?: number
-  avancement?: number
-  notes?: string
-  created_at: string
-}
-
-interface ClientRecord {
-  id: string
-  nom: string
-  adresse?: string
-  telephone?: string
-  email?: string
-}
-
-const STATUT_STYLES: Record<string, string> = {
-  'En cours': 'bg-blue-50 text-blue-700 border-blue-200',
-  'Terminé': 'bg-green-50 text-green-700 border-green-200',
-  'Archivé': 'bg-gray-100 text-gray-600 border-gray-200',
-}
-
-type TabKey = 'resume' | 'devis' | 'factures' | 'planning' | 'photos' | 'documents'
+type R = Record<string, unknown>
+type TabKey = 'resume' | 'devis' | 'factures' | 'planning'
 
 const TABS: { key: TabKey; label: string; icon: React.ElementType }[] = [
-  { key: 'resume', label: 'Résumé', icon: HardHat },
+  { key: 'resume', label: 'Vue générale', icon: HardHat },
   { key: 'devis', label: 'Devis', icon: FileText },
   { key: 'factures', label: 'Factures', icon: Receipt },
   { key: 'planning', label: 'Planning', icon: Clock },
-  { key: 'photos', label: 'Photos', icon: Camera },
-  { key: 'documents', label: 'Documents', icon: FolderOpen },
 ]
+
+const NOTE_CATS = [
+  { value: 'urgent', label: "Aujourd'hui", cls: 'bg-[#e87a2a] text-white' },
+  { value: 'rappel', label: 'Demain', cls: 'bg-[#e8f4fb] text-[#2d8bc9]' },
+  { value: 'info', label: 'Info', cls: 'bg-[#f6f8fb] text-[#7b8ba3]' },
+]
+
+const PALETTE_HEX = ['#5ab4e0', '#e87a2a', '#22c55e', '#7c3aed', '#f5c842', '#ef4444']
+const PALETTE_BG = ['bg-[#eef7fc]', 'bg-[#fef5ee]', 'bg-[#effbf2]', 'bg-[#f3effe]', 'bg-[#fefce8]', 'bg-[#fef2f2]']
+
+function formatEur(n: number) { return n.toLocaleString('fr-FR', { maximumFractionDigits: 0 }) + '€' }
+function formatDate(d: string | undefined) { if (!d) return '—'; return new Date(d).toLocaleDateString('fr-FR') }
+function initials(name: string) { return name.split(' ').map(w => w[0] ?? '').join('').toUpperCase().slice(0, 2) }
+
+const DAYS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
+const MONTHS = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
+
+function getMonday(d: Date): Date {
+  const date = new Date(d); const day = date.getDay()
+  const diff = date.getDate() - day + (day === 0 ? -6 : 1)
+  date.setDate(diff); date.setHours(0, 0, 0, 0); return date
+}
+function fmtISO(d: Date): string { return d.toISOString().split('T')[0] }
+function isSameDay(d1: Date, d2: Date) { return fmtISO(d1) === fmtISO(d2) }
 
 // -------------------------------------------------------------------
 // Page
@@ -82,312 +60,521 @@ export default function ChantierDetailPage() {
   const router = useRouter()
   const id = params.id as string
 
-  const { data: chantier, loading: loadingChantier } = useSupabaseRecord<ChantierRecord>('chantiers', id)
-  const { data: client, loading: loadingClient } = useSupabaseRecord<ClientRecord>('clients', chantier?.client_id ?? null)
+  // Data
+  const { data: chantier, loading: l1 } = useSupabaseRecord<R>('chantiers', id)
+  const { data: clients } = useClients()
+  const { data: intervenants } = useIntervenants()
+  const { data: allDevis } = useDevis()
+  const { data: allFactures } = useFactures()
+  const { data: allPlanning, refetch: refetchPlanning } = usePlanning()
+  const { data: allAchats } = useAchats()
+  const { data: chantierNotes, refetch: refetchNotes } = useChantierNotes(id)
+  const { data: stPaiements, refetch: refetchST } = useSousTraitantPaiements(id)
 
+  // State
   const [activeTab, setActiveTab] = useState<TabKey>('resume')
-  const [notes, setNotes] = useState('')
+  const [ganttStart, setGanttStart] = useState(() => getMonday(new Date()))
+  const [newNote, setNewNote] = useState('')
+  const [newNoteCat, setNewNoteCat] = useState('info')
+  const [toast, setToast] = useState<string | null>(null)
 
-  // Sync notes when chantier loads
-  const chantierNotes = chantier?.notes ?? ''
-  if (chantierNotes && notes === '' && chantierNotes !== notes) {
-    // Only set once on load
+  const showToast = useCallback((msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2500) }, [])
+
+  // ── Derived data ──
+  const client = useMemo(() => {
+    if (!chantier?.client_id) return null
+    return (clients.find(c => (c as R).id === chantier.client_id) as R) ?? null
+  }, [clients, chantier])
+
+  const chantierDevis = useMemo(() =>
+    allDevis.filter(d => (d as R).chantier_id === id) as R[],
+  [allDevis, id])
+
+  const chantierFactures = useMemo(() =>
+    allFactures.filter(f => (f as R).chantier_id === id) as R[],
+  [allFactures, id])
+
+  const chantierInterventions = useMemo(() =>
+    allPlanning.filter(p => (p as R).chantier_id === id) as R[],
+  [allPlanning, id])
+
+  const chantierAchats = useMemo(() =>
+    allAchats.filter(a => (a as R).chantier_id === id) as R[],
+  [allAchats, id])
+
+  // Maps
+  const intervenantMap = useMemo(() => {
+    const map = new Map<string, R>()
+    intervenants.forEach(iv => { const r = iv as R; map.set(r.id as string, r) })
+    return map
+  }, [intervenants])
+
+  const colorMap = useMemo(() => {
+    const map = new Map<string, number>()
+    intervenants.forEach((iv, i) => map.set((iv as R).id as string, i % PALETTE_HEX.length))
+    return map
+  }, [intervenants])
+
+  // ── Finances ──
+  const finances = useMemo(() => {
+    const deviseTotal = Number(chantier?.montant_devis_total ?? 0)
+    const factureTotal = Number(chantier?.montant_facture ?? 0)
+    const encaisse = Number(chantier?.montant_encaisse ?? 0)
+    const reste = deviseTotal - factureTotal
+
+    const devisCount = chantierDevis.length
+    const devisFactures = chantierDevis.filter(d => d.statut === 'facture' || d.statut === 'signe').length
+    const pctDevis = devisCount > 0 ? Math.round((devisFactures / devisCount) * 100) : 0
+    const pctValeur = deviseTotal > 0 ? Math.round((factureTotal / deviseTotal) * 100) : 0
+    const pctEncaissement = deviseTotal > 0 ? Math.round((encaisse / deviseTotal) * 100) : 0
+
+    const totalST = (stPaiements as R[]).reduce((sum, p) => sum + Number(p.montant_prevu ?? 0), 0)
+    const totalAchats = chantierAchats.reduce((sum, a) => sum + Number(a.montant_ttc ?? a.montant_ht ?? 0), 0)
+    const depenses = totalST + totalAchats
+    const marge = factureTotal - depenses
+    const margePct = factureTotal > 0 ? Math.round((marge / factureTotal) * 100) : 0
+
+    return { deviseTotal, factureTotal, encaisse, reste, devisCount, devisFactures, pctDevis, pctValeur, pctEncaissement, totalST, totalAchats, depenses, marge, margePct }
+  }, [chantier, chantierDevis, stPaiements, chantierAchats])
+
+  // ── Gantt data ──
+  const ganttDays = useMemo(() => {
+    const days: { label: string; date: Date; dateStr: string; isToday: boolean }[] = []
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(ganttStart); d.setDate(d.getDate() + i)
+      days.push({ label: DAYS[i], date: d, dateStr: fmtISO(d), isToday: isSameDay(d, new Date()) })
+    }
+    return days
+  }, [ganttStart])
+
+  // Group interventions by intervenant for Gantt
+  const ganttPhases = useMemo(() => {
+    const map = new Map<string, R[]>()
+    chantierInterventions.forEach(pi => {
+      const ivId = pi.intervenant_id as string
+      if (!ivId) return
+      if (!map.has(ivId)) map.set(ivId, [])
+      map.get(ivId)!.push(pi)
+    })
+    return Array.from(map.entries()).map(([ivId, interventions]) => {
+      const iv = intervenantMap.get(ivId) as R | undefined
+      const colorIdx = colorMap.get(ivId) ?? 0
+      return { ivId, iv, interventions, colorIdx }
+    })
+  }, [chantierInterventions, intervenantMap, colorMap])
+
+  // ── Notes CRUD ──
+  const addNote = async () => {
+    if (!newNote.trim()) return
+    await insertRow('chantier_notes', { chantier_id: id, texte: newNote, categorie: newNoteCat })
+    setNewNote(''); refetchNotes(); showToast('Note ajoutée ✓')
+  }
+  const toggleNote = async (noteId: string, fait: boolean) => {
+    await updateRow('chantier_notes', noteId, { fait: !fait, fait_le: !fait ? new Date().toISOString() : null })
+    refetchNotes()
+  }
+  const removeNote = async (noteId: string) => {
+    await deleteRow('chantier_notes', noteId)
+    refetchNotes(); showToast('Note supprimée')
   }
 
-  const loading = loadingChantier || loadingClient
+  // ── Loading ──
+  if (l1) return <div className="p-8"><LoadingSkeleton /></div>
+  if (!chantier) return (
+    <div className="p-8">
+      <Link href="/dashboard/chantiers" className="flex items-center gap-2 text-sm text-[#64748b] hover:text-[#0f1a3a] mb-4"><ArrowLeft className="w-4 h-4" />Retour</Link>
+      <p className="text-sm text-[#7b8ba3]">Chantier introuvable.</p>
+    </div>
+  )
 
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <LoadingSkeleton rows={8} />
-      </div>
-    )
-  }
+  const statutLabel = (chantier.statut as string) === 'en_cours' ? 'En cours' : (chantier.statut as string) === 'signe' ? 'Signé' : (chantier.statut as string) ?? '—'
+  const statutCls = (chantier.statut as string) === 'en_cours' ? 'bg-[#e8f4fb] text-[#2d8bc9]' : (chantier.statut as string) === 'livre' ? 'bg-[#dcfce7] text-[#166534]' : 'bg-[#fef9e7] text-[#b45309]'
 
-  if (!chantier) {
-    return (
-      <div className="space-y-6">
-        <Link
-          href="/dashboard/chantiers"
-          className="p-2 rounded-lg hover:bg-gray-100 transition-colors inline-flex items-center gap-2 text-sm text-gray-500"
-        >
-          <ArrowLeft size={20} /> Retour
-        </Link>
-        <p className="text-sm font-manrope text-gray-500">Chantier introuvable.</p>
-      </div>
-    )
-  }
-
-  const clientNom = client?.nom ?? chantier.client_nom ?? 'Client inconnu'
-  const adresse = chantier.adresse ?? client?.adresse ?? ''
-  const telephone = chantier.telephone ?? client?.telephone ?? ''
-  const email = chantier.email ?? client?.email ?? ''
-  const avancement = chantier.avancement ?? 0
-  const deviseTTC = chantier.devis_ttc ?? 0
-  const factureTTC = chantier.facture_ttc ?? 0
-  const encaisse = chantier.encaisse ?? 0
-  const margeEstimee = chantier.marge_estimee ?? 0
-  const statutStyle = STATUT_STYLES[chantier.statut] ?? 'bg-gray-100 text-gray-600 border-gray-200'
-
-  function getProgressColor(percent: number) {
-    if (percent >= 75) return 'bg-green-500'
-    if (percent >= 25) return 'bg-[#5ab4e0]'
-    return 'bg-[#e87a2a]'
-  }
-
-  function formatDate(d: string | undefined) {
-    if (!d) return 'Non défini'
-    return new Date(d).toLocaleDateString('fr-FR')
-  }
+  // ===================================================================
+  // RENDER
+  // ===================================================================
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <Link
-            href="/dashboard/chantiers"
-            className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-          >
-            <ArrowLeft size={20} className="text-gray-600" />
-          </Link>
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-syne font-bold text-[#0f1a3a]">
-                {chantier.nom} &mdash; {clientNom}
-              </h1>
-              <span className={`inline-block px-3 py-1 rounded-full text-xs font-manrope font-medium border ${statutStyle}`}>
-                {chantier.statut}
-              </span>
+    <div className="min-h-screen bg-[#f6f8fb]">
+      {/* ── HEADER ── */}
+      <header className="bg-white border-b border-[#e6ecf2] px-6 py-4 sticky top-0 z-30 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <button onClick={() => router.push('/dashboard/chantiers')} className="flex items-center gap-1.5 text-sm text-[#64748b] hover:text-[#0f1a3a] transition-colors font-medium mr-1">
+            <ArrowLeft className="w-4 h-4" />Retour
+          </button>
+          <h1 className="text-xl font-extrabold text-[#0f1a3a] tracking-tight font-jakarta">
+            {String(chantier.titre ?? '')}
+          </h1>
+        </div>
+        <div className="flex items-center gap-2">
+          <button className="flex items-center gap-2 px-4 py-2 border border-[#e6ecf2] rounded-xl text-sm font-semibold text-[#1e293b] hover:border-[#5ab4e0] hover:text-[#5ab4e0] transition-all">
+            <Download className="w-4 h-4" />Exporter PDF
+          </button>
+          <button className="flex items-center gap-2 px-4 py-2 border border-[#e6ecf2] rounded-xl text-sm font-semibold text-[#1e293b] hover:border-[#5ab4e0] hover:text-[#5ab4e0] transition-all">
+            <Pencil className="w-4 h-4" />Modifier
+          </button>
+        </div>
+      </header>
+
+      <div className="px-6 py-5">
+        {/* ── HERO ── */}
+        <div className="bg-white border border-[#e6ecf2] rounded-2xl p-6 mb-5">
+          <div className="flex items-center justify-between mb-2">
+            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${statutCls}`}>
+              <span className="w-1.5 h-1.5 rounded-full bg-current" />{statutLabel}
+            </span>
+            <div className="flex bg-[#f6f8fb] rounded-xl p-1 gap-0.5">
+              {TABS.map(t => (
+                <button key={t.key} onClick={() => setActiveTab(t.key)}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeTab === t.key ? 'bg-white text-[#0f1a3a] shadow-sm' : 'text-[#64748b] hover:text-[#0f1a3a]'}`}>
+                  {t.label}
+                </button>
+              ))}
             </div>
+          </div>
+          <h2 className="text-[22px] font-extrabold text-[#0f1a3a] tracking-tight mt-2">
+            {String(chantier.titre ?? '')} — {client ? String(`${client.prenom ?? ''} ${client.nom ?? ''}`).trim() : 'Client'}
+          </h2>
+          <div className="text-sm text-[#7b8ba3] font-medium mb-4">
+            {String(chantier.description ?? '')} • {String(chantier.adresse_chantier ?? '')}, {String(chantier.ville_chantier ?? '')}
+          </div>
+          <div className="grid grid-cols-4 gap-3">
+            <div className="flex items-center gap-2 text-[13px] text-[#64748b]">
+              <Calendar className="w-4 h-4 text-[#7b8ba3] flex-shrink-0" />
+              Début : <strong className="text-[#0f1a3a]">{formatDate(chantier.date_debut as string)}</strong>
+            </div>
+            <div className="flex items-center gap-2 text-[13px] text-[#64748b]">
+              <Clock className="w-4 h-4 text-[#7b8ba3] flex-shrink-0" />
+              Fin prévue : <strong className="text-[#0f1a3a]">{formatDate(chantier.date_fin_prevue as string)}</strong>
+            </div>
+            <div className="flex items-center gap-2 text-[13px] text-[#64748b]">
+              <User className="w-4 h-4 text-[#7b8ba3] flex-shrink-0" />
+              Client : <strong className="text-[#0f1a3a]">{client ? String(`${client.prenom ?? ''} ${client.nom ?? ''}`).trim() : '—'}</strong>
+            </div>
+            {(() => { const tel = client?.telephone as string | undefined; return tel ? (
+              <div className="flex items-center gap-2 text-[13px] text-[#64748b]">
+                <Phone className="w-4 h-4 text-[#7b8ba3] flex-shrink-0" />
+                Tél : <a href={`tel:${tel}`} className="text-[#5ab4e0] font-semibold hover:underline">{tel}</a>
+              </div>
+            ) : null })()}
           </div>
         </div>
 
-        <button
-          onClick={() => router.push(`/dashboard/chantiers/${id}/modifier`)}
-          className="inline-flex items-center gap-2 h-9 px-4 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-sm font-manrope text-[#1a1a2e] transition-colors"
-        >
-          <Pencil size={14} />
-          Modifier
-        </button>
-      </div>
-
-      {/* Info cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <InfoCard label="Devisé" value={`${deviseTTC.toLocaleString('fr-FR')} €`} />
-        <InfoCard label="Facturé" value={`${factureTTC.toLocaleString('fr-FR')} €`} />
-        <InfoCard label="Encaissé" value={`${encaisse.toLocaleString('fr-FR')} €`} />
-        <InfoCard label="Marge estimée" value={`${margeEstimee}%`} valueColor="text-green-600" />
-      </div>
-
-      {/* Tabs */}
-      <div className="border-b border-gray-200">
-        <div className="flex gap-1 overflow-x-auto">
-          {TABS.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-manrope font-medium border-b-2 transition-colors whitespace-nowrap ${
-                activeTab === tab.key
-                  ? 'border-[#5ab4e0] text-[#0f1a3a]'
-                  : 'border-transparent text-gray-500 hover:text-[#1a1a2e] hover:border-gray-300'
-              }`}
-            >
-              <tab.icon size={16} />
-              {tab.label}
-            </button>
+        {/* ── FINANCE ROW ── */}
+        <div className="grid grid-cols-4 gap-3.5 mb-5">
+          {[
+            { label: 'Devisé TTC', value: formatEur(finances.deviseTotal) },
+            { label: 'Facturé TTC', value: formatEur(finances.factureTotal) },
+            { label: 'Encaissé', value: formatEur(finances.encaisse), cls: 'text-[#22c55e]' },
+            { label: 'Reste à facturer', value: formatEur(finances.reste), cls: 'text-[#e87a2a]' },
+          ].map((f, i) => (
+            <div key={i} className="text-center py-4 px-4 bg-[#f6f8fb] rounded-xl">
+              <div className={`text-xl font-extrabold tracking-tight ${f.cls ?? 'text-[#0f1a3a]'}`}>{f.value}</div>
+              <div className="text-[11px] text-[#7b8ba3] font-medium mt-1">{f.label}</div>
+            </div>
           ))}
         </div>
+
+        {/* ── PROGRESS BARS ── */}
+        <div className="bg-white border border-[#e6ecf2] rounded-2xl p-5 mb-5 space-y-4">
+          <ProgressBar label="Avancement par devis" value={`${finances.devisFactures} / ${finances.devisCount} devis • ${finances.pctDevis}%`} pct={finances.pctDevis} color="bg-[#5ab4e0]" sub={`${finances.devisFactures} devis facturés / ${finances.devisCount} total`} />
+          <ProgressBar label="Avancement en valeur" value={`${formatEur(finances.factureTotal)} / ${formatEur(finances.deviseTotal)} • ${finances.pctValeur}%`} pct={finances.pctValeur} color="bg-[#e87a2a]" sub={`${formatEur(finances.factureTotal)} facturés / ${formatEur(finances.deviseTotal)} TTC`} />
+          <ProgressBar label="Encaissement" value={`${formatEur(finances.encaisse)} / ${formatEur(finances.deviseTotal)} • ${finances.pctEncaissement}%`} pct={finances.pctEncaissement} color="bg-[#22c55e]" sub={`${formatEur(finances.encaisse)} encaissés / ${formatEur(finances.deviseTotal)} TTC`} />
+        </div>
+
+        {/* ── GANTT CHART ── */}
+        <div className="bg-white border border-[#e6ecf2] rounded-2xl overflow-hidden mb-5">
+          <div className="px-5 py-4 border-b border-[#e6ecf2] flex items-center justify-between">
+            <h3 className="text-[15px] font-extrabold text-[#0f1a3a] tracking-tight">Planning des phases</h3>
+            <div className="flex items-center gap-2">
+              <button onClick={() => { const d = new Date(ganttStart); d.setDate(d.getDate() - 7); setGanttStart(d) }}
+                className="w-8 h-8 flex items-center justify-center border border-[#e6ecf2] rounded-lg text-[#64748b] hover:text-[#5ab4e0] hover:border-[#5ab4e0] transition-all">
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+              <span className="text-xs font-semibold text-[#0f1a3a] min-w-[100px] text-center">
+                {ganttStart.getDate()} — {new Date(ganttStart.getTime() + 6 * 86400000).getDate()} {MONTHS[ganttStart.getMonth()]}
+              </span>
+              <button onClick={() => { const d = new Date(ganttStart); d.setDate(d.getDate() + 7); setGanttStart(d) }}
+                className="w-8 h-8 flex items-center justify-center border border-[#e6ecf2] rounded-lg text-[#64748b] hover:text-[#5ab4e0] hover:border-[#5ab4e0] transition-all">
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          <div className="px-5 py-4">
+            {/* Header */}
+            <div className="grid grid-cols-[220px_repeat(7,1fr)] mb-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#7b8ba3]">Phase / Intervenant</span>
+              {ganttDays.map(d => (
+                <span key={d.dateStr} className={`text-[10px] font-bold uppercase tracking-wider text-center ${d.isToday ? 'text-[#5ab4e0] font-extrabold' : 'text-[#7b8ba3]'}`}>
+                  {d.label} {d.date.getDate()}
+                </span>
+              ))}
+            </div>
+
+            {/* Phases */}
+            {ganttPhases.length === 0 && (
+              <div className="py-8 text-center text-sm text-[#7b8ba3]">Aucune intervention planifiée pour ce chantier</div>
+            )}
+            {ganttPhases.map(phase => {
+              const ivName = phase.iv ? `${phase.iv.prenom ?? ''} ${(phase.iv.nom as string)?.charAt(0) ?? ''}.` : '—'
+              const metier = phase.iv?.metier as string ?? ''
+              const hex = PALETTE_HEX[phase.colorIdx]
+              // Which days have interventions
+              const dayMap = new Map<string, R>()
+              phase.interventions.forEach(pi => {
+                const d = (pi.date_debut as string)?.split('T')[0]
+                if (d) dayMap.set(d, pi)
+              })
+              // Status
+              const allDone = phase.interventions.every(pi => pi.statut === 'termine')
+              const anyInProgress = phase.interventions.some(pi => pi.statut === 'en_cours')
+              const statusLabel = allDone ? 'Terminé' : anyInProgress ? 'En cours' : 'À venir'
+              const statusCls = allDone ? 'bg-[#dcfce7] text-[#166534]' : anyInProgress ? 'bg-[#e8f4fb] text-[#2d8bc9]' : 'bg-[#f6f8fb] text-[#7b8ba3]'
+
+              // Devis linked
+              const linkedDevis = chantierDevis.find(d => phase.interventions.some(pi => (pi.description_travaux as string)?.includes(d.objet as string ?? '__')))
+              const devisRef = linkedDevis ? `D-${String(linkedDevis.numero ?? '').slice(-4)}` : ''
+              const devisAmt = linkedDevis ? formatEur(Number(linkedDevis.montant_ttc ?? 0)) : ''
+
+              return (
+                <div key={phase.ivId} className="grid grid-cols-[220px_repeat(7,1fr)] mb-1.5 min-h-[68px] items-stretch">
+                  {/* Label */}
+                  <div className="py-2 pr-3 flex flex-col gap-1">
+                    <div className="flex items-center gap-2 text-sm font-bold text-[#1e293b]">
+                      <span className="w-2.5 h-2.5 rounded flex-shrink-0" style={{ background: hex }} />
+                      {metier || ivName}
+                    </div>
+                    <div className="text-[11px] text-[#7b8ba3] pl-[18px]">{ivName} {devisRef && `• ${devisRef} : ${devisAmt}`}</div>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded w-fit ml-[18px] ${statusCls}`}>{statusLabel}</span>
+                  </div>
+
+                  {/* Day cells */}
+                  {ganttDays.map((day, di) => {
+                    const intervention = dayMap.get(day.dateStr)
+                    if (!intervention) {
+                      return <div key={day.dateStr} className={`border-r border-[#e6ecf2]/30 min-h-[68px] relative ${day.isToday ? 'bg-[#5ab4e0]/[.03]' : ''}`}>
+                        {day.isToday && <div className="absolute top-0 bottom-0 left-1/2 w-0.5 bg-[#ef4444] z-10"><span className="absolute -top-1 -left-[3px] w-2 h-2 bg-[#ef4444] rounded-full" /></div>}
+                      </div>
+                    }
+
+                    // Check continuity (is prev/next day also filled?)
+                    const prevDay = di > 0 ? ganttDays[di - 1] : null
+                    const nextDay = di < 6 ? ganttDays[di + 1] : null
+                    const hasPrev = prevDay && dayMap.has(prevDay.dateStr)
+                    const hasNext = nextDay && dayMap.has(nextDay.dateStr)
+                    const radius = hasPrev && hasNext ? 'rounded-none' : hasPrev ? 'rounded-r-lg rounded-l-none' : hasNext ? 'rounded-l-lg rounded-r-none' : 'rounded-lg'
+                    const margin = hasPrev ? 'ml-0' : 'ml-0.5'
+                    const marginR = hasNext ? 'mr-0' : 'mr-0.5'
+
+                    return (
+                      <div key={day.dateStr} className={`border-r border-[#e6ecf2]/30 min-h-[68px] relative ${day.isToday ? 'bg-[#5ab4e0]/[.03]' : ''}`}>
+                        <div className={`absolute top-1 bottom-1 ${margin} ${marginR} ${radius} flex flex-col justify-center px-3 text-white cursor-pointer hover:brightness-105 transition-all`}
+                          style={{ background: hex, left: hasPrev ? '-1px' : '2px', right: hasNext ? '-1px' : '2px', outline: '2px solid rgba(255,255,255,.15)', outlineOffset: '-2px' }}>
+                          <div className="text-[12px] font-bold truncate">{ivName}</div>
+                          <div className="text-[10px] font-medium opacity-85 truncate">{String(intervention.titre ?? '')}</div>
+                        </div>
+                        {day.isToday && <div className="absolute top-0 bottom-0 left-1/2 w-0.5 bg-[#ef4444] z-10"><span className="absolute -top-1 -left-[3px] w-2 h-2 bg-[#ef4444] rounded-full" /></div>}
+                      </div>
+                    )
+                  })}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* ── NOTES + SOUS-TRAITANTS ── */}
+        <div className="grid grid-cols-2 gap-5 mb-5">
+          {/* Notes */}
+          <div className="bg-white border border-[#e6ecf2] rounded-2xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-[#e6ecf2] flex items-center justify-between">
+              <h3 className="text-[15px] font-extrabold text-[#0f1a3a]">Notes & rappels</h3>
+              <span className="text-[11px] text-[#7b8ba3] font-semibold">{(chantierNotes as R[]).filter(n => !n.fait).length} tâches</span>
+            </div>
+            <div className="px-5 py-3">
+              {(chantierNotes as R[]).map(note => {
+                const cat = NOTE_CATS.find(c => c.value === note.categorie) ?? NOTE_CATS[2]
+                return (
+                  <div key={note.id as string} className="flex gap-2.5 py-2.5 border-b border-[#e6ecf2] last:border-b-0 items-start group">
+                    <button onClick={() => toggleNote(note.id as string, note.fait as boolean)}
+                      className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 mt-0.5 transition-all ${Boolean(note.fait) ? 'bg-[#22c55e] border-[#22c55e] text-white' : 'border-[#e6ecf2] hover:border-[#5ab4e0]'}`}>
+                      {Boolean(note.fait) && <Check className="w-3 h-3" />}
+                    </button>
+                    <div className="flex-1 min-w-0">
+                      <div className={`text-[13px] font-medium leading-snug ${Boolean(note.fait) ? 'line-through text-[#7b8ba3]' : 'text-[#1e293b]'}`}>{String(note.texte ?? '')}</div>
+                      <div className="flex items-center gap-1.5 mt-1 text-[11px] text-[#7b8ba3]">
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${cat.cls}`}>{cat.label}</span>
+                        {Boolean(note.fait_le) && <span>Fait le {formatDate(note.fait_le as string)}</span>}
+                      </div>
+                    </div>
+                    <button onClick={() => removeNote(note.id as string)}
+                      className="w-5 h-5 rounded flex items-center justify-center text-[#7b8ba3] opacity-0 group-hover:opacity-100 hover:bg-[#fee2e2] hover:text-[#ef4444] transition-all">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                )
+              })}
+              {/* Add note */}
+              <div className="flex gap-2 pt-2.5 items-center">
+                <select value={newNoteCat} onChange={e => setNewNoteCat(e.target.value)}
+                  className="px-2.5 py-2 border border-[#e6ecf2] rounded-lg text-xs font-semibold text-[#64748b] bg-white outline-none">
+                  {NOTE_CATS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                </select>
+                <input type="text" value={newNote} onChange={e => setNewNote(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') addNote() }}
+                  placeholder="Ajouter une note ou un rappel..."
+                  className="flex-1 px-3 py-2 border-2 border-dashed border-[#e6ecf2] rounded-lg text-[13px] focus:border-[#5ab4e0] focus:bg-[#5ab4e0]/[.03] outline-none transition-all placeholder:text-[#7b8ba3]" />
+                <button onClick={addNote} className="px-3 py-2 bg-gradient-to-r from-[#e87a2a] to-[#f09050] text-white rounded-lg text-xs font-bold hover:shadow-md transition-all">+</button>
+              </div>
+            </div>
+          </div>
+
+          {/* Sous-traitants */}
+          <div className="bg-white border border-[#e6ecf2] rounded-2xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-[#e6ecf2] flex items-center justify-between">
+              <h3 className="text-[15px] font-extrabold text-[#0f1a3a]">Sous-traitants</h3>
+              <button className="flex items-center gap-1 text-xs text-[#64748b] font-semibold hover:text-[#5ab4e0] transition-all">
+                <Plus className="w-3 h-3" />Ajouter
+              </button>
+            </div>
+            <table className="w-full">
+              <thead className="bg-[#f6f8fb]">
+                <tr>
+                  <th className="px-5 py-2.5 text-[11px] font-bold uppercase tracking-wider text-[#7b8ba3] text-left border-b border-[#e6ecf2]">Intervenant</th>
+                  <th className="px-5 py-2.5 text-[11px] font-bold uppercase tracking-wider text-[#7b8ba3] text-left border-b border-[#e6ecf2]">Prévu</th>
+                  <th className="px-5 py-2.5 text-[11px] font-bold uppercase tracking-wider text-[#7b8ba3] text-left border-b border-[#e6ecf2]">Payé</th>
+                  <th className="px-5 py-2.5 text-[11px] font-bold uppercase tracking-wider text-[#7b8ba3] text-left border-b border-[#e6ecf2]">Statut</th>
+                  <th className="px-5 py-2.5 text-[11px] font-bold uppercase tracking-wider text-[#7b8ba3] text-left border-b border-[#e6ecf2]">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(stPaiements as R[]).length === 0 && (
+                  <tr><td colSpan={5} className="px-5 py-6 text-center text-sm text-[#7b8ba3]">Aucun sous-traitant enregistré</td></tr>
+                )}
+                {(stPaiements as R[]).map(st => {
+                  const iv = intervenantMap.get(st.intervenant_id as string) as R | undefined
+                  const colorIdx = colorMap.get(st.intervenant_id as string) ?? 0
+                  const statut = st.statut as string
+                  const statutCls = statut === 'paye' ? 'bg-[#dcfce7] text-[#166534]' : statut === 'partiel' ? 'bg-[#fef9e7] text-[#b45309]' : 'bg-[#fee2e2] text-[#991b1b]'
+                  const statutLbl = statut === 'paye' ? 'Payé' : statut === 'partiel' ? 'Partiel' : 'À payer'
+                  return (
+                    <tr key={st.id as string} className="hover:bg-[#f6f8fb]/60">
+                      <td className="px-5 py-3 border-b border-[#e6ecf2]">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-7 h-7 rounded-lg text-white text-[10px] font-bold flex items-center justify-center" style={{ background: PALETTE_HEX[colorIdx] }}>
+                            {iv ? initials(`${iv.prenom ?? ''} ${iv.nom ?? ''}`) : '?'}
+                          </div>
+                          <div>
+                            <div className="text-[13px] font-semibold">{iv ? `${iv.prenom ?? ''} ${iv.nom ?? ''}`.trim() : '—'}</div>
+                            <div className="text-[11px] text-[#7b8ba3]">{String(iv?.metier ?? '')}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-5 py-3 border-b border-[#e6ecf2] text-[13px] font-bold text-[#0f1a3a]">{formatEur(Number(st.montant_prevu ?? 0))}</td>
+                      <td className="px-5 py-3 border-b border-[#e6ecf2] text-[13px] font-bold text-[#0f1a3a]">{formatEur(Number(st.montant_paye ?? 0))}</td>
+                      <td className="px-5 py-3 border-b border-[#e6ecf2]">
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold ${statutCls}`}>{statutLbl}</span>
+                      </td>
+                      <td className="px-5 py-3 border-b border-[#e6ecf2]">
+                        <div className="flex gap-1">
+                          {statut !== 'paye' && (
+                            <button onClick={async () => {
+                              await updateRow('sous_traitant_paiements', st.id as string, { montant_paye: st.montant_prevu, statut: 'paye' })
+                              refetchST(); showToast('Paiement enregistré ✓')
+                            }} className="px-2.5 py-1 text-[11px] font-semibold border border-[#22c55e] text-[#22c55e] bg-[#dcfce7] rounded-md hover:bg-[#22c55e] hover:text-white transition-all">
+                              Payer
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* ── MARGE NETTE ── */}
+        <div className="bg-white border border-[#e6ecf2] rounded-2xl overflow-hidden mb-5">
+          <div className="px-5 py-4 border-b border-[#e6ecf2]">
+            <h3 className="text-[15px] font-extrabold text-[#0f1a3a]">Rentabilité du chantier</h3>
+          </div>
+          <div className="grid grid-cols-3 border-b border-[#e6ecf2]">
+            <div className="text-center py-5 px-4 border-r border-[#e6ecf2]">
+              <div className="text-[22px] font-extrabold text-[#22c55e] tracking-tight">{formatEur(finances.factureTotal)}</div>
+              <div className="text-[11px] text-[#7b8ba3] font-medium mt-1">Facturé client (TTC)</div>
+            </div>
+            <div className="text-center py-5 px-4 border-r border-[#e6ecf2]">
+              <div className="text-[22px] font-extrabold text-[#ef4444] tracking-tight">- {formatEur(finances.depenses)}</div>
+              <div className="text-[11px] text-[#7b8ba3] font-medium mt-1">Dépenses (ST + achats)</div>
+            </div>
+            <div className="text-center py-5 px-4">
+              <div className="text-[22px] font-extrabold text-[#0f1a3a] tracking-tight">{formatEur(finances.marge)} <span className="text-sm font-bold text-[#7b8ba3]">({finances.margePct}%)</span></div>
+              <div className="text-[11px] text-[#7b8ba3] font-medium mt-1">Marge nette</div>
+            </div>
+          </div>
+
+          {/* Achats fournisseurs */}
+          <div className="px-5 py-4">
+            <div className="text-[11px] font-bold uppercase tracking-wider text-[#7b8ba3] mb-2">Achats fournisseurs</div>
+            {chantierAchats.length === 0 && <div className="text-sm text-[#7b8ba3] py-3">Aucun achat enregistré</div>}
+            {chantierAchats.map(achat => (
+              <div key={achat.id as string} className="flex items-center justify-between py-2.5 border-b border-[#e6ecf2] last:border-b-0 text-[13px]">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-[#1e293b]">{String(achat.description ?? '—')}</span>
+                  <span className="text-[11px] text-[#7b8ba3]">{formatDate(achat.date_achat as string)}</span>
+                </div>
+                <span className="font-bold text-[#ef4444]">- {formatEur(Number(achat.montant_ttc ?? achat.montant_ht ?? 0))}</span>
+              </div>
+            ))}
+            <div className="pt-2.5 text-center">
+              <button className="text-xs text-[#5ab4e0] font-semibold flex items-center gap-1 mx-auto hover:underline">
+                <Plus className="w-3 h-3" />Ajouter un achat
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Tab content */}
-      {activeTab === 'resume' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Client info */}
-          <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
-            <h3 className="text-sm font-syne font-bold text-[#0f1a3a] uppercase tracking-wider">Client</h3>
-            <div className="space-y-3">
-              <div className="flex items-start gap-3">
-                <User size={16} className="text-gray-400 mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="text-xs font-manrope text-gray-500">Nom</p>
-                  <p className="text-sm font-manrope font-medium text-[#1a1a2e]">{clientNom}</p>
-                </div>
-              </div>
-              {adresse && (
-                <div className="flex items-start gap-3">
-                  <MapPin size={16} className="text-gray-400 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="text-xs font-manrope text-gray-500">Adresse</p>
-                    <p className="text-sm font-manrope font-medium text-[#1a1a2e]">{adresse}</p>
-                  </div>
-                </div>
-              )}
-              {telephone && (
-                <div className="flex items-start gap-3">
-                  <Phone size={16} className="text-gray-400 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="text-xs font-manrope text-gray-500">Téléphone</p>
-                    <p className="text-sm font-manrope font-medium text-[#1a1a2e]">{telephone}</p>
-                  </div>
-                </div>
-              )}
-              {email && (
-                <div className="flex items-start gap-3">
-                  <Mail size={16} className="text-gray-400 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="text-xs font-manrope text-gray-500">Email</p>
-                    <p className="text-sm font-manrope font-medium text-[#1a1a2e]">{email}</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Chantier info */}
-          <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
-            <h3 className="text-sm font-syne font-bold text-[#0f1a3a] uppercase tracking-wider">Chantier</h3>
-            <div className="space-y-3">
-              <div className="flex items-start gap-3">
-                <Calendar size={16} className="text-gray-400 mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="text-xs font-manrope text-gray-500">Début</p>
-                  <p className="text-sm font-manrope font-medium text-[#1a1a2e]">{formatDate(chantier.date_debut)}</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <Calendar size={16} className="text-gray-400 mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="text-xs font-manrope text-gray-500">Fin prévue</p>
-                  <p className="text-sm font-manrope font-medium text-[#1a1a2e]">{formatDate(chantier.date_fin)}</p>
-                </div>
-              </div>
-
-              {/* Avancement */}
-              <div>
-                <div className="flex justify-between text-sm font-manrope mb-2">
-                  <span className="text-gray-500">Avancement</span>
-                  <span className="font-medium text-[#1a1a2e]">{avancement}%</span>
-                </div>
-                <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
-                  <div className={`h-full rounded-full ${getProgressColor(avancement)}`} style={{ width: `${avancement}%` }} />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Notes */}
-          <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-5 space-y-3">
-            <h3 className="text-sm font-syne font-bold text-[#0f1a3a] uppercase tracking-wider">Notes</h3>
-            <textarea
-              value={notes || chantierNotes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Ajoutez des notes sur ce chantier..."
-              className="w-full h-32 rounded-lg border border-gray-200 p-3 text-sm font-manrope text-[#1a1a2e] placeholder:text-gray-400 focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none resize-none transition-colors"
-            />
-          </div>
+      {/* ── TOAST ── */}
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-[#0f1a3a] text-white px-7 py-3.5 rounded-xl text-sm font-semibold shadow-lg z-[999] flex items-center gap-2.5 animate-[slideUp_.4s_ease]">
+          <Check className="w-5 h-5 text-[#22c55e]" />
+          {toast}
         </div>
       )}
 
-      {activeTab === 'devis' && (
-        <EmptyState
-          icon={FileText}
-          title="Aucun devis associé"
-          description="Associez un devis existant ou créez-en un nouveau pour ce chantier."
-          ctaLabel="Créer un devis"
-          ctaHref="/dashboard/devis/nouveau"
-        />
-      )}
-
-      {activeTab === 'factures' && (
-        <EmptyState
-          icon={Receipt}
-          title="Aucune facture associée"
-          description="Créez une facture à partir d'un devis signé pour ce chantier."
-          ctaLabel="Créer une facture"
-          ctaHref="/dashboard/factures/nouveau"
-        />
-      )}
-
-      {activeTab === 'planning' && (
-        <EmptyState
-          icon={Clock}
-          title="Planning non configuré"
-          description="Définissez les étapes et le planning de ce chantier."
-          ctaLabel="Configurer le planning"
-        />
-      )}
-
-      {activeTab === 'photos' && (
-        <EmptyState
-          icon={Camera}
-          title="Aucune photo"
-          description="Ajoutez des photos pour documenter l'avancement du chantier."
-          ctaLabel="Ajouter des photos"
-        />
-      )}
-
-      {activeTab === 'documents' && (
-        <EmptyState
-          icon={FolderOpen}
-          title="Aucun document"
-          description="Ajoutez des documents liés à ce chantier (plans, permis, etc.)."
-          ctaLabel="Ajouter un document"
-        />
-      )}
+      <style jsx>{`
+        @keyframes slideUp { from { transform: translateX(-50%) translateY(100px) } to { transform: translateX(-50%) translateY(0) } }
+      `}</style>
     </div>
   )
 }
 
 // -------------------------------------------------------------------
-// InfoCard
+// Sub-component: ProgressBar
 // -------------------------------------------------------------------
 
-function InfoCard({ label, value, valueColor }: { label: string; value: string; valueColor?: string }) {
-  return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4">
-      <p className="text-xs font-manrope text-gray-500 mb-1">{label}</p>
-      <p className={`text-xl font-syne font-bold ${valueColor || 'text-[#1a1a2e]'}`}>{value}</p>
-    </div>
-  )
-}
-
-// -------------------------------------------------------------------
-// EmptyState
-// -------------------------------------------------------------------
-
-function EmptyState({
-  icon: Icon,
-  title,
-  description,
-  ctaLabel,
-  ctaHref,
-}: {
-  icon: React.ElementType
-  title: string
-  description: string
-  ctaLabel: string
-  ctaHref?: string
+function ProgressBar({ label, value, pct, color, sub }: {
+  label: string; value: string; pct: number; color: string; sub: string
 }) {
-  const button = (
-    <button className="inline-flex items-center gap-2 h-10 px-5 rounded-lg bg-[#e87a2a] hover:bg-[#f09050] text-white text-sm font-syne font-bold transition-colors">
-      <Plus size={16} />
-      {ctaLabel}
-    </button>
-  )
-
   return (
-    <div className="bg-white rounded-xl border border-gray-200 py-16 text-center">
-      <Icon size={48} className="mx-auto text-gray-300 mb-4" />
-      <h3 className="text-lg font-syne font-bold text-[#1a1a2e] mb-2">{title}</h3>
-      <p className="text-sm font-manrope text-gray-500 mb-6 max-w-md mx-auto">{description}</p>
-      {ctaHref ? (
-        <Link href={ctaHref}>
-          {button}
-        </Link>
-      ) : (
-        button
-      )}
+    <div>
+      <div className="flex justify-between mb-1.5 text-xs">
+        <span className="font-semibold text-[#1e293b]">{label}</span>
+        <span className="font-bold text-[#0f1a3a]">{value}</span>
+      </div>
+      <div className="h-[7px] bg-[#e6ecf2] rounded-full overflow-hidden relative">
+        <div className={`h-full rounded-full transition-all duration-700 relative ${color}`} style={{ width: `${Math.min(pct, 100)}%` }}>
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent animate-[shimmer_2s_infinite]" />
+        </div>
+      </div>
+      <div className="flex justify-between mt-1 text-[11px] text-[#7b8ba3]">
+        <span>{sub.split('/')[0]}</span>
+        <span>/ {sub.split('/')[1]}</span>
+      </div>
     </div>
   )
 }
