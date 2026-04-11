@@ -383,11 +383,11 @@ export default function DevisDetailPage() {
           <div className="bg-white shadow-xl rounded-xl p-8 lg:p-12 print-zone">
             <div className="devis-header-block" style={{position:'relative', marginBottom:10}}>
               {/* DEVIS + Numéro — centré absolument au milieu de la page, définit la hauteur du bloc */}
-              <div style={{display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', paddingTop:4, paddingBottom:4}}>
-                <div className="print-devis-title" style={{fontSize:38, fontWeight:900, color:'#2563eb', letterSpacing:4, textTransform:'uppercase'}}>DEVIS</div>
-                <div style={{fontSize:14, color:'#374151', marginTop:6}}>N° <strong>{devis.numero}</strong></div>
+              <div style={{display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', paddingTop:0, paddingBottom:0}}>
+                <div className="print-devis-title" style={{fontSize:38, fontWeight:900, color:'#2563eb', letterSpacing:4, textTransform:'uppercase', lineHeight:1}}>DEVIS</div>
+                <div style={{fontSize:14, color:'#374151', marginTop:10, lineHeight:1}}>N° <strong>{devis.numero}</strong></div>
               </div>
-              {/* Logo — positionné à gauche, hauteur = bloc titre, largeur proportionnelle */}
+              {/* Logo — positionné à gauche, hauteur = du haut de DEVIS au bas du numéro, largeur proportionnelle */}
               {Boolean(entreprise?.logo_url) && (
                 <img src={String(entreprise?.logo_url || '')} alt="Logo" className="print-logo-img" style={{ position:'absolute', left:0, top:0, height:'100%', width:'auto', maxWidth: 180, objectFit: 'contain', mixBlendMode: 'multiply' }} />
               )}
