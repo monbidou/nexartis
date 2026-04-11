@@ -448,10 +448,10 @@ function NouveauDevisPage() {
                 .from('chantiers')
                 .select('id')
                 .eq('user_id', user.id)
-                .ilike('nom', chantierDesc.trim())
+                .ilike('titre', chantierDesc.trim())
                 .maybeSingle()
               if (!existingChantier) {
-                await supabase.from('chantiers').insert({ nom: chantierDesc.trim(), user_id: user.id })
+                await supabase.from('chantiers').insert({ titre: chantierDesc.trim(), user_id: user.id })
               }
             }
             // Sauvegarder le point de collecte pour réutilisation future
@@ -551,10 +551,10 @@ function NouveauDevisPage() {
     setChantierDesc(value)
     if (value.length >= 1) {
       const q = value.toLowerCase()
-      // Résultats depuis la base de données
+      // Résultats depuis la base de données (champ titre dans la table chantiers)
       const fromDB = chantiers
-        .map(c => c.nom || '')
-        .filter(nom => nom.toLowerCase().includes(q))
+        .map(c => (c.titre as string) || '')
+        .filter(t => t.length > 0 && t.toLowerCase().includes(q))
       // Résultats depuis la liste intégrée (non déjà dans DB)
       const fromDB_set = new Set(fromDB.map(n => n.toLowerCase()))
       const fromBuiltin = PRESTATIONS_INTEGREES.filter(p =>

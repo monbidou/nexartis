@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 
 interface PrestationRow {
   id: string
-  nom: string
+  titre: string
   description?: string
   created_at: string
 }
@@ -133,10 +133,10 @@ export default function PrestationsPage() {
   const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({ 'Électricité': true })
   const [addingItem, setAddingItem] = useState<string | null>(null)
 
-  const savedNoms = new Set(prestations.map(p => p.nom.toLowerCase()))
+  const savedNoms = new Set(prestations.map(p => p.titre.toLowerCase()))
 
   const filtered = prestations.filter(p =>
-    !search || p.nom.toLowerCase().includes(search.toLowerCase())
+    !search || p.titre.toLowerCase().includes(search.toLowerCase())
   )
 
   const toggleCategory = (cat: string) => {
@@ -150,7 +150,7 @@ export default function PrestationsPage() {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-      await supabase.from('chantiers').insert({ nom: label, user_id: user.id })
+      await supabase.from('chantiers').insert({ titre: label, user_id: user.id })
       refetch()
     } finally {
       setAddingItem(null)
@@ -165,7 +165,7 @@ export default function PrestationsPage() {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Non connecté')
-      await supabase.from('chantiers').insert({ nom: nom.trim(), user_id: user.id })
+      await supabase.from('chantiers').insert({ titre: nom.trim(), user_id: user.id })
       setShowModal(false)
       setNom('')
       refetch()
@@ -234,9 +234,9 @@ export default function PrestationsPage() {
                   key={p.id}
                   className="flex items-center gap-2 px-3 py-2 bg-[#eef7fc] border border-[#5ab4e0] rounded-full text-sm font-manrope text-[#1a1a2e] group"
                 >
-                  <span>{p.nom}</span>
+                  <span>{p.titre}</span>
                   <button
-                    onClick={() => handleDelete(p.id, p.nom)}
+                    onClick={() => handleDelete(p.id, p.titre)}
                     className="text-gray-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
                     title="Supprimer"
                   >
