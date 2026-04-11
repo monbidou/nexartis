@@ -1,18 +1,20 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import {
   ArrowLeft, Pencil, User, Phone, Calendar, HardHat,
   FileText, Receipt, Clock, Plus, Download,
-  ChevronLeft, ChevronRight, Check, X,
+  ChevronLeft, ChevronRight, Check, X, Users, Zap,
 } from 'lucide-react'
 import {
   useSupabaseRecord, useClients, useIntervenants, useDevis, useFactures,
   usePlanning, useAchats, useChantierNotes, useSousTraitantPaiements,
   insertRow, updateRow, deleteRow, LoadingSkeleton,
 } from '@/lib/hooks'
+import { createClient } from '@/lib/supabase/client'
+import { createFactureFromDevis } from '@/lib/services/devis-automatisms'
 
 // -------------------------------------------------------------------
 // Types & helpers
@@ -78,7 +80,30 @@ export default function ChantierDetailPage() {
   const [newNoteCat, setNewNoteCat] = useState('info')
   const [toast, setToast] = useState<string | null>(null)
 
+  // Equipe du chantier
+  const [equipe, setEquipe] = useState<R[]>([])
+  const [showAddEquipe, setShowAddEquipe] = useState(false)
+  const [addEquipeIv, setAddEquipeIv] = useState('')
+  const [addEquipeDate, setAddEquipeDate] = useState('')
+  const [equipeAdding, setEquipeAdding] = useState(false)
+  const [factureCreating, setFactureCreating] = useState<string | null>(null)
+
   const showToast = useCallback((msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2500) }, [])
+
+  // Fetch equipe assignee au chantier
+  const fetchEquipe = useCallback(async () => {
+    try {
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('chantier_intervenants')
+        .select('*')
+        .eq('chantier_id', id)
+        .order('date_assignation', { ascending: true })
+      setEquipe(data ?? [])
+    } catch (_) { /* table optionnelle */ }
+  }, [id])
+
+  useEffect(() => { fetchEquipe() }, [fetchEquipe])
 
   // ── Derived data ──
   const client = useMemo(() => {
@@ -176,6 +201,57 @@ export default function ChantierDetailPage() {
   const removeNote = async (noteId: string) => {
     await deleteRow('chantier_notes', noteId)
     refetchNotes(); showToast('Note supprimée')
+  }
+
+  // ── Equipe handlers ──
+  const handleAddEquipe = async () => {
+    if (!addEquipeIv || !addEquipeDate || equipeAdding || !chantier) return
+    setEquipeAdding(true)
+    try {
+      const supabase = createClient()
+      await supabase.from('chantier_intervenants').insert({
+        chantier_id: id,
+        intervenant_id: addEquipeIv,
+        date_assignation: new Date().toISOString(),
+      })
+      const iv = intervenantMap.get(addEquipeIv) as R | undefined
+      await supabase.from('planning_interventions').insert({
+        user_id: chantier.user_id,
+        chantier_id: id,
+        client_id: chantier.client_id,
+        titre: `Intervention — ${iv ? `${iv.prenom ?? ''} ${iv.nom ?? ''}`.trim() : 'Intervenant'}`,
+        date_debut: addEquipeDate,
+        heure_debut: '08:00',
+        heure_fin: '17:00',
+        intervenant_id: addEquipeIv,
+        statut: 'planifie',
+      })
+      await fetchEquipe()
+      await refetchPlanning()
+      setShowAddEquipe(false)
+      setAddEquipeIv('')
+      setAddEquipeDate('')
+      showToast('Intervenant assigné + planning créé ✓')
+    } catch (_err) {
+      showToast("Erreur lors de l'assignation")
+    } finally {
+      setEquipeAdding(false)
+    }
+  }
+
+  // ── Facturation handler ──
+  const handleCreateFacture = async (devisId: string) => {
+    setFactureCreating(devisId)
+    try {
+      const facture = await createFactureFromDevis(devisId)
+      showToast('Facture créée ✓')
+      const factureId = String((facture as R).id ?? '')
+      router.push(`/dashboard/factures/${factureId}`)
+    } catch (_err) {
+      showToast('Erreur création facture')
+    } finally {
+      setFactureCreating(null)
+    }
   }
 
   // ── Loading ──
@@ -384,6 +460,94 @@ export default function ChantierDetailPage() {
           </div>
         </div>
 
+        {/* ── EQUIPE DU CHANTIER ── */}
+        <div className="bg-white border border-[#e6ecf2] rounded-2xl overflow-hidden mb-5">
+          <div className="px-5 py-4 border-b border-[#e6ecf2] flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Users className="w-4 h-4 text-[#5ab4e0]" />
+              <h3 className="text-[15px] font-extrabold text-[#0f1a3a]">Équipe du chantier</h3>
+              {equipe.length > 0 && (
+                <span className="px-2 py-0.5 rounded-full bg-[#e8f4fb] text-[#2d8bc9] text-[11px] font-bold">{equipe.length}</span>
+              )}
+            </div>
+            <button onClick={() => setShowAddEquipe(v => !v)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#e6ecf2] text-xs font-semibold text-[#64748b] hover:border-[#5ab4e0] hover:text-[#5ab4e0] transition-all">
+              <Plus className="w-3 h-3" />Ajouter intervenant
+            </button>
+          </div>
+
+          {/* Formulaire d'ajout */}
+          {showAddEquipe && (
+            <div className="px-5 py-4 border-b border-[#e6ecf2] bg-[#f6f8fb] flex gap-3 items-end flex-wrap">
+              <div className="flex flex-col gap-1.5 flex-1 min-w-[180px]">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-[#7b8ba3]">Intervenant</label>
+                <select value={addEquipeIv} onChange={e => setAddEquipeIv(e.target.value)}
+                  className="px-3 py-2 border border-[#e6ecf2] rounded-lg text-[13px] font-medium text-[#1e293b] bg-white outline-none focus:border-[#5ab4e0] transition-all">
+                  <option value="">-- Sélectionner --</option>
+                  {intervenants.map(iv => {
+                    const r = iv as R
+                    return (
+                      <option key={r.id as string} value={r.id as string}>
+                        {String(r.prenom ?? '')} {String(r.nom ?? '')} — {String(r.metier ?? '')}
+                      </option>
+                    )
+                  })}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-[#7b8ba3]">Date de début</label>
+                <input type="date" value={addEquipeDate} onChange={e => setAddEquipeDate(e.target.value)}
+                  className="px-3 py-2 border border-[#e6ecf2] rounded-lg text-[13px] font-medium text-[#1e293b] bg-white outline-none focus:border-[#5ab4e0] transition-all" />
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => { setShowAddEquipe(false); setAddEquipeIv(''); setAddEquipeDate('') }}
+                  className="px-3 py-2 border border-[#e6ecf2] rounded-lg text-[13px] font-semibold text-[#64748b] hover:border-[#ef4444] hover:text-[#ef4444] transition-all">
+                  Annuler
+                </button>
+                <button onClick={handleAddEquipe} disabled={equipeAdding || !addEquipeIv || !addEquipeDate}
+                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#5ab4e0] to-[#2d8bc9] text-white rounded-lg text-[13px] font-bold hover:shadow-md transition-all disabled:opacity-50">
+                  <Zap className="w-3.5 h-3.5" />
+                  {equipeAdding ? 'Assignation...' : 'Assigner + créer planning'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Liste équipe */}
+          <div className="divide-y divide-[#e6ecf2]">
+            {equipe.length === 0 && (
+              <div className="px-5 py-8 text-center">
+                <div className="w-10 h-10 bg-[#f6f8fb] rounded-xl flex items-center justify-center mx-auto mb-3">
+                  <Users className="w-5 h-5 text-[#7b8ba3]" />
+                </div>
+                <div className="text-sm text-[#7b8ba3] font-medium">Aucun intervenant assigné</div>
+                <div className="text-xs text-[#7b8ba3] mt-1">Cliquez sur &quot;Ajouter intervenant&quot; pour assigner l&apos;équipe et générer le planning automatiquement</div>
+              </div>
+            )}
+            {equipe.map((e: R) => {
+              const iv = intervenantMap.get(e.intervenant_id as string) as R | undefined
+              const colorIdx = colorMap.get(e.intervenant_id as string) ?? (equipe.indexOf(e) % PALETTE_HEX.length)
+              return (
+                <div key={e.id as string} className="flex items-center gap-4 px-5 py-4 hover:bg-[#f6f8fb]/50 transition-all">
+                  <div className="w-10 h-10 rounded-xl text-white text-[13px] font-bold flex items-center justify-center flex-shrink-0"
+                    style={{ background: PALETTE_HEX[colorIdx] }}>
+                    {iv ? initials(`${iv.prenom ?? ''} ${iv.nom ?? ''}`) : '?'}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[13px] font-bold text-[#1e293b]">{iv ? `${iv.prenom ?? ''} ${iv.nom ?? ''}`.trim() : '—'}</div>
+                    <div className="text-[11px] text-[#7b8ba3] mt-0.5">
+                      {String(iv?.metier ?? '')} • Assigné le {formatDate(e.date_assignation as string)}
+                    </div>
+                  </div>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#e8f4fb] text-[#2d8bc9]">
+                    <Zap className="w-2.5 h-2.5" />Planning créé
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
         {/* ── NOTES + SOUS-TRAITANTS ── */}
         <div className="grid grid-cols-2 gap-5 mb-5">
           {/* Notes */}
@@ -495,6 +659,64 @@ export default function ChantierDetailPage() {
             </table>
           </div>
         </div>
+
+        {/* ── DEVIS LIES + FACTURATION ── */}
+        {chantierDevis.length > 0 && (
+          <div className="bg-white border border-[#e6ecf2] rounded-2xl overflow-hidden mb-5">
+            <div className="px-5 py-4 border-b border-[#e6ecf2] flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Receipt className="w-4 h-4 text-[#e87a2a]" />
+                <h3 className="text-[15px] font-extrabold text-[#0f1a3a]">Devis & Facturation</h3>
+              </div>
+              <span className="text-[11px] text-[#7b8ba3] font-semibold">
+                {chantierDevis.filter(d => d.statut === 'facture').length} / {chantierDevis.length} devis facturés
+              </span>
+            </div>
+            <div className="divide-y divide-[#e6ecf2]">
+              {chantierDevis.map(d => {
+                const isFacture = d.statut === 'facture'
+                const linkedFactures = chantierFactures.filter(f => (f as R).devis_id === d.id)
+                return (
+                  <div key={d.id as string} className="flex items-center gap-4 px-5 py-4 hover:bg-[#f6f8fb]/50 transition-all">
+                    <div className="w-10 h-10 rounded-xl bg-[#fff7f0] flex items-center justify-center flex-shrink-0">
+                      <FileText className="w-5 h-5 text-[#e87a2a]" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="text-[11px] font-bold text-[#7b8ba3] bg-[#f6f8fb] px-2 py-0.5 rounded">
+                          D-{String(d.numero ?? '').slice(-4)}
+                        </span>
+                        <span className="text-[13px] font-bold text-[#1e293b] truncate">{String(d.objet ?? '—')}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-[11px] text-[#7b8ba3]">
+                        <span className="font-bold text-[#0f1a3a]">{formatEur(Number(d.montant_ttc ?? 0))} TTC</span>
+                        {linkedFactures.length > 0 && (
+                          <span>• {linkedFactures.length} facture{linkedFactures.length > 1 ? 's' : ''} liée{linkedFactures.length > 1 ? 's' : ''}</span>
+                        )}
+                      </div>
+                    </div>
+                    {!isFacture ? (
+                      <button
+                        onClick={() => handleCreateFacture(d.id as string)}
+                        disabled={factureCreating === (d.id as string)}
+                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#22c55e] to-[#16a34a] text-white rounded-xl text-[12px] font-bold hover:shadow-md transition-all disabled:opacity-50 flex-shrink-0">
+                        {factureCreating === (d.id as string) ? (
+                          <><span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />Création...</>
+                        ) : (
+                          <><Plus className="w-3.5 h-3.5" />Créer facture</>
+                        )}
+                      </button>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold bg-[#dcfce7] text-[#166534] flex-shrink-0">
+                        <Check className="w-3 h-3" />Facturé
+                      </span>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         {/* ── MARGE NETTE ── */}
         <div className="bg-white border border-[#e6ecf2] rounded-2xl overflow-hidden mb-5">
