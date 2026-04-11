@@ -149,7 +149,8 @@ export async function createChantierFromDevis(devis_id: string) {
  */
 export async function handleChantierEnCours(payload: DevisChangePayload) {
   const supabase = createClient()
-  const { data: chantier_id, user_id } = payload
+  const chantier_id = payload.data?.chantier_id as string
+  const { user_id } = payload
 
   const { error } = await supabase
     .from('planning_interventions')
@@ -292,9 +293,9 @@ export async function createFactureFromDevis(
   return facture
 }
 
-// ─────────────────────────────────────────────────────
+// -----------------------------------------------------
 // Helper: Logger les events
-// ─────────────────────────────────────────────────────
+// -----------------------------------------------------
 
 async function logModuleEvent(
   supabase: ReturnType<typeof createClient>,
