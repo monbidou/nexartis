@@ -338,7 +338,7 @@ export default function AchatsPage() {
                 )}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-xs font-manrope text-gray-500">
-                    {achat.justificatif_url && (
+                    {!!achat.justificatif_url && (
                       <span className="inline-flex items-center gap-1 text-[#5ab4e0]">
                         <Paperclip size={12} />
                         Justificatif
