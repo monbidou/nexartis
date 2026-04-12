@@ -289,7 +289,7 @@ export default function PrestationsPage() {
                         key={item}
                         onClick={() => !already && addPrestation(item)}
                         disabled={already || isAdding}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-manrope border transition-all ${
+                        className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-manrope border transition-all min-h-[44px] ${
                           already
                             ? 'bg-[#eef7fc] border-[#5ab4e0] text-[#5ab4e0] cursor-default'
                             : isAdding

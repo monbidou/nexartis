@@ -393,6 +393,8 @@ function NouveauDevisPage() {
         dechets_collecte_type: dechetsCollecteType || null,
         dechets_cout: dechetsCout ? parseFloat(dechetsCout) : null,
         dechets_inclure_cout: dechetsInclureCout,
+        client_id: null,
+        chantier_id: null,
       }
       const devis = await insertRow('devis', devisData)
       for (let i = 0; i < lines.length; i++) {
@@ -408,7 +410,11 @@ function NouveauDevisPage() {
           ordre: i + 1,
         })
       }
-      // Sauvegarder/mettre à jour le client + chantier dans la base de données
+      // Sauvegarder/mettre à jour le client + chantier dans la base de données et lier au devis
+      const devisId = (devis as { id: string }).id
+      let clientId: string | null = null
+      let chantierID: string | null = null
+
       if (clientNom.trim() || chantierDesc.trim()) {
         try {
           const supabase = createClient()
@@ -435,11 +441,13 @@ function NouveauDevisPage() {
               // Ajouter civilite seulement si la valeur est définie
               if (clientCivilite) clientData.civilite = clientCivilite
               if (!existing) {
-                const { error: insertErr } = await supabase.from('clients').insert({ ...clientData, type: 'particulier', actif: true })
+                const { data: newClient, error: insertErr } = await supabase.from('clients').insert({ ...clientData, type: 'particulier', actif: true }).select('id').single()
                 if (insertErr) console.error('Erreur sauvegarde client:', insertErr.message)
+                else if (newClient) clientId = newClient.id
               } else {
                 const { error: updateErr } = await supabase.from('clients').update(clientData).eq('id', existing.id)
                 if (updateErr) console.error('Erreur mise à jour client:', updateErr.message)
+                else clientId = existing.id
               }
             }
             // Sauvegarder le chantier/prestation (indépendamment du client)
@@ -451,8 +459,20 @@ function NouveauDevisPage() {
                 .ilike('titre', chantierDesc.trim())
                 .maybeSingle()
               if (!existingChantier) {
-                await supabase.from('chantiers').insert({ titre: chantierDesc.trim(), user_id: user.id })
+                const { data: newChantier, error: insertErr } = await supabase.from('chantiers').insert({ titre: chantierDesc.trim(), user_id: user.id }).select('id').single()
+                if (insertErr) console.error('Erreur sauvegarde chantier:', insertErr.message)
+                else if (newChantier) chantierID = newChantier.id
+              } else {
+                chantierID = existingChantier.id
               }
+            }
+            // Mettre à jour le devis avec client_id et chantier_id
+            if (clientId || chantierID) {
+              const updates: Record<string, unknown> = {}
+              if (clientId) updates.client_id = clientId
+              if (chantierID) updates.chantier_id = chantierID
+              const { error: updateErr } = await supabase.from('devis').update(updates).eq('id', devisId)
+              if (updateErr) console.error('Erreur mise à jour devis:', updateErr.message)
             }
             // Sauvegarder le point de collecte pour réutilisation future
             if (dechetsCollecteNom.trim()) {
@@ -661,7 +681,7 @@ function NouveauDevisPage() {
 
             {conditionsStr && <div className="mb-8"><h4 className="font-manrope font-semibold text-sm text-[#1a1a2e] mb-2">Conditions de paiement</h4><p className="text-sm font-manrope text-[#6b7280] whitespace-pre-wrap">{conditionsStr}</p></div>}
 
-            <div className="grid grid-cols-2 gap-6 mt-10">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-10">
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center"><p className="text-sm font-manrope text-[#6b7280]">Signature du client</p><div className="h-20" /></div>
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
                 <p className="text-sm font-manrope text-[#6b7280]">Signature de l&apos;artisan</p>
@@ -759,13 +779,13 @@ function NouveauDevisPage() {
               <input type="text" value={clientAdresse} onChange={e => setClientAdresse(e.target.value)} placeholder="Adresse" className={inputCls} />
 
               {/* Ligne 4 : Code postal + Ville */}
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <input type="text" value={clientCodePostal} onChange={e => setClientCodePostal(e.target.value)} placeholder="Code postal" className={inputCls} />
                 <input type="text" value={clientVille} onChange={e => setClientVille(e.target.value)} placeholder="Ville" className={inputCls} />
               </div>
 
               {/* Ligne 5 : Téléphone + Email */}
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <input type="tel" value={clientTelephone} onChange={e => setClientTelephone(e.target.value)} placeholder="Téléphone" className={inputCls} />
                 <input type="email" value={clientEmail} onChange={e => setClientEmail(e.target.value)} placeholder="Email" className={inputCls} />
               </div>
@@ -810,12 +830,12 @@ function NouveauDevisPage() {
 
         {/* LINES TABLE */}
         <>
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <div className="bg-[#5ab4e0] text-white grid grid-cols-[1fr_70px_90px_100px_100px_36px] items-center px-4 py-3 text-xs font-manrope font-semibold uppercase">
+          <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
+              <div className="bg-[#5ab4e0] text-white grid grid-cols-[1fr_70px_90px_100px_100px_36px] min-w-max items-center px-4 py-3 text-xs font-manrope font-semibold uppercase">
                 <span>Désignation</span><span className="text-center">Qté</span><span className="text-center">Unité</span><span className="text-right">Prix U. HT</span><span className="text-right">Total HT</span><span />
               </div>
               {lines.map(line => (
-                <div key={line.id} className="grid grid-cols-[1fr_70px_90px_100px_100px_36px] items-start px-4 py-2 border-b border-gray-100">
+                <div key={line.id} className="grid grid-cols-[1fr_70px_90px_100px_100px_36px] min-w-max items-start px-4 py-2 border-b border-gray-100">
                   <textarea
                     value={line.designation}
                     onChange={e => { updateLine(line.id, 'designation', e.target.value); e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px' }}

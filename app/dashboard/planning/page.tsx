@@ -572,7 +572,7 @@ export default function PlanningPage() {
                 const cl = clientMap.get(devis.client_id as string) as R | undefined
                 const clientName = cl
                   ? `${cl.prenom ?? ''} ${cl.nom ?? ''}`.trim()
-                  : (devis.notes_client as string)?.split(' | ')[0]?.trim() || 'Client inconnu'
+                  : (devis.notes_client as string)?.split(' | ')[0]?.trim() || (devis.objet as string)?.split(' ').slice(0, 4).join(' ') || 'Sans client'
                 const ch = chantierMap.get(devis.chantier_id as string) as R | undefined
                 return (
                   <div key={devis.id as string}
@@ -732,7 +732,7 @@ export default function PlanningPage() {
             </div>
 
             {/* 5 weeks grid */}
-            <div className="divide-y divide-[#e6ecf2]">
+            <div className="divide-y divide-[#e6ecf2] overflow-x-auto">
               {detailWeeks.map((week, wi) => {
                 const weekNum = getWeekNumber(week.start)
                 const weekEnd = new Date(week.start)
@@ -749,7 +749,7 @@ export default function PlanningPage() {
                     </div>
 
                     {/* Grid: intervenants × days */}
-                    <div className={`grid ${isSociete ? 'grid-cols-[150px_repeat(5,1fr)]' : 'grid-cols-[150px_repeat(5,1fr)]'}`}>
+                    <div className={`grid min-w-max ${isSociete ? 'grid-cols-[150px_repeat(5,1fr)]' : 'grid-cols-[150px_repeat(5,1fr)]'}`}>
                       {/* Day headers */}
                       <div className="bg-[#f6f8fb]/50 border-r border-[#e6ecf2]" />
                       {week.days.map(day => (
@@ -854,7 +854,7 @@ export default function PlanningPage() {
       {showPanel && panelIntervention && (
         <>
           <div className="fixed inset-0 bg-[#0f1a3a]/20 z-40" onClick={closePanel} />
-          <aside className="fixed top-0 right-0 w-[420px] h-full bg-white shadow-[-8px_0_40px_rgba(15,26,58,.12)] z-50 flex flex-col animate-[slideIn_.3s_ease]">
+          <aside className="fixed top-0 right-0 w-full sm:w-[420px] h-full bg-white shadow-[-8px_0_40px_rgba(15,26,58,.12)] z-50 flex flex-col animate-[slideIn_.3s_ease]">
             <div className="px-5 py-4 border-b border-[#e6ecf2] flex items-center justify-between flex-shrink-0">
               <h2 className="text-base font-extrabold text-[#0f1a3a]">Détail intervention</h2>
               <button onClick={closePanel} className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#f6f8fb] text-[#64748b] hover:bg-[#fee2e2] hover:text-[#ef4444] transition-all">
@@ -936,7 +936,7 @@ export default function PlanningPage() {
       {/* ── MODAL: New Intervention ── */}
       {showModal && (
         <div className="fixed inset-0 bg-[#0f1a3a]/35 z-50 flex items-center justify-center" onClick={e => { if (e.target === e.currentTarget) setShowModal(false) }}>
-          <div className="bg-white rounded-2xl w-[540px] max-h-[85vh] overflow-y-auto shadow-lg animate-[modalIn_.3s_ease]">
+          <div className="bg-white rounded-2xl w-full max-w-[540px] mx-4 max-h-[85vh] overflow-y-auto shadow-lg animate-[modalIn_.3s_ease]">
             <div className="px-6 py-5 border-b border-[#e6ecf2] flex items-center justify-between">
               <h3 className="text-[17px] font-extrabold text-[#0f1a3a]">Nouvelle intervention</h3>
               <button onClick={() => setShowModal(false)} className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#f6f8fb] text-[#64748b] hover:bg-[#fee2e2] hover:text-[#ef4444] transition-all">

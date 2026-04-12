@@ -243,7 +243,7 @@ export default function FacturesListPage() {
                   <td className="px-4 py-3"><PaymentBar percent={facture.paidPercent} restant={restantLabel} retard={retardLabel} /></td>
                   <td className="px-4 py-3"><div className="text-sm font-manrope font-medium text-[#1a1a2e]">{facture.clientName}</div><div className="text-xs font-manrope text-gray-500">{(facture.objet as string) ?? ''}</div></td>
                   <td className="px-4 py-3 text-sm font-manrope text-gray-600">{formatDate(facture.updated_at as string | null)}</td>
-                  <td className="px-4 py-3 text-sm font-manrope text-gray-600">{formatDate((facture.date_emission || facture.date_facture) as string | null)}</td>
+                  <td className="px-4 py-3 text-sm font-manrope text-gray-600">{formatDate((facture.date_emission || facture.date_facture || facture.created_at) as string | null)}</td>
                   <td className="px-4 py-3 text-sm font-manrope font-bold text-[#1a1a2e]">{formatCurrency(facture.montantTtc)}</td>
                   <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                     <button onClick={(e) => openMenu(e, id)} className="p-1.5 rounded-md hover:bg-gray-100 transition-colors"><MoreHorizontal size={16} className="text-gray-500" /></button>

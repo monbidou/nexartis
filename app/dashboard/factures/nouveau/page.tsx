@@ -131,6 +131,7 @@ export default function NouvelleFacturePage() {
         numero,
         statut,
         date_emission: dateFacture,
+        date_facture: dateFacture,
         date_echeance: dateEcheance,
         objet: objet || null,
         notes: conditions || null,
@@ -138,6 +139,7 @@ export default function NouvelleFacturePage() {
           ? `${clientDisplay}${clientAdresse ? ` | ${clientAdresse}` : ''}${clientCodePostal || clientVille ? ` | ${clientCodePostal} ${clientVille}`.trim() : ''}${clientTelephone ? ` | ${clientTelephone}` : ''}${clientEmail ? ` | ${clientEmail}` : ''}`
           : null,
         client_nom: clientNom || null,
+        client_id: null,
         client_adresse: clientAdresse || null,
         montant_ht: totalHT,
         montant_tva: totalTVA,
@@ -282,11 +284,11 @@ export default function NouvelleFacturePage() {
               </div>
               <input type="text" value={clientPrenom} onChange={e => setClientPrenom(e.target.value)} placeholder="Prénom" className={inputCls} />
               <input type="text" value={clientAdresse} onChange={e => setClientAdresse(e.target.value)} placeholder="Adresse" className={inputCls} />
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <input type="text" value={clientCodePostal} onChange={e => setClientCodePostal(e.target.value)} placeholder="Code postal" className={inputCls} />
                 <input type="text" value={clientVille} onChange={e => setClientVille(e.target.value)} placeholder="Ville" className={inputCls} />
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <input type="tel" value={clientTelephone} onChange={e => setClientTelephone(e.target.value)} placeholder="Téléphone" className={inputCls} />
                 <input type="email" value={clientEmail} onChange={e => setClientEmail(e.target.value)} placeholder="Email" className={inputCls} />
               </div>
@@ -295,12 +297,12 @@ export default function NouvelleFacturePage() {
         </div>
 
         {/* Tableau des lignes */}
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <div className="bg-[#5ab4e0] text-white grid grid-cols-[1fr_70px_90px_100px_100px_36px] items-center px-4 py-3 text-xs font-manrope font-semibold uppercase">
+        <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
+          <div className="bg-[#5ab4e0] text-white grid grid-cols-[1fr_70px_90px_100px_100px_36px] min-w-max items-center px-4 py-3 text-xs font-manrope font-semibold uppercase">
             <span>Désignation</span><span className="text-center">Qté</span><span className="text-center">Unité</span><span className="text-right">Prix U. HT</span><span className="text-right">Total HT</span><span />
           </div>
           {lines.map(line => (
-            <div key={line.id} className="grid grid-cols-[1fr_70px_90px_100px_100px_36px] items-center px-4 py-2 border-b border-gray-100">
+            <div key={line.id} className="grid grid-cols-[1fr_70px_90px_100px_100px_36px] min-w-max items-center px-4 py-2 border-b border-gray-100">
               <input type="text" value={line.designation} onChange={e => updateLine(line.id, 'designation', e.target.value)}
                 className="text-sm font-manrope border-0 outline-none bg-transparent px-1 h-9" placeholder="Désignation..." />
               <input type="number" value={line.qty} onChange={e => updateLine(line.id, 'qty', Number(e.target.value))}
