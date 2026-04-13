@@ -3,7 +3,7 @@
 import { usePathname } from 'next/navigation'
 import { ReactNode } from 'react'
 
-const HIDDEN_ROUTES = ['/dashboard', '/onboarding', '/login', '/register', '/auth']
+const HIDDEN_ROUTES = ['/dashboard', '/onboarding', '/login', '/register', '/auth', '/signer']
 
 export default function ConditionalLayout({
   header,
