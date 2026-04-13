@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
-import { useDevis, useFactures, usePlanning, useClients, useIntervenants, useEntreprise, LoadingSkeleton } from "@/lib/hooks";
+import { useDevis, useFactures, usePlanning, useChantiers, useClients, useIntervenants, useEntreprise, LoadingSkeleton } from "@/lib/hooks";
 import EmptyDashboard from "@/components/dashboard/EmptyDashboard";
 
 /* ───────────────────────────── Helpers ───────────────────────────── */
@@ -50,6 +50,7 @@ export default function DashboardPage() {
   const { data: factures, loading: fLoading } = useFactures();
   const { data: devis, loading: dLoading } = useDevis();
   const { data: planning, loading: pLoading } = usePlanning();
+  const { data: chantiers } = useChantiers();
   const { data: clients } = useClients();
   const { data: intervenants } = useIntervenants();
   const { entreprise } = useEntreprise();
@@ -265,6 +266,49 @@ export default function DashboardPage() {
     });
   }
 
+  // Devis acceptés (signés) sans chantier associé → à planifier
+  const chantierDevisIds = new Set(chantiers.map((c: Record<string, unknown>) => c.devis_id as string).filter(Boolean))
+  const devisAcceptesSansChantier = devis.filter((d: Record<string, unknown>) => {
+    if (d.statut !== 'signe') return false
+    return !d.chantier_id && !chantierDevisIds.has(d.id as string)
+  })
+  for (const d of devisAcceptesSansChantier) {
+    const cName = clientName(d.client_id) || (d.notes_client as string)?.split(' | ')[0] || ''
+    todoItems.push({
+      title: `Devis ${d.numero} — accepté`,
+      desc: `${cName} · à planifier`,
+      amount: d.montant_ttc ? formatEuro(Number(d.montant_ttc)) : '',
+      dotColor: '#10b981', amountColor: '#10b981',
+      tag: 'Planifier', tagBg: '#ecfdf5', tagColor: '#059669',
+      href: `/dashboard/devis/${d.id}`,
+      actionHref: `/dashboard/chantiers/nouveau?devis_id=${d.id}`,
+    })
+  }
+
+  // Interventions planning du jour ou en retard
+  const todayStr = now.toISOString().split('T')[0]
+  const planningUrgent = planning.filter((p: Record<string, unknown>) => {
+    const dateDebut = p.date_debut ? (p.date_debut as string).split('T')[0] : null
+    if (!dateDebut) return false
+    const statut = p.statut as string
+    if (statut === 'termine' || statut === 'annule') return false
+    return dateDebut <= todayStr
+  })
+  for (const p of planningUrgent.slice(0, 3)) {
+    const dateDebut = (p.date_debut as string).split('T')[0]
+    const isToday = dateDebut === todayStr
+    const joursRetard = isToday ? 0 : Math.floor((now.getTime() - new Date(dateDebut).getTime()) / 86400000)
+    todoItems.push({
+      title: `${p.titre || 'Intervention'} — ${isToday ? "aujourd'hui" : `en retard de ${joursRetard}j`}`,
+      desc: p.description ? String(p.description).slice(0, 50) : 'Intervention planifiée',
+      amount: '',
+      dotColor: isToday ? '#8b5cf6' : '#ef4444', amountColor: isToday ? '#8b5cf6' : '#ef4444',
+      tag: isToday ? "Aujourd'hui" : 'En retard', tagBg: isToday ? '#f5f3ff' : '#fef2f2', tagColor: isToday ? '#7c3aed' : '#ef4444',
+      href: `/dashboard/planning`,
+      actionHref: `/dashboard/planning`,
+    })
+  }
+
   /* ── Recent activity ── */
   type ActivityItem = { icon: 'paid' | 'sent' | 'doc'; desc: string; detail: string; amount: string; time: string; dotColor: string };
   const activityData: ActivityItem[] = [];
@@ -417,6 +461,9 @@ export default function DashboardPage() {
                 transition: 'all 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.3s',
               }}>{entrepriseNom}</span>
             </h1>
+            <p className="font-manrope text-xs mt-1.5" style={{color: '#9ca3af'}}>
+              Version bêta — Un bug ? Une suggestion ? Écrivez-nous à <a href="mailto:contact.nexartis@gmail.com" className="underline hover:text-[#5ab4e0] transition-colors">contact.nexartis@gmail.com</a>
+            </p>
           </div>
           <div className="flex gap-2.5">
             <Link href="/dashboard/devis/nouveau"
