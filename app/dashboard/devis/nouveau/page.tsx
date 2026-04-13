@@ -530,12 +530,15 @@ function NouveauDevisPage() {
     if (data.client_nom) setClientNom(data.client_nom as string)
     if (data.client_prenom) setClientPrenom(data.client_prenom as string)
     if (data.client_adresse) setClientAdresse(data.client_adresse as string)
+    if (data.client_code_postal) setClientCodePostal(data.client_code_postal as string)
+    if (data.client_ville) setClientVille(data.client_ville as string)
     if (data.client_telephone) setClientTelephone(data.client_telephone as string)
     if (data.client_email) setClientEmail(data.client_email as string)
     if (data.chantier) setChantierDesc(data.chantier as string)
     if (data.conditions_paiement) setConditionsLibres(data.conditions_paiement as string)
     if (data.notes) setNotes(data.notes as string)
     if (data.tva_taux != null) setGlobalTvaRate(data.tva_taux as number)
+    if (data.dechets_nature) setDechetsNature(data.dechets_nature as string)
     const voiceLines = data.lignes as Array<{ designation: string; quantite: number; unite: string; prix_unitaire: number }> | null
     if (voiceLines && voiceLines.length > 0) {
       setLines(voiceLines.map((vl, i) => ({
