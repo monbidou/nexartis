@@ -356,7 +356,7 @@ export default function DashboardPage() {
     const chantierTitre = chantier ? String(chantier.titre || 'Chantier') : 'Chantier'
     const isUrgent = n.categorie === 'urgent'
     todoItems.push({
-      title: `${isUrgent ? '⚠️ ' : ''}${String(n.contenu || '').slice(0, 60)}`,
+      title: `${isUrgent ? '⚠️ ' : ''}${String(n.texte || n.contenu || '').slice(0, 60)}`,
       desc: chantierTitre,
       amount: '',
       dotColor: isUrgent ? '#f97316' : '#3b82f6',

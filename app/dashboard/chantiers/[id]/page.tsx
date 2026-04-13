@@ -30,10 +30,20 @@ const TABS: { key: TabKey; label: string; icon: React.ElementType }[] = [
 ]
 
 const NOTE_CATS = [
-  { value: 'urgent', label: "Aujourd'hui", cls: 'bg-[#e87a2a] text-white' },
-  { value: 'rappel', label: 'Demain', cls: 'bg-[#e8f4fb] text-[#2d8bc9]' },
-  { value: 'info', label: 'Info', cls: 'bg-[#f6f8fb] text-[#7b8ba3]' },
+  { value: 'urgent', label: 'Urgent', cls: 'bg-[#ef4444] text-white', icon: '🔴' },
+  { value: 'rappel', label: 'À faire', cls: 'bg-[#e87a2a] text-white', icon: '🟠' },
+  { value: 'materiel', label: 'Matériel', cls: 'bg-[#8b5cf6] text-white', icon: '🔧' },
+  { value: 'appel', label: 'Appel / Contact', cls: 'bg-[#e8f4fb] text-[#2d8bc9]', icon: '📞' },
+  { value: 'info', label: 'Note', cls: 'bg-[#f6f8fb] text-[#7b8ba3]', icon: '📝' },
 ]
+
+const NOTE_PLACEHOLDERS: Record<string, string> = {
+  urgent: 'Ex : Régler le problème de fuite avant mardi',
+  rappel: 'Ex : Faire le point avec le client vendredi',
+  materiel: 'Ex : Louer une pelleteuse chez Loxam',
+  appel: 'Ex : Appeler le plombier pour devis sous-traitance',
+  info: 'Ex : Le client sera absent du 20 au 25',
+}
 
 const PALETTE_HEX = ['#5ab4e0', '#e87a2a', '#22c55e', '#7c3aed', '#f5c842', '#ef4444']
 const PALETTE_BG = ['bg-[#eef7fc]', 'bg-[#fef5ee]', 'bg-[#effbf2]', 'bg-[#f3effe]', 'bg-[#fefce8]', 'bg-[#fef2f2]']
@@ -87,6 +97,15 @@ export default function ChantierDetailPage() {
   const [addEquipeDate, setAddEquipeDate] = useState('')
   const [equipeAdding, setEquipeAdding] = useState(false)
   const [factureCreating, setFactureCreating] = useState<string | null>(null)
+  const [editMode, setEditMode] = useState(false)
+  const [editTitre, setEditTitre] = useState('')
+  const [editDesc, setEditDesc] = useState('')
+  const [editDateDebut, setEditDateDebut] = useState('')
+  const [editDateFin, setEditDateFin] = useState('')
+  const [editAdresse, setEditAdresse] = useState('')
+  const [editVille, setEditVille] = useState('')
+  const [editSaving, setEditSaving] = useState(false)
+  const [exportingPdf, setExportingPdf] = useState(false)
 
   const showToast = useCallback((msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2500) }, [])
 
@@ -140,11 +159,16 @@ export default function ChantierDetailPage() {
     return map
   }, [intervenants])
 
-  // ── Finances ──
+  // ── Finances (calculées dynamiquement depuis les factures) ──
   const finances = useMemo(() => {
-    const deviseTotal = Number(chantier?.montant_devis_total ?? 0)
-    const factureTotal = Number(chantier?.montant_facture ?? 0)
-    const encaisse = Number(chantier?.montant_encaisse ?? 0)
+    // Devisé : depuis chantier OU somme des devis liés
+    const deviseFromChantier = Number(chantier?.montant_devis_total ?? 0)
+    const deviseFromDevis = chantierDevis.reduce((sum, d) => sum + Number(d.montant_ttc ?? 0), 0)
+    const deviseTotal = deviseFromChantier || deviseFromDevis
+
+    // Facturé et encaissé : calculé depuis les factures liées au chantier
+    const factureTotal = chantierFactures.reduce((sum, f) => sum + Number(f.montant_ttc ?? 0), 0)
+    const encaisse = chantierFactures.filter(f => f.statut === 'payee').reduce((sum, f) => sum + Number(f.montant_ttc ?? 0), 0)
     const reste = deviseTotal - factureTotal
 
     const devisCount = chantierDevis.length
@@ -273,6 +297,60 @@ export default function ChantierDetailPage() {
     }
   }
 
+  // ── Edit chantier ──
+  const openEditMode = () => {
+    setEditTitre(String(chantier?.titre ?? ''))
+    setEditDesc(String(chantier?.description ?? ''))
+    setEditDateDebut(chantier?.date_debut ? String(chantier.date_debut).split('T')[0] : '')
+    setEditDateFin(chantier?.date_fin_prevue ? String(chantier.date_fin_prevue).split('T')[0] : '')
+    setEditAdresse(String(chantier?.adresse_chantier ?? ''))
+    setEditVille(String(chantier?.ville_chantier ?? ''))
+    setEditMode(true)
+  }
+
+  const saveEdit = async () => {
+    if (!chantier) return
+    setEditSaving(true)
+    try {
+      await updateRow('chantiers', id, {
+        titre: editTitre.trim() || undefined,
+        description: editDesc.trim() || undefined,
+        date_debut: editDateDebut || undefined,
+        date_fin_prevue: editDateFin || undefined,
+        adresse_chantier: editAdresse.trim() || undefined,
+        ville_chantier: editVille.trim() || undefined,
+      })
+      setEditMode(false)
+      showToast('Chantier mis à jour ✓')
+      window.location.reload()
+    } catch (_err) {
+      showToast('Erreur lors de la mise à jour')
+    } finally {
+      setEditSaving(false)
+    }
+  }
+
+  // ── Export PDF ──
+  const handleExportPDF = async () => {
+    setExportingPdf(true)
+    try {
+      const res = await fetch(`/api/export-chantier-pdf?id=${id}`)
+      if (!res.ok) throw new Error('Erreur export')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `chantier-${String(chantier?.titre ?? 'export').replace(/\s+/g, '-').toLowerCase()}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+      showToast('PDF téléchargé ✓')
+    } catch (_err) {
+      showToast('Erreur export PDF — fonctionnalité bientôt disponible')
+    } finally {
+      setExportingPdf(false)
+    }
+  }
+
   // ── Loading ──
   if (l1) return <div className="p-8"><LoadingSkeleton /></div>
   if (!chantier) return (
@@ -302,10 +380,15 @@ export default function ChantierDetailPage() {
           </h1>
         </div>
         <div className="flex items-center gap-2">
-          <button className="flex items-center gap-2 px-4 py-2 border border-[#e6ecf2] rounded-xl text-sm font-semibold text-[#1e293b] hover:border-[#5ab4e0] hover:text-[#5ab4e0] transition-all">
-            <Download className="w-4 h-4" />Exporter PDF
+          <Link href="/dashboard/planning" className="flex items-center gap-2 px-4 py-2 border border-[#e6ecf2] rounded-xl text-sm font-semibold text-[#1e293b] hover:border-[#5ab4e0] hover:text-[#5ab4e0] transition-all">
+            <Clock className="w-4 h-4" />Planning
+          </Link>
+          <button onClick={handleExportPDF} disabled={exportingPdf}
+            className="flex items-center gap-2 px-4 py-2 border border-[#e6ecf2] rounded-xl text-sm font-semibold text-[#1e293b] hover:border-[#5ab4e0] hover:text-[#5ab4e0] transition-all disabled:opacity-50">
+            <Download className="w-4 h-4" />{exportingPdf ? 'Export...' : 'Exporter PDF'}
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 border border-[#e6ecf2] rounded-xl text-sm font-semibold text-[#1e293b] hover:border-[#5ab4e0] hover:text-[#5ab4e0] transition-all">
+          <button onClick={openEditMode}
+            className="flex items-center gap-2 px-4 py-2 border border-[#e6ecf2] rounded-xl text-sm font-semibold text-[#1e293b] hover:border-[#e87a2a] hover:text-[#e87a2a] transition-all">
             <Pencil className="w-4 h-4" />Modifier
           </button>
         </div>
@@ -613,7 +696,7 @@ export default function ChantierDetailPage() {
                 </select>
                 <input type="text" value={newNote} onChange={e => setNewNote(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') addNote() }}
-                  placeholder="Ajouter une note ou un rappel..."
+                  placeholder={NOTE_PLACEHOLDERS[newNoteCat] || 'Ajouter une note ou un rappel...'}
                   className="flex-1 px-3 py-2 border-2 border-dashed border-[#e6ecf2] rounded-lg text-[13px] focus:border-[#5ab4e0] focus:bg-[#5ab4e0]/[.03] outline-none transition-all placeholder:text-[#7b8ba3]" />
                 <button onClick={addNote} className="px-3 py-2 bg-gradient-to-r from-[#e87a2a] to-[#f09050] text-white rounded-lg text-xs font-bold hover:shadow-md transition-all">+</button>
               </div>
@@ -709,16 +792,21 @@ export default function ChantierDetailPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-0.5">
-                        <span className="text-[11px] font-bold text-[#7b8ba3] bg-[#f6f8fb] px-2 py-0.5 rounded">
+                        <Link href={`/dashboard/devis/${d.id}`} className="text-[11px] font-bold text-[#7b8ba3] bg-[#f6f8fb] px-2 py-0.5 rounded hover:bg-[#e8f4fb] hover:text-[#2d8bc9] transition-all">
                           D-{String(d.numero ?? '').slice(-4)}
-                        </span>
-                        <span className="text-[13px] font-bold text-[#1e293b] truncate">{String(d.objet ?? '—')}</span>
+                        </Link>
+                        <Link href={`/dashboard/devis/${d.id}`} className="text-[13px] font-bold text-[#1e293b] truncate hover:text-[#5ab4e0] transition-colors">
+                          {String(d.objet ?? '—')}
+                        </Link>
                       </div>
                       <div className="flex items-center gap-2 text-[11px] text-[#7b8ba3]">
                         <span className="font-bold text-[#0f1a3a]">{formatEur(Number(d.montant_ttc ?? 0))} TTC</span>
-                        {linkedFactures.length > 0 && (
-                          <span>• {linkedFactures.length} facture{linkedFactures.length > 1 ? 's' : ''} liée{linkedFactures.length > 1 ? 's' : ''}</span>
-                        )}
+                        {linkedFactures.map(f => (
+                          <Link key={f.id as string} href={`/dashboard/factures/${f.id}`}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#dcfce7] text-[#166534] text-[10px] font-bold hover:bg-[#22c55e] hover:text-white transition-all">
+                            <Receipt className="w-2.5 h-2.5" />F-{String(f.numero ?? '').slice(-4)}
+                          </Link>
+                        ))}
                       </div>
                     </div>
                     {!isFacture ? (
@@ -785,6 +873,66 @@ export default function ChantierDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* ── MODAL MODIFIER ── */}
+      {editMode && (
+        <div className="fixed inset-0 bg-[#0f1a3a]/35 z-50 flex items-center justify-center" onClick={e => { if (e.target === e.currentTarget) setEditMode(false) }}>
+          <div className="bg-white rounded-2xl w-full max-w-[540px] mx-4 shadow-lg animate-[modalIn_.3s_ease]">
+            <div className="px-6 py-5 border-b border-[#e6ecf2] flex items-center justify-between">
+              <h3 className="text-[17px] font-extrabold text-[#0f1a3a]">Modifier le chantier</h3>
+              <button onClick={() => setEditMode(false)} className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#f6f8fb] text-[#64748b] hover:bg-[#fee2e2] hover:text-[#ef4444] transition-all">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <div>
+                <label className="text-[11px] font-bold uppercase tracking-wider text-[#7b8ba3] mb-1.5 block">Titre du chantier</label>
+                <input type="text" value={editTitre} onChange={e => setEditTitre(e.target.value)}
+                  className="w-full px-3.5 py-2.5 border border-[#e6ecf2] rounded-xl text-sm focus:border-[#5ab4e0] focus:ring-2 focus:ring-[#5ab4e0]/10 outline-none transition-all" />
+              </div>
+              <div>
+                <label className="text-[11px] font-bold uppercase tracking-wider text-[#7b8ba3] mb-1.5 block">Description</label>
+                <textarea value={editDesc} onChange={e => setEditDesc(e.target.value)} rows={2}
+                  className="w-full px-3.5 py-2.5 border border-[#e6ecf2] rounded-xl text-sm focus:border-[#5ab4e0] focus:ring-2 focus:ring-[#5ab4e0]/10 outline-none transition-all resize-none" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-[#7b8ba3] mb-1.5 block">Date début</label>
+                  <input type="date" value={editDateDebut} onChange={e => setEditDateDebut(e.target.value)}
+                    className="w-full px-3.5 py-2.5 border border-[#e6ecf2] rounded-xl text-sm focus:border-[#5ab4e0] outline-none transition-all" />
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-[#7b8ba3] mb-1.5 block">Date fin prévue</label>
+                  <input type="date" value={editDateFin} onChange={e => setEditDateFin(e.target.value)}
+                    className="w-full px-3.5 py-2.5 border border-[#e6ecf2] rounded-xl text-sm focus:border-[#5ab4e0] outline-none transition-all" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-[#7b8ba3] mb-1.5 block">Adresse chantier</label>
+                  <input type="text" value={editAdresse} onChange={e => setEditAdresse(e.target.value)}
+                    className="w-full px-3.5 py-2.5 border border-[#e6ecf2] rounded-xl text-sm focus:border-[#5ab4e0] outline-none transition-all" />
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-[#7b8ba3] mb-1.5 block">Ville</label>
+                  <input type="text" value={editVille} onChange={e => setEditVille(e.target.value)}
+                    className="w-full px-3.5 py-2.5 border border-[#e6ecf2] rounded-xl text-sm focus:border-[#5ab4e0] outline-none transition-all" />
+                </div>
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-[#e6ecf2] flex justify-end gap-3">
+              <button onClick={() => setEditMode(false)}
+                className="px-4 py-2.5 border border-[#e6ecf2] rounded-xl text-sm font-semibold text-[#64748b] hover:border-[#ef4444] hover:text-[#ef4444] transition-all">
+                Annuler
+              </button>
+              <button onClick={saveEdit} disabled={editSaving}
+                className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#e87a2a] to-[#f09050] text-white rounded-xl text-sm font-bold hover:shadow-md transition-all disabled:opacity-50">
+                {editSaving ? 'Enregistrement...' : 'Enregistrer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── TOAST ── */}
       {toast && (
