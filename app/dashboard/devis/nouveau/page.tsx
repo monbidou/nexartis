@@ -831,11 +831,11 @@ function NouveauDevisPage() {
         {/* LINES TABLE */}
         <>
           <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
-              <div className="bg-[#5ab4e0] text-white grid grid-cols-[1fr_70px_90px_100px_100px_36px] min-w-max items-center px-4 py-3 text-xs font-manrope font-semibold uppercase">
+              <div className="bg-[#5ab4e0] text-white grid grid-cols-[1fr_70px_90px_100px_100px_36px] min-w-[500px] items-center px-4 py-3 text-xs font-manrope font-semibold uppercase">
                 <span>Désignation</span><span className="text-center">Qté</span><span className="text-center">Unité</span><span className="text-right">Prix U. HT</span><span className="text-right">Total HT</span><span />
               </div>
               {lines.map(line => (
-                <div key={line.id} className="grid grid-cols-[1fr_70px_90px_100px_100px_36px] min-w-max items-start px-4 py-2 border-b border-gray-100">
+                <div key={line.id} className="grid grid-cols-[1fr_70px_90px_100px_100px_36px] min-w-[500px] items-start px-4 py-2 border-b border-gray-100">
                   <textarea
                     value={line.designation}
                     onChange={e => { updateLine(line.id, 'designation', e.target.value); e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px' }}
@@ -1078,7 +1078,7 @@ function TopBar({ showPreview, setShowPreview, saving, onDraft, onFinish }: {
     <div className="sticky top-0 bg-white border-b border-gray-200 z-10 py-3 px-6 flex items-center justify-between">
       <div className="flex items-center gap-3">
         <Link href="/dashboard/devis" className="p-1.5 rounded-md hover:bg-gray-100"><ArrowLeft size={18} className="text-[#6b7280]" /></Link>
-        <h2 className="font-syne font-bold text-lg text-[#1a1a2e]">Nouveau devis</h2>
+        <h2 className="hidden sm:block font-syne font-bold text-lg text-[#1a1a2e]">Nouveau devis</h2>
       </div>
       <div className="hidden sm:flex items-center bg-gray-100 rounded-lg p-0.5">
         <button onClick={() => setShowPreview(false)} className={`px-4 py-1.5 rounded-md text-sm font-manrope font-medium transition-colors ${!showPreview ? 'bg-white shadow-sm text-[#1a1a2e]' : 'text-[#6b7280]'}`}>Édition</button>

@@ -621,7 +621,7 @@ export default function PlanningPage() {
               </button>
             </div>
 
-            <div className="p-4 grid grid-cols-4 gap-3">
+            <div className="p-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
               {annualMonths.map(m => {
                 const days = getDaysInMonth(m.year, m.month)
                 const offset = getFirstDayOffset(m.year, m.month)

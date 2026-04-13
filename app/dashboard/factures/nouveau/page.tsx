@@ -220,7 +220,7 @@ export default function NouvelleFacturePage() {
           <Link href="/dashboard/factures" className="p-1.5 rounded-md hover:bg-gray-100">
             <ArrowLeft size={18} className="text-[#6b7280]" />
           </Link>
-          <h2 className="font-syne font-bold text-lg text-[#1a1a2e]">Nouvelle facture</h2>
+          <h2 className="hidden sm:block font-syne font-bold text-lg text-[#1a1a2e]">Nouvelle facture</h2>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => handleSave('brouillon')} disabled={saving}
@@ -298,11 +298,11 @@ export default function NouvelleFacturePage() {
 
         {/* Tableau des lignes */}
         <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
-          <div className="bg-[#5ab4e0] text-white grid grid-cols-[1fr_70px_90px_100px_100px_36px] min-w-max items-center px-4 py-3 text-xs font-manrope font-semibold uppercase">
+          <div className="bg-[#5ab4e0] text-white grid grid-cols-[1fr_70px_90px_100px_100px_36px] min-w-[500px] items-center px-4 py-3 text-xs font-manrope font-semibold uppercase">
             <span>Désignation</span><span className="text-center">Qté</span><span className="text-center">Unité</span><span className="text-right">Prix U. HT</span><span className="text-right">Total HT</span><span />
           </div>
           {lines.map(line => (
-            <div key={line.id} className="grid grid-cols-[1fr_70px_90px_100px_100px_36px] min-w-max items-center px-4 py-2 border-b border-gray-100">
+            <div key={line.id} className="grid grid-cols-[1fr_70px_90px_100px_100px_36px] min-w-[500px] items-center px-4 py-2 border-b border-gray-100">
               <input type="text" value={line.designation} onChange={e => updateLine(line.id, 'designation', e.target.value)}
                 className="text-sm font-manrope border-0 outline-none bg-transparent px-1 h-9" placeholder="Désignation..." />
               <input type="number" value={line.qty} onChange={e => updateLine(line.id, 'qty', Number(e.target.value))}

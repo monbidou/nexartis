@@ -549,7 +549,7 @@ export default function ChantierDetailPage() {
         </div>
 
         {/* ── NOTES + SOUS-TRAITANTS ── */}
-        <div className="grid grid-cols-2 gap-5 mb-5">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
           {/* Notes */}
           <div className="bg-white border border-[#e6ecf2] rounded-2xl overflow-hidden">
             <div className="px-5 py-4 border-b border-[#e6ecf2] flex items-center justify-between">
