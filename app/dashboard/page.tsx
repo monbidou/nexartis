@@ -280,7 +280,7 @@ export default function DashboardPage() {
     const cName = clientName(d.client_id) || (d.notes_client as string)?.split(' | ')[0] || '';
     const dotColor = d.statut === 'signe' ? '#22c55e' : d.statut === 'envoye' ? '#5ab4e0' : '#7c3aed';
     activityData.push({
-      icon: "doc", desc: cName || `Devis ${statusLabel}`,
+      icon: "doc", desc: cName,
       detail: `Devis ${d.numero} · ${statusLabel}`, amount: d.montant_ttc ? formatEuro(Number(d.montant_ttc)) : '',
       time: timeAgo(d.created_at as string), dotColor,
     });
@@ -290,7 +290,7 @@ export default function DashboardPage() {
     const cName = clientName(f.client_id) || (f.client_nom as string) || '';
     const dotColor = f.statut === 'payee' ? '#22c55e' : '#5ab4e0';
     activityData.push({
-      icon: f.statut === 'payee' ? "paid" : "sent", desc: cName || `Facture ${statusLabel}`,
+      icon: f.statut === 'payee' ? "paid" : "sent", desc: cName,
       detail: `Facture ${f.numero} · ${statusLabel}`, amount: f.montant_ttc ? formatEuro(Number(f.montant_ttc)) : '',
       time: timeAgo(f.created_at as string), dotColor,
     });
@@ -844,7 +844,7 @@ export default function DashboardPage() {
                           <span className="inline-block w-[7px] h-[7px] rounded-full mr-1.5 align-middle" style={{background: item.dotColor}} />
                           {item.desc || item.detail}
                         </p>
-                        <p className="font-jakarta text-xs font-medium truncate mt-0.5" style={{color: '#a8b5c5'}}>{item.detail}</p>
+                        {item.desc && <p className="font-jakarta text-xs font-medium truncate mt-0.5" style={{color: '#a8b5c5'}}>{item.detail}</p>}
                       </div>
 
                       {/* Amount + time */}
