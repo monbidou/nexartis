@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -12,8 +12,11 @@ import {
   Pencil,
   Trash2,
   Plus,
+  Calendar,
+  CheckCircle,
+  Archive,
 } from 'lucide-react'
-import { useChantiers, useClients, deleteRow, LoadingSkeleton, ErrorBanner } from '@/lib/hooks'
+import { useChantiers, useClients, deleteRow, updateRow, LoadingSkeleton, ErrorBanner } from '@/lib/hooks'
 
 // -------------------------------------------------------------------
 // Types & Helpers
@@ -59,7 +62,35 @@ export default function ChantiersListPage() {
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('Tous')
   const [openActions, setOpenActions] = useState<string | null>(null)
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
+
+  // Fermer le menu au scroll ou clic extérieur
+  const closeMenu = useCallback(() => { setOpenActions(null); setMenuPos(null) }, [])
+  useEffect(() => {
+    if (!openActions) return
+    const handleClickOutside = () => closeMenu()
+    const handleScroll = () => closeMenu()
+    document.addEventListener('click', handleClickOutside)
+    window.addEventListener('scroll', handleScroll, true)
+    return () => {
+      document.removeEventListener('click', handleClickOutside)
+      window.removeEventListener('scroll', handleScroll, true)
+    }
+  }, [openActions, closeMenu])
+
+  function openMenu(e: React.MouseEvent<HTMLButtonElement>, chantierId: string) {
+    e.stopPropagation()
+    e.nativeEvent.stopImmediatePropagation()
+    if (openActions === chantierId) { closeMenu(); return }
+    const rect = e.currentTarget.getBoundingClientRect()
+    const menuHeight = 200
+    const spaceBelow = window.innerHeight - rect.bottom
+    const top = spaceBelow < menuHeight ? rect.top - menuHeight : rect.bottom + 4
+    const left = rect.right - 192
+    setMenuPos({ top, left: Math.max(8, left) })
+    setOpenActions(chantierId)
+  }
 
   const clientMap = new Map(clients.map((c) => [c.id as string, c]))
 
@@ -269,55 +300,10 @@ export default function ChantiersListPage() {
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="relative">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setOpenActions(openActions === (chantier.id as string) ? null : (chantier.id as string))
-                        }}
-                        className="p-1.5 rounded-md hover:bg-gray-100 transition-colors"
-                      >
-                        <MoreHorizontal size={16} className="text-gray-500" />
-                      </button>
-                      {openActions === (chantier.id as string) && (
-                        <div className="absolute right-0 top-8 z-20 w-44 bg-white rounded-lg shadow-xl border border-gray-200 py-1 overflow-hidden">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setOpenActions(null)
-                              router.push(`/dashboard/chantiers/${chantier.id}`)
-                            }}
-                            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-[#1a1a2e]"
-                          >
-                            <Eye size={14} />
-                            Voir
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setOpenActions(null)
-                              router.push(`/dashboard/chantiers/${chantier.id}`)
-                            }}
-                            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-[#1a1a2e]"
-                          >
-                            <Pencil size={14} />
-                            Modifier
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleDelete(chantier.id as string)
-                            }}
-                            disabled={deleting === (chantier.id as string)}
-                            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-red-600"
-                          >
-                            <Trash2 size={14} />
-                            {deleting === (chantier.id as string) ? 'Suppression...' : 'Supprimer'}
-                          </button>
-                        </div>
-                      )}
-                    </div>
+                  <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                    <button onClick={(e) => openMenu(e, chantier.id as string)} className="p-1.5 rounded-md hover:bg-gray-100 transition-colors">
+                      <MoreHorizontal size={16} className="text-gray-500" />
+                    </button>
                   </td>
                 </tr>
               )
@@ -332,6 +318,36 @@ export default function ChantiersListPage() {
           </div>
         )}
       </div>
+
+      {/* Menu flottant en position fixed — sort du conteneur */}
+      {openActions && menuPos && (() => {
+        const activeChantier = filtered.find(c => (c.id as string) === openActions)
+        if (!activeChantier) return null
+        const statut = activeChantier.statut as string
+        return (
+          <div
+            className="fixed z-[9999] w-48 bg-white rounded-lg shadow-2xl border border-gray-200 py-1"
+            style={{ top: menuPos.top, left: menuPos.left }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button onClick={() => { closeMenu(); router.push(`/dashboard/chantiers/${activeChantier.id}`) }} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-[#1a1a2e]"><Eye size={14} /> Voir</button>
+            <button onClick={() => { closeMenu(); router.push(`/dashboard/chantiers/${activeChantier.id}`) }} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-[#1a1a2e]"><Pencil size={14} /> Modifier</button>
+            {statut === 'en_cours' && (
+              <button onClick={async () => { closeMenu(); await updateRow('chantiers', activeChantier.id as string, { statut: 'livre' }); refetch() }} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-[#1a1a2e]"><CheckCircle size={14} /> Marquer terminé</button>
+            )}
+            {(statut === 'livre' || statut === 'cloture') && (
+              <button onClick={async () => { closeMenu(); await updateRow('chantiers', activeChantier.id as string, { statut: 'en_cours' }); refetch() }} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-[#1a1a2e]"><Calendar size={14} /> Remettre en cours</button>
+            )}
+            {statut !== 'archive' && (
+              <button onClick={async () => { closeMenu(); await updateRow('chantiers', activeChantier.id as string, { statut: 'archive' }); refetch() }} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-gray-500"><Archive size={14} /> Archiver</button>
+            )}
+            {statut === 'archive' && (
+              <button onClick={async () => { closeMenu(); await updateRow('chantiers', activeChantier.id as string, { statut: 'en_cours' }); refetch() }} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-[#1a1a2e]"><Calendar size={14} /> Désarchiver</button>
+            )}
+            <button onClick={() => { closeMenu(); handleDelete(activeChantier.id as string) }} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-manrope hover:bg-gray-50 transition-colors text-red-600"><Trash2 size={14} /> Supprimer</button>
+          </div>
+        )
+      })()}
     </div>
   )
 }
