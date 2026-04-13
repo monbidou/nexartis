@@ -42,7 +42,7 @@ export async function GET() {
   // Récupérer toutes les entreprises (tous les utilisateurs)
   const { data: entreprises, error } = await supabaseAdmin
     .from('entreprises')
-    .select('id, user_id, nom, prenom, email, telephone, metier, ville, siret, adresse, code_postal, forme_juridique, abonnement_type, trial_started_at, abonnement_expire_at, notes_admin, created_at')
+    .select('*')
     .order('created_at', { ascending: false })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
