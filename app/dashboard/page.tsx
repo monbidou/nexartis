@@ -842,9 +842,9 @@ export default function DashboardPage() {
                       <div className="flex-1 min-w-0">
                         <p className="font-jakarta text-sm font-bold truncate" style={{color: '#0f1a3a'}}>
                           <span className="inline-block w-[7px] h-[7px] rounded-full mr-1.5 align-middle" style={{background: item.dotColor}} />
-                          {item.detail}
+                          {item.desc || item.detail}
                         </p>
-                        <p className="font-jakarta text-xs font-medium truncate mt-0.5" style={{color: '#7b8ba3'}}>{item.desc}</p>
+                        <p className="font-jakarta text-xs font-medium truncate mt-0.5" style={{color: '#a8b5c5'}}>{item.detail}</p>
                       </div>
 
                       {/* Amount + time */}

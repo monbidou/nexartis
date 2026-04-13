@@ -292,14 +292,28 @@ export default function DevisListPage() {
                     <p className="text-sm font-manrope font-bold text-[#1a1a2e]">{formatCurrency(devis.montant_ttc as number)}</p>
                   </div>
                 </div>
-                <div className="flex items-center justify-between mt-2">
-                  <p className="text-xs font-manrope text-gray-400">{formatDate(devis.date_emission as string)}</p>
-                  <button
-                    onClick={(e) => openMenu(e, devis.id as string)}
-                    className="p-1.5 rounded-md hover:bg-gray-100 transition-colors"
-                  >
-                    <MoreHorizontal size={16} className="text-gray-500" />
-                  </button>
+                <div className="flex items-center justify-between mt-2 gap-2">
+                  <p className="text-xs font-manrope text-gray-400 flex-shrink-0">{formatDate(devis.date_emission as string)}</p>
+                  <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleSend(devis) }}
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#5ab4e0]/10 text-[#5ab4e0] text-xs font-manrope font-semibold hover:bg-[#5ab4e0]/20 active:scale-95 transition-all"
+                    >
+                      <Send size={11} /> Envoyer
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); router.push(`/dashboard/devis/${devis.id}?convert=1`) }}
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-600 text-xs font-manrope font-semibold hover:bg-emerald-100 active:scale-95 transition-all"
+                    >
+                      <FileText size={11} /> Convertir
+                    </button>
+                    <button
+                      onClick={(e) => openMenu(e, devis.id as string)}
+                      className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+                    >
+                      <MoreHorizontal size={16} className="text-gray-500" />
+                    </button>
+                  </div>
                 </div>
               </div>
             )

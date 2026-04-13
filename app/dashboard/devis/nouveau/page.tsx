@@ -830,7 +830,53 @@ function NouveauDevisPage() {
 
         {/* LINES TABLE */}
         <>
-          <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
+          <div className="bg-white rounded-xl border border-gray-200">
+
+            {/* ── Mobile : cartes par ligne (< sm) ── */}
+            <div className="sm:hidden divide-y divide-gray-100">
+              {lines.map(line => (
+                <div key={line.id} className="p-3">
+                  <div className="flex gap-2 mb-2">
+                    <textarea
+                      value={line.designation}
+                      onChange={e => { updateLine(line.id, 'designation', e.target.value); e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px' }}
+                      className="flex-1 text-sm font-manrope border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-[#5ab4e0] resize-none overflow-hidden min-h-[40px] bg-white"
+                      placeholder="Désignation..."
+                      rows={1}
+                    />
+                    <button onClick={() => removeLine(line.id)} className="flex-shrink-0 p-2 text-gray-300 hover:text-red-500 transition-colors self-start"><Trash2 size={16} /></button>
+                  </div>
+                  {line.type === 'line' && (
+                    <>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <label className="block text-[10px] font-manrope font-semibold text-gray-400 uppercase mb-1">Qté</label>
+                          <input type="number" value={line.qty} onChange={e => updateLine(line.id, 'qty', Number(e.target.value))} className="w-full h-9 rounded-lg border border-gray-200 px-2 text-sm font-manrope outline-none focus:border-[#5ab4e0] text-center bg-white" min={0} />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-manrope font-semibold text-gray-400 uppercase mb-1">Unité</label>
+                          <select value={line.unit} onChange={e => updateLine(line.id, 'unit', e.target.value)} className="w-full h-9 rounded-lg border border-gray-200 px-2 text-sm font-manrope outline-none focus:border-[#5ab4e0] bg-white">
+                            {UNIT_SUGGESTIONS.map(u => <option key={u} value={u}>{u}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-manrope font-semibold text-gray-400 uppercase mb-1">Prix HT</label>
+                          <input type="number" value={line.priceHT} onChange={e => updateLine(line.id, 'priceHT', Number(e.target.value))} className="w-full h-9 rounded-lg border border-gray-200 px-2 text-sm font-manrope outline-none focus:border-[#5ab4e0] text-right bg-white" min={0} step={0.01} />
+                        </div>
+                      </div>
+                      {line.priceHT > 0 && (
+                        <div className="text-right text-sm font-manrope font-bold text-[#1a1a2e] mt-2">
+                          Total : {formatCurrency(line.qty * line.priceHT)}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* ── Desktop : table classique (≥ sm) ── */}
+            <div className="hidden sm:block overflow-x-auto">
               <div className="bg-[#5ab4e0] text-white grid grid-cols-[1fr_70px_90px_100px_100px_36px] min-w-[500px] items-center px-4 py-3 text-xs font-manrope font-semibold uppercase">
                 <span>Désignation</span><span className="text-center">Qté</span><span className="text-center">Unité</span><span className="text-right">Prix U. HT</span><span className="text-right">Total HT</span><span />
               </div>
@@ -856,13 +902,15 @@ function NouveauDevisPage() {
                   <button onClick={() => removeLine(line.id)} className="p-1 text-gray-300 hover:text-red-500 mt-1.5"><Trash2 size={14} /></button>
                 </div>
               ))}
-              {/* Units are now in select dropdowns */}
-              <div className="flex flex-wrap gap-2 p-4">
-                <button onClick={() => addLine('line')} className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 text-sm font-manrope hover:bg-gray-100"><Plus size={14} /> Ajouter une ligne</button>
-                <button onClick={() => addLine('section')} className="flex items-center gap-1.5 px-4 py-2 text-sm font-manrope text-[#6b7280] hover:text-[#1a1a2e]"><Plus size={14} /> Section</button>
-                <button onClick={() => addLine('text')} className="flex items-center gap-1.5 px-4 py-2 text-sm font-manrope text-[#6b7280] hover:text-[#1a1a2e]"><Plus size={14} /> Texte libre</button>
-              </div>
             </div>
+
+            {/* Boutons d'ajout */}
+            <div className="flex flex-wrap gap-2 p-4 border-t border-gray-100">
+              <button onClick={() => addLine('line')} className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 text-sm font-manrope hover:bg-gray-100"><Plus size={14} /> Ajouter une ligne</button>
+              <button onClick={() => addLine('section')} className="flex items-center gap-1.5 px-4 py-2 text-sm font-manrope text-[#6b7280] hover:text-[#1a1a2e]"><Plus size={14} /> Section</button>
+              <button onClick={() => addLine('text')} className="flex items-center gap-1.5 px-4 py-2 text-sm font-manrope text-[#6b7280] hover:text-[#1a1a2e]"><Plus size={14} /> Texte libre</button>
+            </div>
+          </div>
 
             {/* Global TVA selector */}
             <div className="bg-white rounded-xl border border-gray-200 p-4 flex flex-wrap items-center gap-4">
