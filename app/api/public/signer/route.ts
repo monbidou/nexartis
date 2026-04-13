@@ -94,8 +94,9 @@ export async function POST(req: NextRequest) {
 /**
  * Envoie un email à l'artisan pour le prévenir que son devis a été signé
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function sendArtisanNotification(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   devis: { id: string; numero: string; user_id: string; montant_ttc: number; objet?: string },
   signedBy: string,
   mode: string,
