@@ -27,16 +27,7 @@ interface ParseResponse {
   warnings: string[]
 }
 
-async function detectFileEncoding(text: string): Promise<string> {
-  try {
-    JSON.stringify(text)
-    return 'utf-8'
-  } catch {
-    return 'latin1'
-  }
-}
-
-async function parseCSVFile(file: File, fileName: string): Promise<{ headers: string[]; rows: ParsedRow[] }> {
+async function parseCSVFile(file: File, _fileName: string): Promise<{ headers: string[]; rows: ParsedRow[] }> {
   let text = await file.text()
 
   if (text.charCodeAt(0) === 0xfeff) {
@@ -47,7 +38,6 @@ async function parseCSVFile(file: File, fileName: string): Promise<{ headers: st
     header: true,
     skipEmptyLines: true,
     dynamicTyping: false,
-    encoding: 'UTF-8',
   })
 
   const rows = (result.data || []) as ParsedRow[]
@@ -62,7 +52,7 @@ async function parseCSVFile(file: File, fileName: string): Promise<{ headers: st
   return { headers, rows }
 }
 
-async function parseExcelFile(file: File, fileName: string): Promise<{ sheet: string; headers: string[]; rows: ParsedRow[] }[]> {
+async function parseExcelFile(file: File, _fileName: string): Promise<{ sheet: string; headers: string[]; rows: ParsedRow[] }[]> {
   const buffer = await file.arrayBuffer()
   const workbook = XLSX.read(buffer, { type: 'array' })
 
@@ -99,7 +89,7 @@ function applyColumnMapping(
   rows: ParsedRow[],
   headers: string[],
   categoryConfig: any,
-  source: SourceType
+  _source: SourceType
 ): ParsedRow[] {
   return rows.map(row => {
     const mapped: ParsedRow = {}
@@ -109,7 +99,7 @@ function applyColumnMapping(
       let value: unknown = null
 
       const matchedHeader = headers.find(h =>
-        sourceColumns.some(sc => h.toLowerCase() === sc.toLowerCase() || h.toLowerCase().includes(sc.toLowerCase()))
+        sourceColumns.some((sc: string) => h.toLowerCase() === sc.toLowerCase() || h.toLowerCase().includes(sc.toLowerCase()))
       )
 
       if (matchedHeader && row[matchedHeader] !== undefined && row[matchedHeader] !== '') {

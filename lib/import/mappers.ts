@@ -62,7 +62,8 @@ const parsePercentage = (value: string): number | null => {
 
 const normalizeString = (value: string): string => value.trim();
 
-const detectClientType = (data: Record<string, string>): 'particulier' | 'professionnel' => {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _detectClientType = (data: Record<string, string>): 'particulier' | 'professionnel' => {
   const raisonSociale = Object.values(data).some(v => v && v.length > 20);
   const siret = Object.values(data).some(v => /^\d{14}$/.test(v?.replace(/\s/g, '')));
   return siret || raisonSociale ? 'professionnel' : 'particulier';
