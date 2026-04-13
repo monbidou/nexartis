@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
-import { useDevis, useFactures, usePlanning, useChantiers, useClients, useIntervenants, useEntreprise, LoadingSkeleton } from "@/lib/hooks";
+import { useDevis, useFactures, usePlanning, useChantiers, useClients, useIntervenants, useEntreprise, useChantierNotes, LoadingSkeleton } from "@/lib/hooks";
 import EmptyDashboard from "@/components/dashboard/EmptyDashboard";
 
 /* ───────────────────────────── Helpers ───────────────────────────── */
@@ -54,6 +54,7 @@ export default function DashboardPage() {
   const { data: clients } = useClients();
   const { data: intervenants } = useIntervenants();
   const { entreprise } = useEntreprise();
+  const { data: chantierNotes } = useChantierNotes();
   const entrepriseNom = (entreprise?.nom as string) || '';
   const [mounted, setMounted] = useState(false);
 
@@ -306,6 +307,29 @@ export default function DashboardPage() {
       tag: isToday ? "Aujourd'hui" : 'En retard', tagBg: isToday ? '#f5f3ff' : '#fef2f2', tagColor: isToday ? '#7c3aed' : '#ef4444',
       href: `/dashboard/planning`,
       actionHref: `/dashboard/planning`,
+    })
+  }
+
+  // Notes/rappels urgents des chantiers (non cochés)
+  const notesUrgentes = chantierNotes.filter((n: Record<string, unknown>) => {
+    if (n.fait === true) return false
+    return n.categorie === 'urgent' || n.categorie === 'rappel'
+  })
+  for (const n of notesUrgentes.slice(0, 5)) {
+    const chantier = chantiers.find((c: Record<string, unknown>) => c.id === n.chantier_id) as Record<string, unknown> | undefined
+    const chantierTitre = chantier ? String(chantier.titre || 'Chantier') : 'Chantier'
+    const isUrgent = n.categorie === 'urgent'
+    todoItems.push({
+      title: `${isUrgent ? '⚠️ ' : ''}${String(n.contenu || '').slice(0, 60)}`,
+      desc: chantierTitre,
+      amount: '',
+      dotColor: isUrgent ? '#f97316' : '#3b82f6',
+      amountColor: isUrgent ? '#f97316' : '#3b82f6',
+      tag: isUrgent ? 'Urgent' : 'Rappel',
+      tagBg: isUrgent ? '#fff7ed' : '#eff6ff',
+      tagColor: isUrgent ? '#ea580c' : '#2563eb',
+      href: `/dashboard/chantiers/${n.chantier_id}`,
+      actionHref: `/dashboard/chantiers/${n.chantier_id}`,
     })
   }
 

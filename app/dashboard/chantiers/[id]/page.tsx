@@ -6,7 +6,7 @@ import { useParams, useRouter } from 'next/navigation'
 import {
   ArrowLeft, Pencil, User, Phone, Calendar, HardHat,
   FileText, Receipt, Clock, Plus, Download,
-  ChevronLeft, ChevronRight, Check, X, Users, Zap,
+  ChevronLeft, ChevronRight, Check, X, Users, Zap, Trash2,
 } from 'lucide-react'
 import {
   useSupabaseRecord, useClients, useIntervenants, useDevis, useFactures,
@@ -236,6 +236,25 @@ export default function ChantierDetailPage() {
       showToast("Erreur lors de l'assignation")
     } finally {
       setEquipeAdding(false)
+    }
+  }
+
+  // ── Suppression intervenant ──
+  const handleRemoveEquipe = async (equipeRowId: string, intervenantId: string) => {
+    if (!confirm('Retirer cet intervenant du chantier ?')) return
+    try {
+      const supabase = createClient()
+      // Supprimer l'assignation
+      await supabase.from('chantier_intervenants').delete().eq('id', equipeRowId)
+      // Supprimer aussi l'intervention planning associée
+      await supabase.from('planning_interventions').delete()
+        .eq('chantier_id', id)
+        .eq('intervenant_id', intervenantId)
+      await fetchEquipe()
+      await refetchPlanning()
+      showToast('Intervenant retiré ✓')
+    } catch (_err) {
+      showToast("Erreur lors de la suppression")
     }
   }
 
@@ -528,7 +547,7 @@ export default function ChantierDetailPage() {
               const iv = intervenantMap.get(e.intervenant_id as string) as R | undefined
               const colorIdx = colorMap.get(e.intervenant_id as string) ?? (equipe.indexOf(e) % PALETTE_HEX.length)
               return (
-                <div key={e.id as string} className="flex items-center gap-4 px-5 py-4 hover:bg-[#f6f8fb]/50 transition-all">
+                <div key={e.id as string} className="group flex items-center gap-4 px-5 py-4 hover:bg-[#f6f8fb]/50 transition-all">
                   <div className="w-10 h-10 rounded-xl text-white text-[13px] font-bold flex items-center justify-center flex-shrink-0"
                     style={{ background: PALETTE_HEX[colorIdx] }}>
                     {iv ? initials(`${iv.prenom ?? ''} ${iv.nom ?? ''}`) : '?'}
@@ -539,9 +558,16 @@ export default function ChantierDetailPage() {
                       {String(iv?.metier ?? '')} • Assigné le {formatDate(e.date_assignation as string)}
                     </div>
                   </div>
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#e8f4fb] text-[#2d8bc9]">
+                  <Link href="/dashboard/planning" className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#e8f4fb] text-[#2d8bc9] hover:bg-[#d0e8f7] transition-colors cursor-pointer">
                     <Zap className="w-2.5 h-2.5" />Planning créé
-                  </span>
+                  </Link>
+                  <button
+                    onClick={() => handleRemoveEquipe(e.id as string, e.intervenant_id as string)}
+                    className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100"
+                    title="Retirer cet intervenant"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               )
             })}

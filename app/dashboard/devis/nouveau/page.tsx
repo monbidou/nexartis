@@ -459,11 +459,21 @@ function NouveauDevisPage() {
                 .ilike('titre', chantierDesc.trim())
                 .maybeSingle()
               if (!existingChantier) {
-                const { data: newChantier, error: insertErr } = await supabase.from('chantiers').insert({ titre: chantierDesc.trim(), user_id: user.id }).select('id').single()
+                const { data: newChantier, error: insertErr } = await supabase.from('chantiers').insert({
+                  titre: chantierDesc.trim(),
+                  user_id: user.id,
+                  client_id: clientId || null,
+                  montant_devis_total: totalTTC || 0,
+                }).select('id').single()
                 if (insertErr) console.error('Erreur sauvegarde chantier:', insertErr.message)
                 else if (newChantier) chantierID = newChantier.id
               } else {
                 chantierID = existingChantier.id
+                // Mettre à jour le chantier existant avec le client et le montant si manquants
+                await supabase.from('chantiers').update({
+                  client_id: clientId || undefined,
+                  montant_devis_total: totalTTC || undefined,
+                }).eq('id', chantierID)
               }
             }
             // Mettre à jour le devis avec client_id et chantier_id
