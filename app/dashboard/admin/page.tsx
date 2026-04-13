@@ -134,7 +134,7 @@ function UserDetailModal({
   user: UserRecord
   onClose: () => void
   onSave: (id: string, type: string, notes: string) => Promise<void>
-  onDelete: (userId: string, entrepriseId: string) => Promise<void>
+  onDelete: (userId: string) => Promise<void>
   onConfirm: (userId: string) => Promise<void>
 }) {
   const [type, setType] = useState(user.abonnement_type)
@@ -155,7 +155,7 @@ function UserDetailModal({
 
   async function handleDelete() {
     setDeleting(true)
-    await onDelete(user.user_id, user.id)
+    await onDelete(user.user_id)
     setDeleting(false)
     onClose()
   }
@@ -451,8 +451,8 @@ export default function AdminPage() {
     }
   }
 
-  async function handleDelete(userId: string, entrepriseId: string) {
-    const res = await fetch(`/api/admin/users?user_id=${userId}&entreprise_id=${entrepriseId}`, {
+  async function handleDelete(userId: string) {
+    const res = await fetch(`/api/admin/users?user_id=${userId}`, {
       method: 'DELETE',
     })
     if (res.ok) {

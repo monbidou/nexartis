@@ -31,7 +31,7 @@ function adminSupabase() {
 }
 
 // -------------------------------------------------------------------
-// GET /api/admin/users — liste tous les utilisateurs
+// GET /api/admin/users — liste TOUS les utilisateurs (auth + entreprises)
 // -------------------------------------------------------------------
 export async function GET() {
   const admin = await getAdminUser()
@@ -39,45 +39,68 @@ export async function GET() {
 
   const supabaseAdmin = adminSupabase()
 
-  // Récupérer toutes les entreprises (tous les utilisateurs)
-  const { data: entreprises, error } = await supabaseAdmin
+  // 1. Source de vérité : TOUS les comptes auth Supabase
+  const { data: authUsers, error: authError } = await supabaseAdmin.auth.admin.listUsers()
+  if (authError) return NextResponse.json({ error: authError.message }, { status: 500 })
+
+  // 2. Récupérer les données entreprises pour enrichir
+  const { data: entreprises } = await supabaseAdmin
     .from('entreprises')
     .select('*')
-    .order('created_at', { ascending: false })
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
-  // Récupérer les emails auth pour chaque user
-  const { data: authUsers } = await supabaseAdmin.auth.admin.listUsers()
-
-  const authMap: Record<string, { email: string; last_sign_in_at: string | null; email_confirmed_at: string | null; user_metadata: Record<string, unknown> }> = {}
-  for (const u of authUsers?.users ?? []) {
-    authMap[u.id] = {
-      email: u.email ?? '',
-      last_sign_in_at: u.last_sign_in_at ?? null,
-      email_confirmed_at: u.email_confirmed_at ?? null,
-      user_metadata: (u.user_metadata as Record<string, unknown>) ?? {},
-    }
+  // Index entreprises par user_id
+  const entMap: Record<string, Record<string, unknown>> = {}
+  for (const e of entreprises ?? []) {
+    entMap[e.user_id] = e
   }
 
-  const users = (entreprises ?? []).map(e => {
-    const auth = authMap[e.user_id]
-    return {
-      ...e,
-      auth_email: auth?.email ?? e.email ?? '',
-      last_sign_in_at: auth?.last_sign_in_at ?? null,
-      email_confirmed_at: auth?.email_confirmed_at ?? null,
-      // Récupérer nom/prénom depuis auth metadata si pas dans entreprise
-      auth_prenom: (auth?.user_metadata?.prenom as string) || '',
-      auth_nom: (auth?.user_metadata?.nom as string) || '',
-      auth_entreprise: (auth?.user_metadata?.entreprise as string) || '',
-    }
-  })
+  // 3. Construire la liste combinée (auth = base, entreprise = enrichissement)
+  const users = (authUsers?.users ?? [])
+    .filter(u => u.email !== ADMIN_EMAIL) // Exclure l'admin
+    .map(u => {
+      const ent = entMap[u.id] || {}
+      const meta = (u.user_metadata as Record<string, unknown>) ?? {}
+      return {
+        // IDs
+        id: (ent.id as string) || u.id, // entreprise ID si existe, sinon auth ID
+        user_id: u.id,
+        has_entreprise: !!entMap[u.id], // utile pour savoir si le profil existe
 
-  // Filtrer pour exclure le compte admin lui-même
-  const filtered = users.filter(u => u.auth_email !== ADMIN_EMAIL)
+        // Identité (priorité : entreprise > auth metadata)
+        nom: (ent.nom as string) || (meta.entreprise as string) || '',
+        prenom: (ent.prenom as string) || (meta.prenom as string) || '',
+        auth_email: u.email ?? '',
+        email: (ent.email as string) || u.email || '',
+        telephone: (ent.telephone as string) || '',
 
-  return NextResponse.json({ users: filtered })
+        // Entreprise
+        metier: (ent.metier as string) || '',
+        ville: (ent.ville as string) || '',
+        siret: (ent.siret as string) || '',
+        adresse: (ent.adresse as string) || '',
+        code_postal: (ent.code_postal as string) || '',
+        forme_juridique: (ent.forme_juridique as string) || '',
+
+        // Abonnement
+        abonnement_type: (ent.abonnement_type as string) || 'trial',
+        trial_started_at: (ent.trial_started_at as string) || u.created_at || '',
+        abonnement_expire_at: (ent.abonnement_expire_at as string) || null,
+        notes_admin: (ent.notes_admin as string) || null,
+
+        // Dates
+        created_at: u.created_at || (ent.created_at as string) || '',
+        last_sign_in_at: u.last_sign_in_at ?? null,
+        email_confirmed_at: u.email_confirmed_at ?? null,
+
+        // Auth metadata (fallback pour nom/prénom)
+        auth_prenom: (meta.prenom as string) || '',
+        auth_nom: (meta.nom as string) || '',
+        auth_entreprise: (meta.entreprise as string) || '',
+      }
+    })
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+
+  return NextResponse.json({ users })
 }
 
 // -------------------------------------------------------------------
@@ -124,10 +147,9 @@ export async function DELETE(request: Request) {
 
   const { searchParams } = new URL(request.url)
   const userId = searchParams.get('user_id')
-  const entrepriseId = searchParams.get('entreprise_id')
 
-  if (!userId || !entrepriseId) {
-    return NextResponse.json({ error: 'user_id et entreprise_id requis' }, { status: 400 })
+  if (!userId) {
+    return NextResponse.json({ error: 'user_id requis' }, { status: 400 })
   }
 
   const supabaseAdmin = adminSupabase()
