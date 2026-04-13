@@ -1,23 +1,45 @@
 import { createClient } from '@supabase/supabase-js'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { sendEmail } from '@/lib/email'
+import {
+  getClientIp, checkRateLimit, isValidEmail,
+  secureJson, secureError, rateLimitError,
+} from '@/lib/api-security'
 
 /**
  * POST /api/auth/register
  * Crée le compte, génère le lien de confirmation, envoie le mail Nexartis.
  * L'utilisateur DOIT cliquer sur le lien pour activer son compte.
  */
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    // ✅ SÉCURITÉ : Rate limiting strict (3 inscriptions par heure par IP)
+    const ip = getClientIp(request)
+    if (!checkRateLimit(`register:${ip}`, 3, 3_600_000)) {
+      return rateLimitError()
+    }
+
     const { email, password, prenom, nom, entreprise } = await request.json()
 
     if (!email || !password) {
-      return NextResponse.json({ error: 'Email et mot de passe requis' }, { status: 400 })
+      return secureError('Email et mot de passe requis')
     }
 
+    // ✅ SÉCURITÉ : Valider l'email
+    if (!isValidEmail(email)) return secureError('Format d\'email invalide')
+
+    // ✅ SÉCURITÉ : Valider le mot de passe
     if (password.length < 8) {
-      return NextResponse.json({ error: 'Le mot de passe doit contenir au moins 8 caractères' }, { status: 400 })
+      return secureError('Le mot de passe doit contenir au moins 8 caractères')
     }
+    if (password.length > 128) {
+      return secureError('Le mot de passe est trop long')
+    }
+
+    // ✅ SÉCURITÉ : Limiter la longueur des champs texte
+    if (prenom && prenom.length > 100) return secureError('Prénom trop long')
+    if (nom && nom.length > 100) return secureError('Nom trop long')
+    if (entreprise && entreprise.length > 200) return secureError('Nom d\'entreprise trop long')
 
     const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,

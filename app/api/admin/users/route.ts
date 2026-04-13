@@ -1,25 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
-
-const ADMIN_EMAIL = 'admin@nexartis.fr'
-
-/** Vérifie que le requérant est bien l'admin */
-async function getAdminUser() {
-  const cookieStore = cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) { return cookieStore.get(name)?.value },
-      },
-    },
-  )
-  const { data: { user } } = await supabase.auth.getUser()
-  return user?.email === ADMIN_EMAIL ? user : null
-}
+import {
+  getAdminUser, getClientIp, checkRateLimit, isValidUUID,
+  secureJson, secureError, rateLimitError, forbiddenError,
+} from '@/lib/api-security'
 
 /** Supabase admin client (bypass RLS) */
 function adminSupabase() {
@@ -35,7 +19,7 @@ function adminSupabase() {
 // -------------------------------------------------------------------
 export async function GET() {
   const admin = await getAdminUser()
-  if (!admin) return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+  if (!admin) return forbiddenError()
 
   const supabaseAdmin = adminSupabase()
 
@@ -55,8 +39,9 @@ export async function GET() {
   }
 
   // 3. Construire la liste combinée (auth = base, entreprise = enrichissement)
+  const adminEmails = (process.env.ADMIN_EMAILS || 'admin@nexartis.fr').split(',').map(e => e.trim().toLowerCase())
   const users = (authUsers?.users ?? [])
-    .filter(u => u.email !== ADMIN_EMAIL) // Exclure l'admin
+    .filter(u => !u.email || !adminEmails.includes(u.email.toLowerCase())) // Exclure les admins
     .map(u => {
       const ent = entMap[u.id] || {}
       const meta = (u.user_metadata as Record<string, unknown>) ?? {}
@@ -100,7 +85,7 @@ export async function GET() {
     })
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
-  return NextResponse.json({ users })
+  return secureJson({ users })
 }
 
 // -------------------------------------------------------------------
@@ -108,14 +93,20 @@ export async function GET() {
 // -------------------------------------------------------------------
 export async function PATCH(request: Request) {
   const admin = await getAdminUser()
-  if (!admin) return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+  if (!admin) return forbiddenError()
 
   const body = await request.json()
   const { entreprise_id, abonnement_type, notes_admin, abonnement_expire_at } = body
 
   if (!entreprise_id || !abonnement_type) {
-    return NextResponse.json({ error: 'Paramètres manquants' }, { status: 400 })
+    return secureError('Paramètres manquants')
   }
+
+  // ✅ SÉCURITÉ : Valider les inputs
+  if (!isValidUUID(entreprise_id)) return secureError('ID entreprise invalide')
+  const validTypes = ['trial', 'actif', 'suspendu', 'lifetime']
+  if (!validTypes.includes(abonnement_type)) return secureError('Type d\'abonnement invalide')
+  if (notes_admin && typeof notes_admin === 'string' && notes_admin.length > 500) return secureError('Notes trop longues (max 500 caractères)')
 
   const supabaseAdmin = adminSupabase()
 
@@ -133,9 +124,9 @@ export async function PATCH(request: Request) {
     .update(updates)
     .eq('id', entreprise_id)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return secureError(error.message, 500)
 
-  return NextResponse.json({ success: true })
+  return secureJson({ success: true })
 }
 
 // -------------------------------------------------------------------
@@ -143,14 +134,17 @@ export async function PATCH(request: Request) {
 // -------------------------------------------------------------------
 export async function DELETE(request: Request) {
   const admin = await getAdminUser()
-  if (!admin) return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+  if (!admin) return forbiddenError()
 
   const { searchParams } = new URL(request.url)
   const userId = searchParams.get('user_id')
 
   if (!userId) {
-    return NextResponse.json({ error: 'user_id requis' }, { status: 400 })
+    return secureError('user_id requis')
   }
+
+  // ✅ SÉCURITÉ : Valider le format UUID
+  if (!isValidUUID(userId)) return secureError('user_id invalide')
 
   const supabaseAdmin = adminSupabase()
 
@@ -181,8 +175,8 @@ export async function DELETE(request: Request) {
   const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(userId)
   if (authError) {
     console.error('Auth delete error:', authError)
-    return NextResponse.json({ error: `Données supprimées mais erreur auth: ${authError.message}` }, { status: 500 })
+    return secureError('Erreur lors de la suppression du compte', 500)
   }
 
-  return NextResponse.json({ success: true })
+  return secureJson({ success: true })
 }

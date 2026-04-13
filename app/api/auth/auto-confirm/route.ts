@@ -1,18 +1,52 @@
 import { createClient } from '@supabase/supabase-js'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import {
+  getAuthenticatedUser, getClientIp, checkRateLimit,
+  isValidUUID,
+  secureJson, secureError, rateLimitError, unauthorizedError,
+} from '@/lib/api-security'
 
 /**
  * POST /api/auth/auto-confirm
  * Auto-confirme un utilisateur après inscription pour qu'il puisse se connecter immédiatement.
  * Utilise la service role key (bypass RLS).
  * Crée aussi la ligne dans la table "entreprises" si elle n'existe pas encore.
+ *
+ * ✅ SÉCURITÉ : Cette route est appelée UNIQUEMENT par le process d'inscription
+ * côté serveur. Elle vérifie un secret interne pour empêcher les appels externes.
  */
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const { user_id, email, prenom, nom, entreprise } = await request.json()
+    // ✅ SÉCURITÉ : Rate limiting strict (3 par minute par IP)
+    const ip = getClientIp(request)
+    if (!checkRateLimit(`auto-confirm:${ip}`, 3, 60_000)) {
+      return rateLimitError()
+    }
+
+    const { user_id, email, prenom, nom, entreprise, internal_secret } = await request.json()
+
+    // ✅ SÉCURITÉ : Vérifier le secret interne (empêche les appels directs par un attaquant)
+    const expectedSecret = process.env.INTERNAL_API_SECRET
+    if (!expectedSecret || internal_secret !== expectedSecret) {
+      // On peut aussi vérifier que l'appelant est un admin
+      const user = await getAuthenticatedUser()
+      if (!user) {
+        return unauthorizedError()
+      }
+      // Vérifier que c'est un admin
+      const adminEmails = (process.env.ADMIN_EMAILS || 'admin@nexartis.fr').split(',').map(e => e.trim().toLowerCase())
+      if (!user.email || !adminEmails.includes(user.email.toLowerCase())) {
+        return secureError('Accès refusé', 403)
+      }
+    }
 
     if (!user_id) {
-      return NextResponse.json({ error: 'user_id requis' }, { status: 400 })
+      return secureError('user_id requis')
+    }
+
+    // ✅ SÉCURITÉ : Valider le format UUID
+    if (!isValidUUID(user_id)) {
+      return secureError('user_id invalide')
     }
 
     const supabaseAdmin = createClient(
@@ -28,7 +62,7 @@ export async function POST(request: Request) {
 
     if (confirmError) {
       console.error('Auto-confirm error:', confirmError)
-      return NextResponse.json({ error: confirmError.message }, { status: 500 })
+      return secureError('Erreur lors de la confirmation', 500)
     }
 
     // 2. Créer la ligne entreprise si elle n'existe pas encore
@@ -55,9 +89,9 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json({ success: true })
+    return secureJson({ success: true })
   } catch (err) {
     console.error('Auto-confirm route error:', err)
-    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+    return secureError('Erreur serveur', 500)
   }
 }

@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import {
+  getClientIp, checkRateLimit,
+  sanitizeString,
+  secureJson, secureError, rateLimitError,
+} from '@/lib/api-security'
 
 /**
  * POST /api/public/signer
@@ -11,22 +16,43 @@ import { createClient } from '@supabase/supabase-js'
  */
 export async function POST(req: NextRequest) {
   try {
+    // ✅ SÉCURITÉ : Rate limiting strict (5 tentatives par minute par IP)
+    const ip = getClientIp(req)
+    if (!checkRateLimit(`signer:${ip}`, 5, 60_000)) {
+      return rateLimitError()
+    }
+
     const { token, signedBy, signatureBase64, mode } = await req.json()
 
     // Validation
     if (!token || !signedBy) {
-      return NextResponse.json({ error: 'Données manquantes (token et nom requis)' }, { status: 400 })
+      return secureError('Données manquantes (token et nom requis)')
+    }
+
+    // ✅ SÉCURITÉ : Valider le format du token (UUID)
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(token)) {
+      return secureError('Token invalide')
+    }
+
+    // ✅ SÉCURITÉ : Valider le nom (max 200 caractères, pas de scripts)
+    if (typeof signedBy !== 'string' || signedBy.trim().length < 2 || signedBy.length > 200) {
+      return secureError('Nom invalide')
     }
 
     if (!mode || !['draw', 'approve'].includes(mode)) {
-      return NextResponse.json({ error: 'Mode de signature invalide' }, { status: 400 })
+      return secureError('Mode de signature invalide')
     }
 
     if (mode === 'draw' && !signatureBase64) {
-      return NextResponse.json({ error: 'Signature dessinée manquante' }, { status: 400 })
+      return secureError('Signature dessinée manquante')
     }
 
-    // Service role pour bypasser RLS
+    // ✅ SÉCURITÉ : Valider la taille de la signature base64 (max 500KB)
+    if (signatureBase64 && signatureBase64.length > 500_000) {
+      return secureError('Signature trop volumineuse')
+    }
+
+    // Service role pour bypasser RLS (nécessaire car le client n'a pas de compte)
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -40,15 +66,16 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (devisErr || !devis) {
-      return NextResponse.json({ error: 'Devis introuvable ou lien invalide' }, { status: 404 })
+      // ✅ SÉCURITÉ : Message générique pour ne pas révéler l'existence de devis
+      return secureError('Lien invalide ou expiré', 404)
     }
 
     // 2. Vérifier que le devis est signable
     if (!['envoye', 'finalise'].includes(devis.statut)) {
       if (devis.statut === 'signe' || devis.statut === 'facture') {
-        return NextResponse.json({ error: 'Ce devis a déjà été signé' }, { status: 400 })
+        return secureError('Ce devis a déjà été signé')
       }
-      return NextResponse.json({ error: 'Ce devis ne peut pas être signé' }, { status: 400 })
+      return secureError('Ce devis ne peut pas être signé')
     }
 
     // 3. Mettre à jour le devis
@@ -84,10 +111,11 @@ export async function POST(req: NextRequest) {
       console.error('Notification email error:', notifErr)
     }
 
-    return NextResponse.json({ success: true, message: 'Devis signé avec succès' })
+    return secureJson({ success: true, message: 'Devis signé avec succès' })
   } catch (error) {
     console.error('Signature error:', error)
-    return NextResponse.json({ error: (error as Error).message }, { status: 500 })
+    // ✅ SÉCURITÉ : Ne pas exposer les détails de l'erreur
+    return secureError('Erreur serveur', 500)
   }
 }
 

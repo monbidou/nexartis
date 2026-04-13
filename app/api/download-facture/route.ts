@@ -1,19 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { generateFacturePdf } from '@/lib/pdf'
+import {
+  getAuthenticatedUser, getClientIp, checkRateLimit,
+  isValidUUID,
+  secureJson, secureError, rateLimitError, unauthorizedError,
+} from '@/lib/api-security'
 
 export async function POST(req: NextRequest) {
   try {
+    // ✅ SÉCURITÉ : Rate limiting
+    const ip = getClientIp(req)
+    if (!checkRateLimit(`dl-facture:${ip}`, 20, 60_000)) {
+      return rateLimitError()
+    }
+
+    // ✅ SÉCURITÉ : Vérifier que l'utilisateur est connecté
+    const user = await getAuthenticatedUser()
+    if (!user) return unauthorizedError()
+
     const { factureId } = await req.json()
-    if (!factureId) return NextResponse.json({ error: 'factureId manquant' }, { status: 400 })
+    if (!factureId) return secureError('factureId manquant')
+
+    // ✅ SÉCURITÉ : Valider l'input
+    if (!isValidUUID(factureId)) return secureError('ID de facture invalide')
 
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     )
 
-    const { data: facture, error: factureErr } = await supabase.from('factures').select('*').eq('id', factureId).single()
-    if (factureErr || !facture) return NextResponse.json({ error: 'Facture introuvable' }, { status: 404 })
+    // ✅ SÉCURITÉ : Vérifier que la facture appartient à l'utilisateur connecté
+    const { data: facture, error: factureErr } = await supabase.from('factures').select('*').eq('id', factureId).eq('user_id', user.id).single()
+    if (factureErr || !facture) return secureError('Facture introuvable', 404)
 
     const { data: lignes } = await supabase.from('facture_lignes').select('*').eq('facture_id', factureId).order('ordre')
     const { data: entreprise } = await supabase.from('entreprises').select('*').eq('user_id', facture.user_id).single()

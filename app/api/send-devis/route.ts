@@ -2,22 +2,42 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { generateDevisPdf } from '@/lib/pdf'
 import { buildDocumentEmailHtml } from '@/lib/email'
+import {
+  getAuthenticatedUser, getClientIp, checkRateLimit,
+  isValidUUID, isValidEmail,
+  secureJson, secureError, rateLimitError, unauthorizedError,
+} from '@/lib/api-security'
 
 export async function POST(req: NextRequest) {
   try {
+    // ✅ SÉCURITÉ : Rate limiting (10 envois par minute par IP)
+    const ip = getClientIp(req)
+    if (!checkRateLimit(`send-devis:${ip}`, 10, 60_000)) {
+      return rateLimitError()
+    }
+
+    // ✅ SÉCURITÉ : Vérifier que l'utilisateur est connecté
+    const user = await getAuthenticatedUser()
+    if (!user) return unauthorizedError()
+
     const { devisId, emailDestinataire, messagePersonnalise } = await req.json()
 
     if (!devisId || !emailDestinataire) {
-      return NextResponse.json({ error: 'Données manquantes' }, { status: 400 })
+      return secureError('Données manquantes')
     }
+
+    // ✅ SÉCURITÉ : Valider les inputs
+    if (!isValidUUID(devisId)) return secureError('ID de devis invalide')
+    if (!isValidEmail(emailDestinataire)) return secureError('Email invalide')
 
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     )
 
-    const { data: devis, error: devisErr } = await supabase.from('devis').select('*').eq('id', devisId).single()
-    if (devisErr || !devis) return NextResponse.json({ error: 'Devis introuvable' }, { status: 404 })
+    // ✅ SÉCURITÉ : Vérifier que le devis appartient à l'utilisateur connecté
+    const { data: devis, error: devisErr } = await supabase.from('devis').select('*').eq('id', devisId).eq('user_id', user.id).single()
+    if (devisErr || !devis) return secureError('Devis introuvable', 404)
 
     const { data: lignes } = await supabase.from('devis_lignes').select('*').eq('devis_id', devisId).order('ordre')
     const { data: entreprise } = await supabase.from('entreprises').select('*').eq('user_id', devis.user_id).single()

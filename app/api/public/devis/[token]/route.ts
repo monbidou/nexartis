@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import {
+  getClientIp, checkRateLimit,
+  secureJson, secureError, rateLimitError,
+} from '@/lib/api-security'
 
 /**
  * GET /api/public/devis/[token]
@@ -14,10 +18,17 @@ export async function GET(
   { params }: { params: Promise<{ token: string }> }
 ) {
   try {
+    // ✅ SÉCURITÉ : Rate limiting (20 requêtes par minute par IP)
+    const ip = getClientIp(req)
+    if (!checkRateLimit(`public-devis:${ip}`, 20, 60_000)) {
+      return rateLimitError()
+    }
+
     const { token } = await params
 
-    if (!token || token.length < 10) {
-      return NextResponse.json({ error: 'Token invalide' }, { status: 400 })
+    // ✅ SÉCURITÉ : Valider le format du token (UUID strict)
+    if (!token || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(token)) {
+      return secureError('Token invalide')
     }
 
     // Service role pour bypasser RLS (c'est une page publique)
@@ -34,7 +45,8 @@ export async function GET(
       .single()
 
     if (devisErr || !devis) {
-      return NextResponse.json({ error: 'Devis introuvable ou lien expiré' }, { status: 404 })
+      // ✅ SÉCURITÉ : Message générique
+      return secureError('Lien invalide ou expiré', 404)
     }
 
     // 2. Vérifier que le devis est dans un statut signable
@@ -42,10 +54,7 @@ export async function GET(
       // Si déjà signé, on renvoie quand même le devis mais avec un flag
       const alreadySigned = devis.statut === 'signe' || devis.statut === 'facture'
       if (!alreadySigned) {
-        return NextResponse.json({
-          error: 'Ce devis ne peut pas être signé dans son état actuel',
-          statut: devis.statut
-        }, { status: 400 })
+        return secureError('Ce devis ne peut pas être consulté dans son état actuel')
       }
     }
 
@@ -57,9 +66,10 @@ export async function GET(
       .order('ordre')
 
     // 4. Récupérer l'entreprise (infos publiques uniquement)
+    // ✅ SÉCURITÉ : Exclure signature_base64 et tampon_base64 (données sensibles)
     const { data: entreprise } = await supabase
       .from('entreprises')
-      .select('nom, adresse, code_postal, ville, telephone, email, siret, logo_url, signature_base64, tampon_base64')
+      .select('nom, adresse, code_postal, ville, telephone, email, siret, logo_url')
       .eq('user_id', devis.user_id)
       .single()
 
@@ -138,6 +148,7 @@ export async function GET(
     })
   } catch (error) {
     console.error('Public devis fetch error:', error)
-    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+    // ✅ SÉCURITÉ : Ne pas exposer les détails d'erreur
+    return secureError('Erreur serveur', 500)
   }
 }
