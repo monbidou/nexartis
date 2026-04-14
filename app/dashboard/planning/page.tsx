@@ -207,20 +207,26 @@ export default function PlanningPage() {
   }, [planningData])
 
   // ── Planning map: key = intervenantId__dateStr ──
+  // BUG D FIX : en mode Solo, on rapatrie aussi les interventions sans intervenant_id
+  // (sinon elles seraient invisibles) sous le seul intervenant affiché.
   const planningMap = useMemo(() => {
     const map = new Map<string, R[]>()
+    const fallbackIvId = !isSociete && intervenants.length > 0 ? (intervenants[0] as R).id as string : null
     for (const item of planningData) {
       const rec = item as R
-      const ivId = rec.intervenant_id as string
+      let ivId = rec.intervenant_id as string
       const dateDebut = rec.date_debut as string
-      if (!dateDebut || !ivId) continue
+      if (!dateDebut) continue
+      // En Solo, fallback vers l'unique intervenant affiché si pas d'intervenant_id
+      if (!ivId && fallbackIvId) ivId = fallbackIvId
+      if (!ivId) continue
       const dateStr = dateDebut.split('T')[0]
       const key = `${ivId}__${dateStr}`
       if (!map.has(key)) map.set(key, [])
       map.get(key)!.push(rec)
     }
     return map
-  }, [planningData])
+  }, [planningData, isSociete, intervenants])
 
   // ── Conflicts detection ──
   const conflicts = useMemo(() => {
@@ -313,7 +319,10 @@ export default function PlanningPage() {
 
   // ── Modal ──
   const openModal = (dateStr?: string, intervenantId?: string, devisId?: string) => {
-    setMDevis(''); setMClient(''); setMIntervenant(intervenantId ?? ''); setMChantier('')
+    // BUG D FIX : en mode Solo, auto-sélectionner l'unique intervenant affiché
+    // pour éviter les interventions orphelines (sans intervenant_id)
+    const defaultIvId = intervenantId ?? (!isSociete && intervenants.length > 0 ? (intervenants[0] as R).id as string : '')
+    setMDevis(''); setMClient(''); setMIntervenant(defaultIvId); setMChantier('')
     setMDate(dateStr ?? fmtISO(new Date())); setMDateFin(dateStr ?? fmtISO(new Date()))
     setMCreneau('journee'); setMObjet(''); setMNotes(''); setMStatut('planifie')
     // Auto-fill from devis if provided
@@ -416,6 +425,22 @@ export default function PlanningPage() {
   const clName = (id: string) => {
     const cl = clientMap.get(id) as R | undefined
     return cl ? `${cl.prenom ?? ''} ${cl.nom ?? ''}`.trim() : ''
+  }
+  // BUG C FIX : récupère le nom du client soit directement,
+  // soit via le chantier lié, soit retourne ''
+  const clNameFromIntervention = (rec: R) => {
+    if (rec.client_id) {
+      const direct = clName(rec.client_id as string)
+      if (direct) return direct
+    }
+    if (rec.chantier_id) {
+      const ch = chantiers.find(c => (c as R).id === rec.chantier_id) as R | undefined
+      if (ch && ch.client_id) {
+        const fromChantier = clName(ch.client_id as string)
+        if (fromChantier) return fromChantier
+      }
+    }
+    return ''
   }
 
   // ── 12 months for annual view ──
@@ -728,7 +753,7 @@ export default function PlanningPage() {
                                         <div className="text-[9px] font-bold uppercase tracking-wider opacity-60">
                                           {creneauLabel(rec.creneau as string)}
                                         </div>
-                                        {Boolean(rec.client_id) && <div className="font-extrabold text-[10px] mt-0.5">{clName(rec.client_id as string)}</div>}
+                                        {clNameFromIntervention(rec) && <div className="font-extrabold text-[10px] mt-0.5">{clNameFromIntervention(rec)}</div>}
                                         <div className="text-[9px] font-medium opacity-75 mt-0.5 pr-8 line-clamp-1">{String(rec.titre ?? rec.description_travaux ?? '—')}</div>
                                       </div>
                                     )

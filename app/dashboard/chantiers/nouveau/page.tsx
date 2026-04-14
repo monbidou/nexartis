@@ -1,10 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
-import { useClients, insertRow, LoadingSkeleton } from '@/lib/hooks'
+import { useClients, useDevis, insertRow, updateRow, LoadingSkeleton } from '@/lib/hooks'
 
 const STATUT_OPTIONS = ['prospection', 'signe', 'en_cours', 'livre', 'cloture', 'archive']
 const STATUT_LABELS: Record<string, string> = {
@@ -19,16 +19,31 @@ const STATUT_LABELS: Record<string, string> = {
 export default function NouveauChantierPage() {
   const router = useRouter()
   const { data: clients, loading: loadingClients } = useClients()
+  const { data: allDevis } = useDevis()
 
   const [nom, setNom] = useState('')
   const [clientId, setClientId] = useState('')
   const [adresse, setAdresse] = useState('')
+  const [adresseManuallyEdited, setAdresseManuallyEdited] = useState(false)
   const [dateDebut, setDateDebut] = useState('')
   const [dateFin, setDateFin] = useState('')
   const [statut, setStatut] = useState('prospection')
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // BUG E FIX : auto-remplir l'adresse quand on choisit un client
+  // (uniquement si l'utilisateur n'a pas déjà tapé une adresse manuellement)
+  useEffect(() => {
+    if (!clientId || adresseManuallyEdited) return
+    const c = (clients as Array<Record<string, unknown>>).find((cl) => cl.id === clientId)
+    if (!c) return
+    const fullAdresse = [
+      (c.adresse as string) || '',
+      `${(c.code_postal as string) || ''} ${(c.ville as string) || ''}`.trim(),
+    ].filter(Boolean).join(', ')
+    if (fullAdresse) setAdresse(fullAdresse)
+  }, [clientId, clients, adresseManuallyEdited])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -48,7 +63,25 @@ export default function NouveauChantierPage() {
         statut,
         notes: notes || null,
       })
-      router.push(`/dashboard/chantiers/${(chantier as { id: string }).id}`)
+      const newChantierId = (chantier as { id: string }).id
+
+      // BUG F FIX : auto-rattacher tous les devis signés/finalisés du même client
+      // qui n'ont pas encore de chantier_id (statuts valides du schema:
+      // brouillon, envoye, finalise, signe, refuse, expire, facture)
+      if (clientId && allDevis) {
+        const devisToLink = (allDevis as Array<Record<string, unknown>>).filter((d) =>
+          d.client_id === clientId &&
+          (d.statut === 'signe' || d.statut === 'finalise' || d.statut === 'envoye') &&
+          !d.chantier_id
+        )
+        for (const d of devisToLink) {
+          try {
+            await updateRow('devis', d.id as string, { chantier_id: newChantierId })
+          } catch { /* ignore les erreurs individuelles, on ne bloque pas */ }
+        }
+      }
+
+      router.push(`/dashboard/chantiers/${newChantierId}`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur lors de la création')
       setSaving(false)
@@ -121,7 +154,7 @@ export default function NouveauChantierPage() {
           <input
             type="text"
             value={adresse}
-            onChange={(e) => setAdresse(e.target.value)}
+            onChange={(e) => { setAdresse(e.target.value); setAdresseManuallyEdited(true) }}
             placeholder="12 rue des Lilas, 33000 Bordeaux"
             className={inputClasses}
           />

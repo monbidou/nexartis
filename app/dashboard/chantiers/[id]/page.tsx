@@ -20,13 +20,12 @@ import { createFactureFromDevis } from '@/lib/services/devis-automatisms'
 // Types & helpers
 // -------------------------------------------------------------------
 type R = Record<string, unknown>
-type TabKey = 'resume' | 'devis' | 'factures' | 'planning'
+type TabKey = 'resume' | 'devis' | 'factures'
 
 const TABS: { key: TabKey; label: string; icon: React.ElementType }[] = [
   { key: 'resume', label: 'Vue générale', icon: HardHat },
   { key: 'devis', label: 'Devis', icon: FileText },
   { key: 'factures', label: 'Factures', icon: Receipt },
-  { key: 'planning', label: 'Planning', icon: Clock },
 ]
 
 const NOTE_CATS = [
@@ -461,7 +460,7 @@ export default function ChantierDetailPage() {
         </div>
 
         {/* ── GANTT CHART ── */}
-        {(activeTab === 'resume' || activeTab === 'planning') && (
+        {(activeTab === 'resume') && (
         <div className="bg-white border border-[#e6ecf2] rounded-2xl overflow-hidden mb-5">
           <div className="px-5 py-4 border-b border-[#e6ecf2] flex items-center justify-between">
             <h3 className="text-[15px] font-extrabold text-[#0f1a3a] tracking-tight">Planning des phases</h3>
@@ -565,7 +564,7 @@ export default function ChantierDetailPage() {
         )}
 
         {/* ── EQUIPE DU CHANTIER ── */}
-        {(activeTab === 'resume' || activeTab === 'planning') && (
+        {(activeTab === 'resume') && (
         <div className="bg-white border border-[#e6ecf2] rounded-2xl overflow-hidden mb-5">
           <div className="px-5 py-4 border-b border-[#e6ecf2] flex items-center justify-between">
             <div className="flex items-center gap-2">

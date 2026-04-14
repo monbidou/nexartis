@@ -135,11 +135,11 @@ export default function DevisListPage() {
     return {
       all,
       envoyesCount: envoyes.length,
-      envoyesHT: envoyes.reduce((s: number, d: Record<string, unknown>) => s + Number(d.montant_ht || 0), 0),
+      envoyesTTC: envoyes.reduce((s: number, d: Record<string, unknown>) => s + Number(d.montant_ttc || 0), 0),
       signesCount: signes.length,
-      signesHT: signes.reduce((s: number, d: Record<string, unknown>) => s + Number(d.montant_ht || 0), 0),
+      signesTTC: signes.reduce((s: number, d: Record<string, unknown>) => s + Number(d.montant_ttc || 0), 0),
       attenteCount: enAttente.length,
-      attenteHT: enAttente.reduce((s: number, d: Record<string, unknown>) => s + Number(d.montant_ht || 0), 0),
+      attenteTTC: enAttente.reduce((s: number, d: Record<string, unknown>) => s + Number(d.montant_ttc || 0), 0),
     }
   }, [devisList])
 
@@ -155,7 +155,9 @@ export default function DevisListPage() {
         const numero = ((d.numero as string) || "").toLowerCase()
         const clientName = getClientName(d.client_id as string | null).toLowerCase()
         const chantierName = getChantierTitre(d.chantier_id as string | null).toLowerCase()
-        return numero.includes(q) || clientName.includes(q) || chantierName.includes(q)
+        const objet = ((d.objet as string) || "").toLowerCase()
+        const notesClient = ((d.notes_client as string) || "").toLowerCase()
+        return numero.includes(q) || clientName.includes(q) || chantierName.includes(q) || objet.includes(q) || notesClient.includes(q)
       })
     }
     if (sort === "Date") list.sort((a, b) => new Date(b.created_at as string).getTime() - new Date(a.created_at as string).getTime())
@@ -224,9 +226,9 @@ export default function DevisListPage() {
     <div className="space-y-6">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard icon={<FileText size={20} />} label="Tous" value={String(stats.all)} accent="#5ab4e0" />
-        <StatCard icon={<Send size={20} />} label="Envoyés" value={String(stats.envoyesCount)} sub={formatCurrency(stats.envoyesHT)} accent="#5ab4e0" />
-        <StatCard icon={<CheckCircle2 size={20} />} label="Acceptés" value={String(stats.signesCount)} sub={formatCurrency(stats.signesHT)} accent="#22c55e" />
-        <StatCard icon={<Clock size={20} />} label="Brouillons" value={String(stats.attenteCount)} sub={formatCurrency(stats.attenteHT)} accent="#e87a2a" />
+        <StatCard icon={<Send size={20} />} label="Envoyés" value={String(stats.envoyesCount)} sub={formatCurrency(stats.envoyesTTC)} accent="#5ab4e0" />
+        <StatCard icon={<CheckCircle2 size={20} />} label="Acceptés" value={String(stats.signesCount)} sub={formatCurrency(stats.signesTTC)} accent="#22c55e" />
+        <StatCard icon={<Clock size={20} />} label="Brouillons" value={String(stats.attenteCount)} sub={formatCurrency(stats.attenteTTC)} accent="#e87a2a" />
       </div>
 
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
