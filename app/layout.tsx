@@ -66,6 +66,9 @@ export const metadata: Metadata = {
   alternates: {
     canonical: 'https://nexartis.fr',
   },
+  verification: {
+    google: 'FJBByC3CPJtSwTo4mqYE8ijL_ZbvJS3Ha2jITTB3KN8',
+  },
 }
 
 export default function RootLayout({
