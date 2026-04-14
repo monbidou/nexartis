@@ -995,6 +995,85 @@ function LogoUploadSection({
     return trimmed
   }
 
+  /**
+   * DÉTOURAGE UNIQUEMENT (pas d'enlèvement de fond)
+   * Recadre l'image en supprimant les marges périphériques uniformes
+   * (pixels transparents OU couleur du fond détectée aux bords).
+   * On NE TOUCHE PAS aux pixels intérieurs : zéro artefact, zéro pixel parasite.
+   */
+  const trimOnly = (dataUrl: string): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image()
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        canvas.width = img.width
+        canvas.height = img.height
+        const ctx = canvas.getContext('2d')
+        if (!ctx) { reject(new Error('canvas context')); return }
+        ctx.drawImage(img, 0, 0)
+        const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data
+        // Détecter la couleur du fond (échantillonner les 4 coins)
+        const corners = [
+          [0, 0],
+          [canvas.width - 1, 0],
+          [0, canvas.height - 1],
+          [canvas.width - 1, canvas.height - 1],
+        ]
+        let bgR = 0, bgG = 0, bgB = 0, bgA = 0
+        corners.forEach(([x, y]) => {
+          const i = (y * canvas.width + x) * 4
+          bgR += data[i]; bgG += data[i + 1]; bgB += data[i + 2]; bgA += data[i + 3]
+        })
+        bgR = Math.round(bgR / 4); bgG = Math.round(bgG / 4); bgB = Math.round(bgB / 4); bgA = Math.round(bgA / 4)
+
+        const tolerance = 30
+        const isBackground = (idx: number): boolean => {
+          const a = data[idx + 3]
+          if (a < 10) return true // transparent = background
+          if (bgA < 10) return false // si bg est transparent et pixel pas, garder
+          return Math.abs(data[idx] - bgR) < tolerance
+              && Math.abs(data[idx + 1] - bgG) < tolerance
+              && Math.abs(data[idx + 2] - bgB) < tolerance
+        }
+
+        // Calculer la bbox des pixels NON-fond
+        let top = canvas.height, left = canvas.width, right = 0, bottom = 0
+        for (let y = 0; y < canvas.height; y++) {
+          for (let x = 0; x < canvas.width; x++) {
+            const idx = (y * canvas.width + x) * 4
+            if (!isBackground(idx)) {
+              if (y < top) top = y
+              if (y > bottom) bottom = y
+              if (x < left) left = x
+              if (x > right) right = x
+            }
+          }
+        }
+        if (right < left || bottom < top) {
+          // Image vide ou tout est fond — on retourne le dataUrl original
+          resolve(dataUrl)
+          return
+        }
+        const pad = Math.max(2, Math.round(Math.max(right - left, bottom - top) * 0.02))
+        top = Math.max(0, top - pad)
+        left = Math.max(0, left - pad)
+        right = Math.min(canvas.width - 1, right + pad)
+        bottom = Math.min(canvas.height - 1, bottom + pad)
+
+        const trimW = right - left + 1
+        const trimH = bottom - top + 1
+        const out = document.createElement('canvas')
+        out.width = trimW
+        out.height = trimH
+        const oCtx = out.getContext('2d')!
+        oCtx.drawImage(canvas, left, top, trimW, trimH, 0, 0, trimW, trimH)
+        resolve(out.toDataURL('image/png'))
+      }
+      img.onerror = reject
+      img.src = dataUrl
+    })
+  }
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -1004,10 +1083,11 @@ function LogoUploadSection({
       setRemovedBgPreview(null)
       setProcessing(true)
       try {
-        const result = await removeBackground(dataUrl)
-        setRemovedBgPreview(result)
+        // DÉTOURAGE UNIQUEMENT (recadrer marges) — pas d'enlèvement de fond
+        const trimmed = await trimOnly(dataUrl)
+        setRemovedBgPreview(trimmed)
       } catch {
-        // En cas d'échec du détourage, on garde l'original tel quel
+        // Si le détourage échoue, on garde l'original
         setRemovedBgPreview(dataUrl)
       }
       setProcessing(false)
@@ -1056,7 +1136,18 @@ function LogoUploadSection({
             {currentLogo ? 'Modifier le logo' : 'Ajouter un logo'}
           </button>
           <p className="text-xs text-gray-400 mt-1">PNG, JPG ou WebP. Max 2 Mo.</p>
-          <p className="text-xs text-gray-400 mt-0.5">Le fond est supprimé et le logo est détouré automatiquement.</p>
+          <p className="text-xs text-gray-400 mt-0.5">Le logo est recadré automatiquement.</p>
+          <div className="mt-2 bg-sky-50 border border-sky-200 rounded-lg px-3 py-2">
+            <p className="text-[11px] text-sky-800 font-manrope leading-relaxed">
+              💡 <strong>Conseil :</strong> pour un fond transparent (rendu pro sur fonds colorés),
+              préparez votre logo en <strong>PNG transparent</strong> via un outil gratuit :{' '}
+              <a href="https://remove.bg" target="_blank" rel="noopener noreferrer" className="underline hover:text-sky-900">remove.bg</a>
+              {' · '}
+              <a href="https://www.photoroom.com/fr/outils/supprimer-fond-image" target="_blank" rel="noopener noreferrer" className="underline hover:text-sky-900">Photoroom</a>
+              {' · '}
+              <a href="https://pixlr.com/fr/remove-background/" target="_blank" rel="noopener noreferrer" className="underline hover:text-sky-900">Pixlr</a>
+            </p>
+          </div>
         </div>
       </div>
 
@@ -1065,16 +1156,16 @@ function LogoUploadSection({
         <div className="mt-4 bg-sky-50 border border-sky-200 rounded-lg px-4 py-4">
           <div className="flex items-center gap-3">
             <div className="w-5 h-5 border-2 border-[#5ab4e0] border-t-transparent rounded-full animate-spin" />
-            <p className="text-sm text-[#5ab4e0] font-manrope font-medium">Détourage en cours...</p>
+            <p className="text-sm text-[#5ab4e0] font-manrope font-medium">Recadrage en cours...</p>
           </div>
         </div>
       )}
 
-      {/* Résultat du détourage — prêt à enregistrer */}
+      {/* Aperçu du logo recadré, prêt à enregistrer */}
       {removedBgPreview && !processing && (
         <div className="mt-4 space-y-4">
           <div>
-            <p className="text-xs font-manrope text-gray-500 mb-2">Aperçu (fond supprimé)</p>
+            <p className="text-xs font-manrope text-gray-500 mb-2">Aperçu (logo recadré)</p>
             <div className="h-32 w-40 rounded-lg border border-gray-200 flex items-center justify-center p-2" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'20\' height=\'20\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Crect width=\'10\' height=\'10\' fill=\'%23f0f0f0\'/%3E%3Crect x=\'10\' y=\'10\' width=\'10\' height=\'10\' fill=\'%23f0f0f0\'/%3E%3Crect x=\'10\' width=\'10\' height=\'10\' fill=\'%23ffffff\'/%3E%3Crect y=\'10\' width=\'10\' height=\'10\' fill=\'%23ffffff\'/%3E%3C/svg%3E")' }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={removedBgPreview} alt="Logo détouré" className="max-h-full max-w-full object-contain" />
