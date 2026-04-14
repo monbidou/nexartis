@@ -123,6 +123,32 @@ export default function ChantierDetailPage() {
 
   useEffect(() => { fetchEquipe() }, [fetchEquipe])
 
+  // SYNC ÉQUIPE ↔ PLANNING : tout intervenant planifié sur ce chantier
+  // doit apparaître dans l'équipe (sinon doublon de saisie).
+  // On enrichit `equipe` avec les intervenant_id présents dans le planning
+  // mais absents de chantier_intervenants. État unifié pour l'affichage.
+  const equipeAffichage = useMemo(() => {
+    const result = [...(equipe as R[])]
+    const knownIds = new Set(result.map(e => e.intervenant_id as string))
+    const planningIds = new Set<string>()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(chantierInterventions as any[]).forEach((p) => {
+      const ivId = p?.intervenant_id as string | undefined
+      if (ivId && !knownIds.has(ivId)) planningIds.add(ivId)
+    })
+    planningIds.forEach(ivId => {
+      result.push({
+        id: `auto-${ivId}`,
+        chantier_id: id,
+        intervenant_id: ivId,
+        date_assignation: new Date().toISOString(),
+        _autoFromPlanning: true, // flag pour différencier visuellement si besoin
+      })
+    })
+    return result
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [equipe, chantierInterventions, id])
+
   // ── Derived data ──
   const client = useMemo(() => {
     if (!chantier?.client_id) return null
@@ -570,8 +596,8 @@ export default function ChantierDetailPage() {
             <div className="flex items-center gap-2">
               <Users className="w-4 h-4 text-[#5ab4e0]" />
               <h3 className="text-[15px] font-extrabold text-[#0f1a3a]">Équipe du chantier</h3>
-              {equipe.length > 0 && (
-                <span className="px-2 py-0.5 rounded-full bg-[#e8f4fb] text-[#2d8bc9] text-[11px] font-bold">{equipe.length}</span>
+              {equipeAffichage.length > 0 && (
+                <span className="px-2 py-0.5 rounded-full bg-[#e8f4fb] text-[#2d8bc9] text-[11px] font-bold">{equipeAffichage.length}</span>
               )}
             </div>
             <button onClick={() => setShowAddEquipe(v => !v)}
@@ -619,7 +645,7 @@ export default function ChantierDetailPage() {
 
           {/* Liste équipe */}
           <div className="divide-y divide-[#e6ecf2]">
-            {equipe.length === 0 && (
+            {equipeAffichage.length === 0 && (
               <div className="px-5 py-8 text-center">
                 <div className="w-10 h-10 bg-[#f6f8fb] rounded-xl flex items-center justify-center mx-auto mb-3">
                   <Users className="w-5 h-5 text-[#7b8ba3]" />
@@ -628,9 +654,9 @@ export default function ChantierDetailPage() {
                 <div className="text-xs text-[#7b8ba3] mt-1">Cliquez sur &quot;Ajouter intervenant&quot; pour assigner l&apos;équipe et générer le planning automatiquement</div>
               </div>
             )}
-            {equipe.map((e: R) => {
+            {equipeAffichage.map((e: R) => {
               const iv = intervenantMap.get(e.intervenant_id as string) as R | undefined
-              const colorIdx = colorMap.get(e.intervenant_id as string) ?? (equipe.indexOf(e) % PALETTE_HEX.length)
+              const colorIdx = colorMap.get(e.intervenant_id as string) ?? (equipeAffichage.indexOf(e) % PALETTE_HEX.length)
               return (
                 <div key={e.id as string} className="group flex items-center gap-4 px-5 py-4 hover:bg-[#f6f8fb]/50 transition-all">
                   <div className="w-10 h-10 rounded-xl text-white text-[13px] font-bold flex items-center justify-center flex-shrink-0"
@@ -638,21 +664,30 @@ export default function ChantierDetailPage() {
                     {iv ? initials(`${iv.prenom ?? ''} ${iv.nom ?? ''}`) : '?'}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-[13px] font-bold text-[#1e293b]">{iv ? `${iv.prenom ?? ''} ${iv.nom ?? ''}`.trim() : '—'}</div>
+                    <div className="text-[13px] font-bold text-[#1e293b] flex items-center gap-2">
+                      {iv ? `${iv.prenom ?? ''} ${iv.nom ?? ''}`.trim() : '—'}
+                      {e._autoFromPlanning ? (
+                        <span className="px-2 py-0.5 rounded-full bg-[#fef3c7] text-[#92400e] text-[10px] font-bold uppercase tracking-wider">
+                          Via planning
+                        </span>
+                      ) : null}
+                    </div>
                     <div className="text-[11px] text-[#7b8ba3] mt-0.5">
-                      {String(iv?.metier ?? '')} • Assigné le {formatDate(e.date_assignation as string)}
+                      {String(iv?.metier ?? '')}{e._autoFromPlanning ? '' : ` • Assigné le ${formatDate(e.date_assignation as string)}`}
                     </div>
                   </div>
                   <Link href="/dashboard/planning" className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#e8f4fb] text-[#2d8bc9] hover:bg-[#d0e8f7] transition-colors cursor-pointer">
-                    <Zap className="w-2.5 h-2.5" />Planning créé
+                    <Zap className="w-2.5 h-2.5" />Planning
                   </Link>
-                  <button
-                    onClick={() => handleRemoveEquipe(e.id as string, e.intervenant_id as string)}
-                    className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100"
-                    title="Retirer cet intervenant"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  {!e._autoFromPlanning && (
+                    <button
+                      onClick={() => handleRemoveEquipe(e.id as string, e.intervenant_id as string)}
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100"
+                      title="Retirer cet intervenant"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
               )
             })}

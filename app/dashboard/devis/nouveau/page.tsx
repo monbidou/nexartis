@@ -493,32 +493,55 @@ function NouveauDevisPage() {
                 else clientId = existing.id
               }
             }
-            // Sauvegarder le chantier/prestation (indépendamment du client)
-            if (chantierDesc.trim()) {
+            // RATTACHEMENT INTELLIGENT AU CHANTIER (Option A)
+            // Logique métier : 1 client = 1 chantier OUVERT qui regroupe tous ses devis.
+            //  - Si le client a déjà un chantier ouvert (prospection/signe/en_cours),
+            //    on RATTACHE le devis à ce chantier (plus de doublons)
+            //  - Sinon on en crée un nouveau (titre = chantierDesc OU nom client)
+            if (clientId) {
+              // 1. Chercher un chantier ouvert pour ce client
               const { data: existingChantier } = await supabase
                 .from('chantiers')
-                .select('id')
+                .select('id, montant_devis_total')
                 .eq('user_id', user.id)
-                .ilike('titre', chantierDesc.trim())
+                .eq('client_id', clientId)
+                .in('statut', ['prospection', 'signe', 'en_cours'])
+                .order('created_at', { ascending: false })
+                .limit(1)
                 .maybeSingle()
-              if (!existingChantier) {
+
+              if (existingChantier) {
+                // RATTACHEMENT : on additionne le montant TTC au total du chantier
+                chantierID = existingChantier.id
+                const nouveauTotal = Number(existingChantier.montant_devis_total || 0) + totalTTC
+                await supabase.from('chantiers').update({
+                  montant_devis_total: nouveauTotal,
+                }).eq('id', chantierID)
+              } else {
+                // CRÉATION : titre intelligent (saisi OU nom client par défaut)
+                const titreChantier = chantierDesc.trim()
+                  || `Chantier ${clientPrenom ? clientPrenom + ' ' : ''}${clientNom}`.trim()
+                  || 'Nouveau chantier'
                 const { data: newChantier, error: insertErr } = await supabase.from('chantiers').insert({
-                  titre: chantierDesc.trim(),
+                  titre: titreChantier,
                   user_id: user.id,
-                  client_id: clientId || null,
+                  client_id: clientId,
                   montant_devis_total: totalTTC || 0,
                   date_debut: dateTravaux || new Date().toISOString().split('T')[0],
                 }).select('id').single()
                 if (insertErr) console.error('Erreur sauvegarde chantier:', insertErr.message)
                 else if (newChantier) chantierID = newChantier.id
-              } else {
-                chantierID = existingChantier.id
-                // Mettre à jour le chantier existant avec le client et le montant si manquants
-                await supabase.from('chantiers').update({
-                  client_id: clientId || undefined,
-                  montant_devis_total: totalTTC || undefined,
-                }).eq('id', chantierID)
               }
+            } else if (chantierDesc.trim()) {
+              // Fallback : pas de client mais nom de chantier saisi → on crée le chantier orphelin
+              const { data: newChantier } = await supabase.from('chantiers').insert({
+                titre: chantierDesc.trim(),
+                user_id: user.id,
+                client_id: null,
+                montant_devis_total: totalTTC || 0,
+                date_debut: dateTravaux || new Date().toISOString().split('T')[0],
+              }).select('id').single()
+              if (newChantier) chantierID = newChantier.id
             }
             // Mettre à jour le devis avec client_id et chantier_id
             if (clientId || chantierID) {
