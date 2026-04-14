@@ -95,10 +95,29 @@ export default function ModifierDevisPage() {
     if (!devis) return
     setSaving(true)
     setError(null)
-    const statutMap = { brouillon: 'brouillon', enregistrer: 'finalise', envoyer: 'envoye' } as const
+
+    // RÈGLES DE STATUT après modification :
+    //  - "Brouillon"   → toujours 'brouillon'
+    //  - "Enregistrer" → si le devis avait DÉJÀ été partagé avec le client
+    //                    (statut 'envoye' ou 'signe'), on le repasse en 'brouillon'
+    //                    car la version envoyée au client n'est plus à jour.
+    //                    Sinon (devis en cours), on passe à 'finalise'.
+    //  - "Envoyer"     → 'finalise' (le passage à 'envoye' se fait UNIQUEMENT
+    //                    quand le mail part vraiment via /api/send-devis)
+    const wasSharedWithClient = devis.statut === 'envoye' || devis.statut === 'signe'
+    let nouveauStatut: string
+    if (action === 'brouillon') {
+      nouveauStatut = 'brouillon'
+    } else if (action === 'enregistrer') {
+      nouveauStatut = wasSharedWithClient ? 'brouillon' : 'finalise'
+    } else {
+      // action === 'envoyer'
+      nouveauStatut = 'finalise'
+    }
+
     try {
       await updateRow('devis', devis.id, {
-        statut: statutMap[action],
+        statut: nouveauStatut,
         date_emission: dateDevis || null,
         date_validite: dateValidite || null,
         date_debut_travaux: dateTravaux || null,
