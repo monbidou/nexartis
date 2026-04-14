@@ -62,10 +62,10 @@ export async function GET(req: NextRequest) {
       client = clientData
     }
 
-    // Charger les interventions du chantier
+    // Charger les interventions du chantier (avec devis_id pour regroupement par phase)
     const { data: interventions } = await supabase
       .from('planning_interventions')
-      .select('id, titre, description_travaux, date_debut, date_fin, intervenant_id')
+      .select('id, titre, description_travaux, date_debut, date_fin, intervenant_id, devis_id')
       .eq('chantier_id', chantierId)
       .eq('user_id', user.id)
       .order('date_debut', { ascending: true })
@@ -75,6 +75,14 @@ export async function GET(req: NextRequest) {
       .from('intervenants')
       .select('id, prenom, nom, metier, type_contrat')
       .eq('user_id', user.id)
+
+    // Charger les devis du chantier (chaque devis = 1 phase dans le PDF client)
+    const { data: devis } = await supabase
+      .from('devis')
+      .select('id, numero, objet, description, montant_ttc')
+      .eq('chantier_id', chantierId)
+      .eq('user_id', user.id)
+      .is('deleted_at', null)
 
     // Charger les notes visibles dans le PDF
     const { data: notes } = await supabase
@@ -103,6 +111,7 @@ export async function GET(req: NextRequest) {
       client,
       interventions: interventions || [],
       intervenants: intervenants || [],
+      devis: devis || [],
       notes: notes || [],
     }
 

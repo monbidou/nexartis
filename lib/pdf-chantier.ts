@@ -74,6 +74,7 @@ interface PlanningIntervention {
   date_debut: string
   date_fin?: string | null
   intervenant_id?: string | null
+  devis_id?: string | null
 }
 
 interface Intervenant {
@@ -82,6 +83,14 @@ interface Intervenant {
   nom?: string | null
   metier?: string | null
   type_contrat?: string | null
+}
+
+interface DevisForPdf {
+  id: string
+  numero?: string | null
+  objet?: string | null
+  description?: string | null
+  montant_ttc?: number | null
 }
 
 interface ChantierNote {
@@ -97,6 +106,7 @@ export interface ChantierPdfData {
   client: Client | null
   interventions: PlanningIntervention[]
   intervenants: Intervenant[]
+  devis?: DevisForPdf[]
   notes: ChantierNote[]
 }
 
@@ -163,10 +173,92 @@ function ensureSpace(doc: jsPDF, y: number, needed: number): number {
   return y
 }
 
+// ============ PHASES = GROUPEMENT PAR DEVIS ============
+// Une "phase" = toutes les interventions planifiées d'un même devis.
+// Ce regroupement correspond à la vue CLIENT du planning :
+// "Phase Plomberie = 5 jours", "Phase Électricité = 7 jours", etc.
+interface Phase {
+  id: string                    // soit devis.id, soit "orphan" si aucun devis
+  titre: string
+  interventions: PlanningIntervention[]
+  intervenantIds: Set<string>   // union des intervenants
+  days: Set<string>             // jours ISO (YYYY-MM-DD) où la phase est présente
+  firstDay: string | null
+  lastDay: string | null
+  color: [number, number, number]
+}
+
+function buildPhases(
+  interventions: PlanningIntervention[],
+  devis: DevisForPdf[] | undefined,
+): Phase[] {
+  const devisMap = new Map<string, DevisForPdf>()
+  if (devis) devis.forEach(d => devisMap.set(d.id, d))
+
+  // Créer un groupe par devis_id (ou "orphan" si l'intervention n'est liée à aucun devis)
+  const groups = new Map<string, PlanningIntervention[]>()
+  interventions.forEach(i => {
+    const key = i.devis_id || '__orphan__'
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key)!.push(i)
+  })
+
+  // Construire les phases
+  const phases: Phase[] = []
+  let colorIdx = 0
+  for (const [key, ivs] of groups.entries()) {
+    const devisRow = key === '__orphan__' ? null : devisMap.get(key)
+    const titre = devisRow?.objet
+      || devisRow?.description
+      || (devisRow?.numero ? `Devis ${devisRow.numero}` : 'Intervention')
+    const intervenantIds = new Set<string>()
+    const days = new Set<string>()
+    const allDates: string[] = []
+    ivs.forEach(iv => {
+      if (iv.intervenant_id) intervenantIds.add(iv.intervenant_id)
+      const startRaw = iv.date_debut.split('T')[0]
+      const endRaw = (iv.date_fin || iv.date_debut).split('T')[0]
+      const startD = new Date(startRaw + 'T00:00:00')
+      const endD = new Date(endRaw + 'T00:00:00')
+      const last = endD < startD ? startD : endD
+      const cur = new Date(startD)
+      let safety = 0
+      while (cur <= last && safety < 120) {
+        const dayKey = cur.toISOString().split('T')[0]
+        days.add(dayKey)
+        allDates.push(dayKey)
+        cur.setDate(cur.getDate() + 1)
+        safety++
+      }
+    })
+    allDates.sort()
+    phases.push({
+      id: key,
+      titre,
+      interventions: ivs,
+      intervenantIds,
+      days,
+      firstDay: allDates[0] || null,
+      lastDay: allDates[allDates.length - 1] || null,
+      color: PHASE_COLORS[colorIdx % PHASE_COLORS.length],
+    })
+    colorIdx++
+  }
+
+  // Trier les phases par firstDay croissant
+  phases.sort((a, b) => {
+    if (!a.firstDay) return 1
+    if (!b.firstDay) return -1
+    return a.firstDay.localeCompare(b.firstDay)
+  })
+
+  return phases
+}
+
 // ============ MAIN PDF GENERATOR ============
 
 export function generateChantierPlanningPdf(data: ChantierPdfData): string {
-  const { entreprise, chantier, client, interventions, intervenants, notes } = data
+  const { entreprise, chantier, client, interventions, intervenants, devis, notes } = data
   const doc = new jsPDF()
   const M = 14 // marge gauche/droite
   const pageW = 210
@@ -405,11 +497,12 @@ export function generateChantierPlanningPdf(data: ChantierPdfData): string {
   y += sumH + 10
 
   // ============ CALENDRIER ============
-  const phasesWithColor = [...interventions]
-    .sort((a, b) => new Date(a.date_debut).getTime() - new Date(b.date_debut).getTime())
-    .map((p, i) => ({ ...p, color: PHASE_COLORS[i % PHASE_COLORS.length] }))
+  // PHASES = REGROUPEMENT PAR DEVIS (= corps de métier)
+  // Ex : "Plomberie" = toutes les interventions du devis plomberie sur plusieurs jours
+  const phases = buildPhases(interventions, devis)
+  const ivMap = new Map(intervenants.map(iv => [iv.id, iv]))
 
-  if (phasesWithColor.length > 0 && dateDebut && dateFin) {
+  if (phases.length > 0 && dateDebut && dateFin) {
     y = ensureSpace(doc, y, 50)
     doc.setFontSize(8)
     doc.setFont('helvetica', 'bold')
@@ -419,13 +512,12 @@ export function generateChantierPlanningPdf(data: ChantierPdfData): string {
     doc.line(M, y + 2, pageW - M, y + 2)
     y += 8
 
-    y = drawCalendar(doc, M, y, contentW, phasesWithColor, dateDebut, dateFin)
+    y = drawCalendarByPhases(doc, M, y, contentW, phases, dateDebut, dateFin)
     y += 8
   }
 
   // ============ TABLEAU DÉTAIL PHASES ============
-  const ivMap = new Map(intervenants.map(iv => [iv.id, iv]))
-  if (phasesWithColor.length > 0) {
+  if (phases.length > 0) {
     y = ensureSpace(doc, y, 30)
     doc.setFontSize(8)
     doc.setFont('helvetica', 'bold')
@@ -435,19 +527,27 @@ export function generateChantierPlanningPdf(data: ChantierPdfData): string {
     doc.line(M, y + 2, pageW - M, y + 2)
     y += 6
 
-    const tableBody = phasesWithColor.map((p) => {
-      const iv = p.intervenant_id ? ivMap.get(p.intervenant_id) : null
-      const ivName = iv ? `${iv.prenom || ''} ${iv.nom || ''}`.trim() : '—'
-      const ivRole = iv?.metier || iv?.type_contrat || ''
-      const dateRange = p.date_fin && p.date_fin !== p.date_debut
-        // jsPDF ne rend pas proprement la flèche unicode "→", on utilise " au " à la place
-        ? `${fmtDateShort(p.date_debut)} au ${fmtDateShort(p.date_fin)}`
-        : fmtDateShort(p.date_debut)
-      const duree = daysBetween(p.date_debut, p.date_fin || p.date_debut)
+    const tableBody = phases.map((phase) => {
+      // Liste des intervenants assignés à cette phase
+      const intervenantsListe = Array.from(phase.intervenantIds)
+        .map(id => ivMap.get(id))
+        .filter(Boolean)
+        .map(iv => {
+          const name = `${iv!.prenom || ''} ${iv!.nom || ''}`.trim()
+          const role = iv!.metier || iv!.type_contrat || ''
+          return role ? `${name} (${role})` : name
+        })
+        .join('\n') || '—'
+
+      // Plage de dates : firstDay au lastDay
+      const dateRange = phase.firstDay && phase.lastDay && phase.firstDay !== phase.lastDay
+        ? `${fmtDateShort(phase.firstDay)} au ${fmtDateShort(phase.lastDay)}`
+        : phase.firstDay ? fmtDateShort(phase.firstDay) : '—'
+      const dureeJours = phase.days.size
       return [
-        p.titre || 'Phase',
-        `${dateRange}\n${duree}j`,
-        ivRole ? `${ivName}\n${ivRole}` : ivName,
+        phase.titre,
+        `${dateRange}\n${dureeJours}j de présence`,
+        intervenantsListe,
         'À confirmer',
       ]
     })
@@ -475,11 +575,10 @@ export function generateChantierPlanningPdf(data: ChantierPdfData): string {
       bodyStyles: { lineWidth: { bottom: 0.1 }, lineColor: [241, 245, 249] },
       margin: { left: M, right: M },
       didDrawCell: (data) => {
-        // Dessiner le petit carré de couleur pour la phase
         if (data.column.index === 0 && data.section === 'body') {
           const idx = data.row.index
-          if (idx < phasesWithColor.length) {
-            const c = phasesWithColor[idx].color
+          if (idx < phases.length) {
+            const c = phases[idx].color
             setFill(c)
             doc.roundedRect(data.cell.x + 2, data.cell.y + 3, 2.5, 2.5, 0.3, 0.3, 'F')
           }
@@ -498,7 +597,10 @@ export function generateChantierPlanningPdf(data: ChantierPdfData): string {
   }
 
   // ============ ÉQUIPE ASSIGNÉE ============
-  const uniqueIvIds = Array.from(new Set(phasesWithColor.map(p => p.intervenant_id).filter(Boolean))) as string[]
+  // Union de tous les intervenants présents sur les phases
+  const uniqueIvIds = Array.from(new Set(
+    phases.flatMap(p => Array.from(p.intervenantIds))
+  ))
   if (uniqueIvIds.length > 0) {
     y = ensureSpace(doc, y, 30)
     doc.setFontSize(8)
@@ -767,9 +869,135 @@ export function generateChantierPlanningPdf(data: ChantierPdfData): string {
   return doc.output('datauristring')
 }
 
-// ============ CALENDRIER (rendu manuel avec rect()) ============
+// ============ CALENDRIER PAR PHASES (vue client) ============
+// Une ligne = une phase (= un devis/corps de métier)
+// Une barre par jour de présence effective (pas continue : si pas de travail
+// le mardi, pas de barre le mardi).
+function drawCalendarByPhases(
+  doc: jsPDF,
+  x: number,
+  y: number,
+  width: number,
+  phases: Phase[],
+  dateDebut: string,
+  dateFin: string,
+): number {
+  const setDraw = (c: [number, number, number]) => doc.setDrawColor(c[0], c[1], c[2])
+  const setFill = (c: [number, number, number]) => doc.setFillColor(c[0], c[1], c[2])
 
-function drawCalendar(
+  const labelColW = 50          // largeur colonne nom de phase
+  const headerH = 10
+  const phaseRowH = 12
+  const start = new Date(dateDebut); start.setHours(0, 0, 0, 0)
+  const end = new Date(dateFin); end.setHours(0, 0, 0, 0)
+
+  // Ramener au lundi de la semaine de start
+  const firstMonday = new Date(start)
+  const dow = firstMonday.getDay()
+  const diffToMonday = dow === 0 ? -6 : 1 - dow
+  firstMonday.setDate(firstMonday.getDate() + diffToMonday)
+
+  // Construire les semaines (max 8 pour tenir sur la page)
+  const weeks: Date[][] = []
+  const cur = new Date(firstMonday)
+  while (cur <= end && weeks.length < 8) {
+    const week: Date[] = []
+    for (let i = 0; i < 7; i++) {
+      week.push(new Date(cur))
+      cur.setDate(cur.getDate() + 1)
+    }
+    weeks.push(week)
+  }
+  if (weeks.length === 0) return y
+
+  // Une grille = labelCol + (7 * weeks.length) jours
+  const totalDayCols = 7 * weeks.length
+  const dayW = (width - labelColW) / totalDayCols
+  const DAYS_SHORT = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
+
+  let curY = y
+  const calStartY = y
+
+  // ─── Header semaines ───
+  setFill([15, 23, 42])
+  doc.rect(x, curY, labelColW, headerH, 'F')
+  doc.setFontSize(7)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(255, 255, 255)
+  doc.text('PHASE', x + labelColW / 2, curY + 6, { align: 'center' })
+
+  weeks.forEach((week, wi) => {
+    const weekX = x + labelColW + wi * 7 * dayW
+    const weekW = 7 * dayW
+    setFill([248, 250, 252])
+    doc.rect(weekX, curY, weekW, headerH, 'F')
+    doc.setFontSize(6)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(100, 116, 139)
+    const wn = getWeekNumber(week[0])
+    doc.text(`S${wn} - ${week[0].getDate()}/${week[0].getMonth() + 1}`, weekX + weekW / 2, curY + 4, { align: 'center' })
+    // Lettres jours dessous
+    week.forEach((day, di) => {
+      const dx = weekX + di * dayW
+      const isWE = di >= 5
+      doc.setFontSize(5)
+      doc.setTextColor(isWE ? 148 : 100, isWE ? 163 : 116, isWE ? 184 : 139)
+      doc.text(DAYS_SHORT[di], dx + dayW / 2, curY + 8, { align: 'center' })
+    })
+  })
+  curY += headerH
+
+  // ─── Une ligne par phase ───
+  phases.forEach((phase, pi) => {
+    const rowY = curY
+    // Label phase à gauche
+    if (pi % 2 === 1) {
+      setFill([248, 250, 252])
+      doc.rect(x, rowY, width, phaseRowH, 'F')
+    }
+    setDraw([241, 245, 249])
+    doc.setLineWidth(0.1)
+    doc.line(x, rowY, x + width, rowY)
+
+    // Pastille couleur + nom de phase
+    setFill(phase.color)
+    doc.roundedRect(x + 2, rowY + 4, 3, 4, 0.5, 0.5, 'F')
+    doc.setFontSize(7)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(15, 23, 42)
+    const titreFit = doc.splitTextToSize(phase.titre, labelColW - 8)[0] || phase.titre
+    doc.text(titreFit, x + 7, rowY + 7)
+
+    // Une barre par jour de présence
+    weeks.forEach((week, wi) => {
+      week.forEach((day, di) => {
+        const dayKey = day.toISOString().split('T')[0]
+        const isPresent = phase.days.has(dayKey)
+        if (isPresent) {
+          const dx = x + labelColW + (wi * 7 + di) * dayW
+          setFill(phase.color)
+          doc.roundedRect(dx + 0.5, rowY + 2.5, dayW - 1, phaseRowH - 5, 0.5, 0.5, 'F')
+        }
+      })
+    })
+
+    curY += phaseRowH
+  })
+
+  // Cadre extérieur
+  setDraw([226, 232, 240])
+  doc.setLineWidth(0.3)
+  doc.roundedRect(x, calStartY, width, curY - calStartY, 1.5, 1.5, 'S')
+
+  return curY
+}
+
+// Note : l'ancienne fonction drawCalendar (rendu par tranches contiguës) a été
+// remplacée par drawCalendarByPhases (1 ligne par phase, 1 barre par jour réel)
+// pour matcher la vision client : voir clairement quels jours il y a du monde.
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function _drawCalendarLegacy(
   doc: jsPDF,
   x: number,
   y: number,
