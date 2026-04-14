@@ -352,10 +352,24 @@ export function generateChantierPlanningPdf(data: ChantierPdfData): string {
   y = boxStartY + boxH + 8
 
   // ============ RÉSUMÉ 3 BLOCS ============
+  // Fallback intelligent : si le chantier n'a pas de date_debut/date_fin_prevue
+  // renseignées, on les calcule automatiquement à partir des phases/interventions
+  // planifiées (date la plus tôt / la plus tardive). Cela permet au calendrier et
+  // aux blocs résumés d'être corrects même si l'artisan n'a pas rempli les dates.
+  const phaseStarts = interventions
+    .map(p => p.date_debut)
+    .filter(Boolean)
+    .sort()
+  const phaseEnds = interventions
+    .map(p => p.date_fin || p.date_debut)
+    .filter(Boolean)
+    .sort()
+  const dateDebut = chantier.date_debut || (phaseStarts[0] ?? null)
+  const dateFin = chantier.date_fin_prevue
+    || (phaseEnds.length > 0 ? phaseEnds[phaseEnds.length - 1] : null)
+
   const sumW = (contentW - 8) / 3
   const sumH = 17
-  const dateDebut = chantier.date_debut
-  const dateFin = chantier.date_fin_prevue
   const nbOuvres = workingDays(dateDebut, dateFin)
   const nbCal = daysBetween(dateDebut, dateFin)
 
@@ -426,7 +440,8 @@ export function generateChantierPlanningPdf(data: ChantierPdfData): string {
       const ivName = iv ? `${iv.prenom || ''} ${iv.nom || ''}`.trim() : '—'
       const ivRole = iv?.metier || iv?.type_contrat || ''
       const dateRange = p.date_fin && p.date_fin !== p.date_debut
-        ? `${fmtDateShort(p.date_debut)} → ${fmtDateShort(p.date_fin)}`
+        // jsPDF ne rend pas proprement la flèche unicode "→", on utilise " au " à la place
+        ? `${fmtDateShort(p.date_debut)} au ${fmtDateShort(p.date_fin)}`
         : fmtDateShort(p.date_debut)
       const duree = daysBetween(p.date_debut, p.date_fin || p.date_debut)
       return [
