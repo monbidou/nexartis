@@ -92,8 +92,11 @@ export default function DashboardPage() {
   const facturesImpayees = factures.filter((f: Record<string, unknown>) => f.statut === 'en_retard' || f.statut === 'envoyee');
   const devisEnCours = devis.filter((d: Record<string, unknown>) => d.statut === 'envoye' || d.statut === 'brouillon');
   const devisEnCoursMontant = devisEnCours.reduce((sum: number, d: Record<string, unknown>) => sum + Number(d.montant_ht || 0), 0);
+  // Devis acceptés (statut 'signe') — utilisés pour la stat "Conversion" et "À planifier"
+  const devisSignes = devis.filter((d: Record<string, unknown>) => d.statut === 'signe');
+  const devisSignesMontantTTC = devisSignes.reduce((sum: number, d: Record<string, unknown>) => sum + Number(d.montant_ttc || 0), 0);
   const tauxConversion = devis.length > 0
-    ? Math.round((devis.filter((d: Record<string, unknown>) => d.statut === 'signe').length / devis.length) * 100)
+    ? Math.round((devisSignes.length / devis.length) * 100)
     : 0;
 
   /* ── Client name resolver ── */
@@ -267,13 +270,19 @@ export default function DashboardPage() {
     });
   }
 
-  // Devis acceptés (signés) sans chantier associé → à planifier
-  const chantierDevisIds = new Set(chantiers.map((c: Record<string, unknown>) => c.devis_id as string).filter(Boolean))
-  const devisAcceptesSansChantier = devis.filter((d: Record<string, unknown>) => {
+  // Devis acceptés (signés) sans aucune intervention planifiée → à planifier
+  // (un devis peut avoir un chantier auto-créé mais aucune intervention dedans)
+  const devisAcceptesAPlanifier = devis.filter((d: Record<string, unknown>) => {
     if (d.statut !== 'signe') return false
-    return !d.chantier_id && !chantierDevisIds.has(d.id as string)
+    // Vérifier qu'aucune intervention planning n'existe pour ce devis
+    // (soit liée directement via planning.devis_id, soit via planning.chantier_id si chantier existe)
+    const hasPlanningForDevis = planning.some((p: Record<string, unknown>) => p.devis_id === d.id)
+    const hasPlanningForChantier = d.chantier_id
+      ? planning.some((p: Record<string, unknown>) => p.chantier_id === d.chantier_id)
+      : false
+    return !hasPlanningForDevis && !hasPlanningForChantier
   })
-  for (const d of devisAcceptesSansChantier) {
+  for (const d of devisAcceptesAPlanifier) {
     const cName = clientName(d.client_id) || (d.notes_client as string)?.split(' | ')[0] || ''
     todoItems.push({
       title: `Devis ${d.numero} — accepté`,
@@ -281,8 +290,11 @@ export default function DashboardPage() {
       amount: d.montant_ttc ? formatEuro(Number(d.montant_ttc)) : '',
       dotColor: '#10b981', amountColor: '#10b981',
       tag: 'Planifier', tagBg: '#ecfdf5', tagColor: '#059669',
-      href: `/dashboard/devis/${d.id}`,
-      actionHref: `/dashboard/chantiers/nouveau?devis_id=${d.id}`,
+      // Si chantier existe → on l'ouvre directement, sinon on propose d'en créer un
+      href: d.chantier_id ? `/dashboard/chantiers/${d.chantier_id}` : `/dashboard/devis/${d.id}`,
+      actionHref: d.chantier_id
+        ? `/dashboard/planning?chantier_id=${d.chantier_id}&devis_id=${d.id}`
+        : `/dashboard/chantiers/nouveau?devis_id=${d.id}`,
     })
   }
 
@@ -467,7 +479,10 @@ export default function DashboardPage() {
       label: 'Conversion',
       value: tauxConversion,
       unit: '%',
-      sub: `${devisEnCours.length} devis · ${formatEuro(devisEnCoursMontant)} HT`,
+      // Affiche le nombre de devis acceptés et leur valeur (TTC) plutôt que les devis en cours
+      sub: devisSignes.length > 0
+        ? `${devisSignes.length} accepté${devisSignes.length > 1 ? 's' : ''} · ${formatEuro(devisSignesMontantTTC)} TTC`
+        : `${devisEnCours.length} en attente · ${formatEuro(devisEnCoursMontant)} HT`,
       color: '#7c3aed',
       barWidth: `${tauxConversion}%`,
     },
