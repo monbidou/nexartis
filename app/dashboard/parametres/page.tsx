@@ -57,6 +57,8 @@ function InputField({
   type = 'text',
   readOnly = false,
   placeholder = '',
+  error = null,
+  hint = null,
 }: {
   label: string
   value?: string
@@ -64,7 +66,12 @@ function InputField({
   type?: string
   readOnly?: boolean
   placeholder?: string
+  /** Message d'erreur affiché en rouge sous le champ */
+  error?: string | null
+  /** Indication discrète affichée en gris sous le champ */
+  hint?: string | null
 }) {
+  const hasError = Boolean(error)
   return (
     <div>
       <label className="block font-manrope font-medium text-sm text-gray-700 mb-1.5">
@@ -76,12 +83,94 @@ function InputField({
         onChange={(e) => onChange?.(e.target.value)}
         readOnly={readOnly}
         placeholder={placeholder}
-        className={`w-full h-12 rounded-lg border border-gray-200 px-4 font-manrope text-sm text-[#1a1a2e] focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none transition-colors ${
-          readOnly ? 'bg-gray-50 cursor-not-allowed' : ''
-        }`}
+        className={`w-full h-12 rounded-lg border px-4 font-manrope text-sm text-[#1a1a2e] outline-none transition-colors ${
+          hasError
+            ? 'border-red-400 focus:border-red-500 focus:ring-1 focus:ring-red-500 bg-red-50/30'
+            : 'border-gray-200 focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0]'
+        } ${readOnly ? 'bg-gray-50 cursor-not-allowed' : ''}`}
       />
+      {hasError && (
+        <p className="mt-1.5 text-xs text-red-600 font-manrope flex items-start gap-1">
+          <span aria-hidden>⚠</span>
+          <span>{error}</span>
+        </p>
+      )}
+      {!hasError && hint && (
+        <p className="mt-1.5 text-xs text-gray-400 font-manrope">{hint}</p>
+      )}
     </div>
   )
+}
+
+// -------------------------------------------------------------------
+// Validators (formats légaux français)
+// -------------------------------------------------------------------
+
+/** Normalise une chaîne en supprimant tous les espaces */
+function clean(s: string): string {
+  return (s || '').replace(/\s+/g, '')
+}
+
+/** SIRET = 14 chiffres exactement */
+function validateSiret(s: string): string | null {
+  if (!s) return null
+  const c = clean(s)
+  if (!/^\d+$/.test(c)) return 'Le SIRET ne doit contenir que des chiffres'
+  if (c.length !== 14) return `Le SIRET doit faire 14 chiffres (actuellement ${c.length})`
+  return null
+}
+
+/** TVA intracommunautaire FR : "FR" + 2 chiffres clé + 9 chiffres SIREN = 13 caractères */
+function validateTva(s: string): string | null {
+  if (!s) return null
+  const c = clean(s).toUpperCase()
+  if (!c.startsWith('FR')) return 'Le numéro de TVA français doit commencer par "FR"'
+  const rest = c.substring(2)
+  if (!/^\d+$/.test(rest)) return 'Après "FR", il ne doit y avoir que des chiffres'
+  if (rest.length !== 11) return `Le N° TVA doit faire FR + 11 chiffres (actuellement FR + ${rest.length})`
+  return null
+}
+
+/** Code NAF/APE = 4 chiffres + 1 lettre majuscule (ex: 4322A) */
+function validateNaf(s: string): string | null {
+  if (!s) return null
+  const c = clean(s).toUpperCase()
+  if (!/^\d{4}[A-Z]$/.test(c)) return 'Format attendu : 4 chiffres + 1 lettre (ex : 4322A)'
+  return null
+}
+
+/** RCS / RM = format libre commençant par "RCS Ville" ou "RM Ville" + SIREN 9 chiffres */
+function validateRcsRm(s: string): string | null {
+  if (!s) return null
+  const c = (s || '').trim()
+  if (!/^(RCS|RM)\s+/i.test(c)) return 'Doit commencer par "RCS" ou "RM" suivi de la ville'
+  const digits = c.replace(/\D/g, '')
+  if (digits.length < 9) return 'Doit contenir le numéro SIREN (9 chiffres)'
+  return null
+}
+
+/** Code postal français = 5 chiffres */
+function validateCodePostal(s: string): string | null {
+  if (!s) return null
+  const c = clean(s)
+  if (!/^\d{5}$/.test(c)) return 'Le code postal français fait 5 chiffres'
+  return null
+}
+
+/** Email standard */
+function validateEmail(s: string): string | null {
+  if (!s) return null
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim())) return 'Adresse email invalide'
+  return null
+}
+
+/** Téléphone français : 10 chiffres OU format international +33 */
+function validateTelephone(s: string): string | null {
+  if (!s) return null
+  const c = clean(s).replace(/[.\-()]/g, '')
+  if (/^\+33\d{9}$/.test(c)) return null
+  if (/^0\d{9}$/.test(c)) return null
+  return 'Format attendu : 06 12 34 56 78 ou +33 6 12 34 56 78'
 }
 
 function ToggleSwitch({
@@ -139,12 +228,13 @@ function TextAreaField({
   )
 }
 
-function SaveButton({ onClick, saving }: { onClick: () => void; saving: boolean }) {
+function SaveButton({ onClick, saving, disabled = false }: { onClick: () => void; saving: boolean; disabled?: boolean }) {
   return (
     <div className="mt-8 flex justify-end">
       <button
         onClick={onClick}
-        disabled={saving}
+        disabled={saving || disabled}
+        title={disabled ? 'Corrigez les erreurs avant d\'enregistrer' : ''}
         className="h-12 px-8 rounded-lg font-syne font-bold text-white bg-[#e87a2a] hover:bg-[#f09050] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {saving ? 'Enregistrement...' : 'Enregistrer les modifications'}
@@ -235,7 +325,23 @@ function EntrepriseSection({
     }
   }, [entreprise])
 
+  // Liste des erreurs de validation actives sur la page (vide = tout est OK)
+  const validationErrors = [
+    validateSiret(siret),
+    validateTva(tva),
+    validateNaf(naf),
+    validateRcsRm(rcsRm),
+    validateCodePostal(codePostal),
+    validateTelephone(telephone),
+    validateEmail(email),
+  ].filter((e): e is string => Boolean(e))
+  const hasValidationErrors = validationErrors.length > 0
+
   const handleSave = async () => {
+    if (hasValidationErrors) {
+      setErrorMsg('Veuillez corriger les erreurs avant d\'enregistrer.')
+      return
+    }
     setSaving(true)
     setSuccess(null)
     setErrorMsg(null)
@@ -284,10 +390,10 @@ function EntrepriseSection({
             <option value="SASU">SASU</option>
           </select>
         </div>
-        <InputField label="SIRET" value={siret} onChange={setSiret} placeholder="123 456 789 00012" />
-        <InputField label="N° TVA intracommunautaire" value={tva} onChange={setTva} placeholder="FR 12 345678901" />
-        <InputField label="Code NAF" value={naf} onChange={setNaf} placeholder="4322A" />
-        <InputField label="RCS / RM (n° + ville)" value={rcsRm} onChange={setRcsRm} placeholder="RM Bordeaux 123456789" />
+        <InputField label="SIRET" value={siret} onChange={setSiret} placeholder="123 456 789 00012" error={validateSiret(siret)} hint="14 chiffres (espaces tolérés)" />
+        <InputField label="N° TVA intracommunautaire" value={tva} onChange={setTva} placeholder="FR 12 345678901" error={validateTva(tva)} hint="FR + 11 chiffres" />
+        <InputField label="Code NAF" value={naf} onChange={setNaf} placeholder="4322A" error={validateNaf(naf)} hint="4 chiffres + 1 lettre (ex : 4322A)" />
+        <InputField label="RCS / RM (n° + ville)" value={rcsRm} onChange={setRcsRm} placeholder="RM Bordeaux 123456789" error={validateRcsRm(rcsRm)} hint='"RCS" ou "RM" + ville + SIREN (9 chiffres)' />
         <InputField label="Capital social" value={capitalSocial} onChange={setCapitalSocial} placeholder="10 000 € (laisser vide si EI)" />
         <InputField label="Métier / activité" value={metier} onChange={setMetier} />
         <InputField label="Qualification professionnelle" value={qualificationPro} onChange={setQualificationPro} placeholder="Ex : CAP Électricien, BTS Électrotechnique..." />
@@ -306,10 +412,10 @@ function EntrepriseSection({
       <p className="text-xs font-manrope text-gray-400 uppercase tracking-wider mb-3 mt-8">Coordonnées</p>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <InputField label="Adresse" value={adresse} onChange={setAdresse} />
-        <InputField label="Code postal" value={codePostal} onChange={setCodePostal} />
+        <InputField label="Code postal" value={codePostal} onChange={setCodePostal} error={validateCodePostal(codePostal)} hint="5 chiffres" />
         <InputField label="Ville" value={ville} onChange={setVille} />
-        <InputField label="Téléphone" value={telephone} onChange={setTelephone} />
-        <InputField label="Email" value={email} onChange={setEmail} />
+        <InputField label="Téléphone" value={telephone} onChange={setTelephone} error={validateTelephone(telephone)} hint="06 12 34 56 78 ou +33..." />
+        <InputField label="Email" value={email} onChange={setEmail} error={validateEmail(email)} />
       </div>
 
       {/* Assurance décennale */}
@@ -342,7 +448,17 @@ function EntrepriseSection({
         <InputField label="BIC" value={bic} onChange={setBic} />
       </div>
 
-      <SaveButton onClick={handleSave} saving={saving} />
+      {hasValidationErrors && (
+        <div className="mt-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+          <p className="text-sm font-manrope font-bold text-red-700 mb-1">
+            {validationErrors.length} erreur{validationErrors.length > 1 ? 's' : ''} à corriger avant d&apos;enregistrer
+          </p>
+          <ul className="list-disc list-inside text-xs text-red-600 font-manrope space-y-0.5">
+            {validationErrors.map((e, i) => <li key={i}>{e}</li>)}
+          </ul>
+        </div>
+      )}
+      <SaveButton onClick={handleSave} saving={saving} disabled={hasValidationErrors} />
       <SuccessMessage message={success} />
       <ErrorMessage message={errorMsg} />
     </div>
