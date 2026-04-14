@@ -149,13 +149,22 @@ export async function DELETE(request: Request) {
   const supabaseAdmin = adminSupabase()
 
   // 1. Supprimer toutes les données liées dans les tables
+  //    (ordre important : enfants avant parents pour éviter les FK violations)
   const tablesToClean = [
     'chantier_notes',
+    'chantier_intervenants',
+    'sous_traitant_paiements',
     'planning_interventions',
     'facture_lignes',
     'devis_lignes',
+    'paiements',
     'factures',
     'devis',
+    'achats',
+    'documents',
+    'relances',
+    'points_collecte',
+    'prestations',
     'chantiers',
     'clients',
     'fournisseurs',
@@ -163,11 +172,15 @@ export async function DELETE(request: Request) {
     'entreprises',
   ]
 
+  const errors: string[] = []
   for (const table of tablesToClean) {
     const { error } = await supabaseAdmin.from(table).delete().eq('user_id', userId)
     if (error) {
-      console.error(`Error deleting from ${table}:`, error.message)
-      // Continue — on essaie de tout nettoyer
+      // Ignorer les tables inexistantes ('PGRST205') mais garder les autres erreurs
+      if (!error.message?.includes('relation') && !error.message?.includes('does not exist')) {
+        console.error(`Error deleting from ${table}:`, error.message)
+        errors.push(`${table}: ${error.message}`)
+      }
     }
   }
 
@@ -175,8 +188,10 @@ export async function DELETE(request: Request) {
   const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(userId)
   if (authError) {
     console.error('Auth delete error:', authError)
-    return secureError('Erreur lors de la suppression du compte', 500)
+    // Retourner le vrai message d'erreur + les erreurs des tables pour debug
+    const details = [authError.message, ...errors].filter(Boolean).join(' | ')
+    return secureError(`Suppression échouée : ${details}`, 500)
   }
 
-  return secureJson({ success: true })
+  return secureJson({ success: true, cleanedTables: tablesToClean.length })
 }
