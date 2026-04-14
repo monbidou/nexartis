@@ -111,11 +111,21 @@ export default function ChantiersListPage() {
 
   // Devis montant TTC par chantier (fallback si montant_devis_total est 0)
   const devisParChantier = new Map<string, number>()
+  // Comptage des devis par chantier (total + ceux pas encore facturés = "en cours")
+  // "en cours" = statuts qui ne sont pas 'facture' ni 'refuse' ni 'expire'
+  const devisCountParChantier = new Map<string, { total: number; enCours: number }>()
   for (const d of devisData) {
     const rec = d as Record<string, unknown>
     const cId = rec.chantier_id as string
     if (!cId) continue
     devisParChantier.set(cId, (devisParChantier.get(cId) || 0) + Number(rec.montant_ttc || 0))
+    const current = devisCountParChantier.get(cId) || { total: 0, enCours: 0 }
+    current.total += 1
+    const statut = rec.statut as string
+    if (statut !== 'facture' && statut !== 'refuse' && statut !== 'expire') {
+      current.enCours += 1
+    }
+    devisCountParChantier.set(cId, current)
   }
 
   const filtered = chantiers.filter((c: Record<string, unknown>) => {
@@ -324,7 +334,18 @@ export default function ChantiersListPage() {
                       {statutToFilter(chantier.statut as string)}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-sm font-manrope font-medium text-[#1a1a2e]">{formatMoney(getChantierDevisTTC(chantier))}</td>
+                  <td className="px-4 py-3 text-sm font-manrope font-medium text-[#1a1a2e]">
+                    <div>{formatMoney(getChantierDevisTTC(chantier))}</div>
+                    {(() => {
+                      const counts = devisCountParChantier.get(chantier.id as string)
+                      if (!counts || counts.total === 0) return null
+                      return (
+                        <div className="text-[11px] text-[#7b8ba3] font-normal mt-0.5">
+                          {counts.enCours}/{counts.total} devis {counts.enCours === counts.total ? 'en cours' : counts.enCours > 0 ? 'en cours' : 'facturé' + (counts.total > 1 ? 's' : '')}
+                        </div>
+                      )
+                    })()}
+                  </td>
                   <td className="px-4 py-3 text-sm font-manrope font-medium text-[#1a1a2e]">{formatMoney(getChantierFactureTTC(chantier))}</td>
                   <td className="px-4 py-3 text-sm font-manrope font-medium text-[#1a1a2e]">{formatMoney(getChantierEncaisse(chantier))}</td>
                   <td className="px-4 py-3">
