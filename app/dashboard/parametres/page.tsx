@@ -66,12 +66,16 @@ function InputField({
   type?: string
   readOnly?: boolean
   placeholder?: string
-  /** Message d'erreur affiché en rouge sous le champ */
+  /** Message d'erreur affiché en rouge sous le champ.
+   *  N'apparaît qu'APRÈS que l'utilisateur ait quitté le champ une 1ère fois. */
   error?: string | null
   /** Indication discrète affichée en gris sous le champ */
   hint?: string | null
 }) {
-  const hasError = Boolean(error)
+  // touched = false tant que l'utilisateur n'a pas quitté le champ une fois.
+  // Évite d'afficher une erreur dès le 1er caractère tapé (anxiogène).
+  const [touched, setTouched] = useState(false)
+  const hasError = touched && Boolean(error)
   return (
     <div>
       <label className="block font-manrope font-medium text-sm text-gray-700 mb-1.5">
@@ -81,6 +85,7 @@ function InputField({
         type={type}
         value={value}
         onChange={(e) => onChange?.(e.target.value)}
+        onBlur={() => setTouched(true)}
         readOnly={readOnly}
         placeholder={placeholder}
         className={`w-full h-12 rounded-lg border px-4 font-manrope text-sm text-[#1a1a2e] outline-none transition-colors ${
