@@ -1100,6 +1100,9 @@ function LogoUploadSection({
     try {
       await update({ logo_url: dataUrl })
       setRemovedBgPreview(null)
+      // Reload pour rafraîchir TOUS les endroits qui affichent le logo
+      // (sidebar, devis, factures...) — sinon le cache React garde l'ancien.
+      setTimeout(() => window.location.reload(), 400)
     } catch { /* ignored */ }
     setSaving(false)
   }
