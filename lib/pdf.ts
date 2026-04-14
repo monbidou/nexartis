@@ -42,6 +42,8 @@ interface Entreprise {
   signature_base64?: string
   tampon_base64?: string
   mediateur?: string
+  iban?: string
+  bic?: string
 }
 
 interface Ligne {
@@ -785,6 +787,44 @@ export function generateFacturePdf(data: FactureData): string {
   y = Math.max(leftY, rightY) + 3
 
   // ── PAS DE SIGNATURES SUR FACTURE (différence avec devis) ─────
+
+  // ── COORDONNÉES BANCAIRES (encart "Pour régler par virement") ─
+  // Affiché UNIQUEMENT si l'IBAN est renseigné dans le profil entreprise.
+  // Position : bas-gauche, encadré gris clair, format IBAN avec espaces tous les 4 car.
+  if (ent.iban && ent.iban.trim()) {
+    y = ensureSpace(doc, y, 22)
+    const ribX = 14
+    const ribW = 100
+    const ribH = 18
+    // Cadre gris clair
+    doc.setDrawColor(200, 200, 200)
+    doc.setFillColor(248, 250, 252)
+    doc.setLineWidth(0.3)
+    doc.roundedRect(ribX, y, ribW, ribH, 1.5, 1.5, 'FD')
+    // Label
+    doc.setFontSize(7)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(37, 99, 235)
+    doc.text('POUR RÉGLER PAR VIREMENT', ribX + 3, y + 4)
+    // IBAN formaté avec espaces tous les 4 caractères (lisibilité)
+    const ibanClean = ent.iban.replace(/\s+/g, '').toUpperCase()
+    const ibanFormatted = ibanClean.match(/.{1,4}/g)?.join(' ') || ibanClean
+    doc.setFontSize(8.5)
+    doc.setFont('courier', 'bold')
+    doc.setTextColor(15, 23, 42)
+    doc.text(`IBAN : ${ibanFormatted}`, ribX + 3, y + 9)
+    // BIC en dessous (si renseigné)
+    if (ent.bic && ent.bic.trim()) {
+      doc.setFontSize(7.5)
+      doc.text(`BIC : ${ent.bic.trim().toUpperCase()}`, ribX + 3, y + 13)
+    }
+    // Bénéficiaire (nom de l'entreprise)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(6.5)
+    doc.setTextColor(107, 114, 128)
+    doc.text(`Bénéficiaire : ${ent.nom || ''}`, ribX + 3, y + 16.5)
+    y += ribH + 4
+  }
 
   // ── MENTION LÉGALE FACTURE ────────────────────────────────────
   y = ensureSpace(doc, y, 8)
