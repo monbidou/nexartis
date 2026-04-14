@@ -93,28 +93,62 @@ function VoiceModal({ open, onClose, onResult }: {
 
   const supported = typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)
 
-  const startListening = () => {
+  const startListening = async () => {
+    setError(null)
+
+    // 1. Demander explicitement la permission micro — affiche le prompt Chrome
+    //    (sans ça, recognition.start() peut échouer silencieusement)
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      // On libère immédiatement le stream — SpeechRecognition gère son propre flux
+      stream.getTracks().forEach(t => t.stop())
+    } catch {
+      setError('Accès au micro refusé. Cliquez sur le cadenas 🔒 dans la barre d\'adresse pour autoriser le micro, puis rechargez la page.')
+      return
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const w = window as any
     const SR = w.SpeechRecognition || w.webkitSpeechRecognition
-    if (!SR) return
-    const recognition = new SR()
-    recognition.lang = 'fr-FR'
-    recognition.continuous = true
-    recognition.interimResults = true
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    recognition.onresult = (e: any) => {
-      let text = ''
-      for (let i = 0; i < e.results.length; i++) text += e.results[i][0].transcript
-      setTranscript(text)
+    if (!SR) {
+      setError('Votre navigateur ne supporte pas la dictée vocale. Utilisez Chrome, Edge ou Safari.')
+      return
     }
-    recognition.onerror = () => setListening(false)
-    recognition.onend = () => setListening(false)
-    recognitionRef.current = recognition
-    recognition.start()
-    setListening(true)
-    setTranscript('')
-    setError(null)
+
+    try {
+      const recognition = new SR()
+      recognition.lang = 'fr-FR'
+      recognition.continuous = true
+      recognition.interimResults = true
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      recognition.onresult = (e: any) => {
+        let text = ''
+        for (let i = 0; i < e.results.length; i++) text += e.results[i][0].transcript
+        setTranscript(text)
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      recognition.onerror = (e: any) => {
+        const errorMessages: Record<string, string> = {
+          'not-allowed': 'Accès au micro refusé. Autorisez le micro dans les réglages du navigateur.',
+          'no-speech': 'Aucune voix détectée. Parlez plus fort ou rapprochez-vous du micro.',
+          'audio-capture': 'Aucun micro détecté. Vérifiez que votre micro est branché.',
+          'network': 'Erreur réseau. Vérifiez votre connexion internet.',
+          'aborted': '', // silencieux, l'utilisateur a annulé volontairement
+        }
+        const code = e?.error || 'unknown'
+        const msg = errorMessages[code] !== undefined ? errorMessages[code] : `Erreur dictée vocale (${code})`
+        if (msg) setError(msg)
+        setListening(false)
+      }
+      recognition.onend = () => setListening(false)
+      recognitionRef.current = recognition
+      recognition.start()
+      setListening(true)
+      setTranscript('')
+    } catch (err) {
+      setError('Erreur lors du démarrage de la dictée : ' + (err instanceof Error ? err.message : 'inconnue'))
+      setListening(false)
+    }
   }
 
   const stopListening = () => {
@@ -173,7 +207,14 @@ function VoiceModal({ open, onClose, onResult }: {
                 <p className="text-sm font-manrope text-[#1a1a2e]">{transcript}</p>
               </div>
             )}
-            {error && <p className="text-sm font-manrope text-red-500 mb-4">{error}</p>}
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 mb-4">
+                <p className="text-sm font-manrope text-red-700 flex items-start gap-2">
+                  <span aria-hidden>⚠</span>
+                  <span>{error}</span>
+                </p>
+              </div>
+            )}
             <div className="flex gap-3 justify-end">
               <button onClick={onClose} className="h-10 px-6 rounded-lg border border-gray-200 text-sm font-manrope hover:bg-gray-50">Annuler</button>
               <button
@@ -356,8 +397,12 @@ function NouveauDevisPage() {
     setSaving(true)
     setError(null)
 
-    // Map action to statut values matching the DB CHECK constraint
-    const statutMap = { brouillon: 'brouillon', enregistrer: 'envoye', envoyer: 'envoye' } as const
+    // Map action to statut values matching the DB CHECK constraint.
+    // IMPORTANT : 'envoye' n'est attribué QUE quand l'email est réellement envoyé,
+    // pas au moment de la sauvegarde. "Enregistrer" et "Envoyer" depuis ce formulaire
+    // créent un devis 'finalise' (= prêt à être envoyé). Le passage à 'envoye'
+    // se fait depuis l'API /api/send-devis quand le mail part vraiment.
+    const statutMap = { brouillon: 'brouillon', enregistrer: 'finalise', envoyer: 'finalise' } as const
     const statut = statutMap[action]
 
     // Generate devis number: D-YYYY-NNNNN
