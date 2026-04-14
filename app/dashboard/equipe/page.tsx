@@ -238,7 +238,7 @@ export default function EquipePage() {
             <table className="w-full min-w-[900px]">
               <thead>
                 <tr className="bg-gray-50">
-                  {['Nom', 'Rôle', 'Contrat', 'Métier', 'Email', 'Téléphone', ''].map((col, i) => (
+                  {['Nom', 'Contrat', 'Métier', 'Email', 'Téléphone', ''].map((col, i) => (
                     <th
                       key={`${col}-${i}`}
                       className="px-4 py-3 text-left text-xs font-manrope font-semibold uppercase tracking-wider text-gray-500"
@@ -263,15 +263,6 @@ export default function EquipePage() {
                         </div>
                         <span className="text-sm font-manrope font-semibold text-[#1a1a2e]">{employe.prenom} {employe.nom}</span>
                       </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-manrope font-medium ${
-                        employe.niveau_acces === 'proprietaire'
-                          ? 'bg-blue-50 text-blue-700'
-                          : 'bg-gray-100 text-gray-600'
-                      }`}>
-                        {employe.niveau_acces === 'proprietaire' ? 'Propriétaire' : 'Compagnon'}
-                      </span>
                     </td>
                     <td className="px-4 py-3 text-sm font-manrope text-gray-600">{CONTRAT_LABELS[employe.type_contrat] || employe.type_contrat}</td>
                     <td className="px-4 py-3 text-sm font-manrope text-gray-600">{employe.metier}</td>
@@ -403,32 +394,19 @@ export default function EquipePage() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-manrope font-semibold text-gray-500 mb-1">Contrat</label>
-                <select
-                  value={form.type_contrat}
-                  onChange={(e) => setForm({ ...form, type_contrat: e.target.value as Intervenant['type_contrat'] })}
-                  className="w-full h-10 rounded-lg border border-gray-200 px-3 text-sm font-manrope focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none"
-                >
-                  <option value="cdi">CDI</option>
-                  <option value="cdd">CDD</option>
-                  <option value="apprenti">Apprenti</option>
-                  <option value="interimaire">Intérimaire</option>
-                  <option value="sous-traitant">Sous-traitant</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-manrope font-semibold text-gray-500 mb-1">Rôle</label>
-                <select
-                  value={form.niveau_acces}
-                  onChange={(e) => setForm({ ...form, niveau_acces: e.target.value as Intervenant['niveau_acces'] })}
-                  className="w-full h-10 rounded-lg border border-gray-200 px-3 text-sm font-manrope focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none"
-                >
-                  <option value="compagnon">Compagnon</option>
-                  <option value="proprietaire">Propriétaire</option>
-                </select>
-              </div>
+            <div>
+              <label className="block text-xs font-manrope font-semibold text-gray-500 mb-1">Contrat</label>
+              <select
+                value={form.type_contrat}
+                onChange={(e) => setForm({ ...form, type_contrat: e.target.value as Intervenant['type_contrat'] })}
+                className="w-full h-10 rounded-lg border border-gray-200 px-3 text-sm font-manrope focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none"
+              >
+                <option value="cdi">CDI</option>
+                <option value="cdd">CDD</option>
+                <option value="apprenti">Apprenti</option>
+                <option value="interimaire">Intérimaire</option>
+                <option value="sous-traitant">Sous-traitant</option>
+              </select>
             </div>
 
             <div className="flex justify-end gap-3 pt-2">
