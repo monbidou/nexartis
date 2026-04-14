@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -217,19 +216,21 @@ function Sidebar({
       >
         {/* ---- Top: Logo + Nom entreprise ---- */}
         <div className={`flex flex-col items-center px-4 pt-6 pb-4 ${collapsed ? 'pt-4 pb-2' : ''}`}>
-          {/* Logo dans un rectangle blanc arrondi */}
-          <div
-            className="flex items-center justify-center mb-3 bg-white overflow-hidden"
-            style={{
-              width: collapsed ? 44 : '90%',
-              height: collapsed ? 44 : 80,
-              borderRadius: collapsed ? 10 : 14,
-              padding: collapsed ? 4 : 6,
-              flexShrink: 0,
-            }}
-          >
-            {entrepriseLogo ? (
-              // eslint-disable-next-line @next/next/no-img-element
+          {/* Logo de l'artisan : affiché UNIQUEMENT s'il a uploadé son logo.
+              Sinon on laisse l'espace bleu pour ne pas afficher le logo Nexartis.
+              Le nom de l'entreprise est ensuite affiché en dessous. */}
+          {entrepriseLogo && (
+            <div
+              className="flex items-center justify-center mb-3 bg-white overflow-hidden"
+              style={{
+                width: collapsed ? 44 : '90%',
+                height: collapsed ? 44 : 80,
+                borderRadius: collapsed ? 10 : 14,
+                padding: collapsed ? 4 : 6,
+                flexShrink: 0,
+              }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={entrepriseLogo}
                 alt={entrepriseNom || 'Logo'}
@@ -241,24 +242,33 @@ function Sidebar({
                   objectFit: 'contain',
                 }}
               />
-            ) : (
-              <Image
-                src="/images/logo-nexartis.png"
-                alt="Nexartis"
-                width={64}
-                height={64}
-                quality={100}
-                className="object-contain"
-                style={{ width: '100%', height: '100%' }}
-              />
-            )}
-          </div>
+            </div>
+          )}
 
-          {/* Nom entreprise centré, une seule fois, seulement si sidebar ouverte */}
+          {/* Nom entreprise centré, taille adaptée selon présence du logo :
+              - SI logo présent : nom petit en dessous
+              - SI pas de logo : nom plus grand pour occuper l'espace */}
           {!collapsed && !userLoading && (
-            <p className="font-syne font-bold text-white text-sm text-center leading-tight truncate max-w-full">
+            <p
+              className={`font-syne font-bold text-white text-center leading-tight max-w-full break-words px-2 ${
+                entrepriseLogo ? 'text-sm truncate' : 'text-xl py-6'
+              }`}
+            >
               {entrepriseNom || 'Mon Entreprise'}
             </p>
+          )}
+          {/* En mode collapsed (sidebar réduite) sans logo : afficher initiales */}
+          {collapsed && !entrepriseLogo && !userLoading && entrepriseNom && (
+            <div className="w-11 h-11 rounded-lg bg-white/15 flex items-center justify-center mb-3">
+              <span className="font-syne font-bold text-white text-base">
+                {entrepriseNom
+                  .split(' ')
+                  .map((w) => w[0])
+                  .join('')
+                  .toUpperCase()
+                  .slice(0, 2)}
+              </span>
+            </div>
           )}
 
           {/* Mobile close */}
@@ -677,22 +687,8 @@ export default function DashboardLayout({
           userLoading={isLoading}
         />
 
-        {/* Bandeau profil incomplet */}
-        {!isLoading && entreprise && (
-          !entreprise.nom || entreprise.nom === 'Mon Entreprise' || !entreprise.siret
-        ) && (
-          <div className="bg-[#e87a2a] px-4 py-3 flex items-center justify-between gap-3 lg:px-6">
-            <p className="font-manrope text-sm text-white">
-              ⚠️ Complétez votre profil pour que vos devis et factures soient pré-remplis automatiquement
-            </p>
-            <Link
-              href="/dashboard/parametres"
-              className="shrink-0 rounded-lg bg-white px-4 py-1.5 font-syne text-sm font-bold text-[#e87a2a] hover:bg-gray-100 transition-colors"
-            >
-              Configurer maintenant
-            </Link>
-          </div>
-        )}
+        {/* Bandeau profil incomplet retiré : on laisse uniquement
+            la carte d'alerte sur le tableau de bord (UX moins agressive) */}
 
         <main className="p-4 lg:p-6 pb-20 md:pb-6">
           {children}
