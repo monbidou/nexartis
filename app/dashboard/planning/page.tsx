@@ -811,8 +811,9 @@ export default function PlanningPage() {
                     {isSociete || soloHasSubcontractors ? (
                       <div className={`grid ${isSociete ? 'grid-cols-[220px_1fr]' : 'grid-cols-[180px_1fr]'}`}>
                         {/* Left: Artisan column header */}
-                        <div className={`px-4 py-2 flex items-center border-r border-[#e6ecf2] ${isCurrentWeek ? 'bg-[#5ab4e0]/[.06]' : 'bg-[#f0f2f7]'}`}>
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-[#94a3b8]">Artisan</span>
+                        <div className={`px-4 py-2 flex items-center gap-1.5 border-r border-[#e6ecf2] ${isCurrentWeek ? 'bg-[#5ab4e0]/[.06]' : 'bg-[#f0f2f7]'}`}>
+                          <Users className="w-3.5 h-3.5 text-[#7b8ba3]" />
+                          <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#7b8ba3]">Artisans</span>
                         </div>
                         {/* Right: Week info above the day columns */}
                         <div className={`px-4 py-2 flex items-center gap-2 text-xs font-bold ${isCurrentWeek ? 'bg-[#5ab4e0]/[.06] text-[#5ab4e0]' : 'bg-[#f6f8fb] text-[#7b8ba3]'}`}>
@@ -838,11 +839,10 @@ export default function PlanningPage() {
                           ? 'grid-cols-[180px_repeat(5,minmax(200px,1fr))]'
                           : 'grid-cols-[repeat(5,minmax(200px,1fr))]'
                     }`}>
-                      {/* Day headers */}
-                      {/* Artisan column header cell — styled with subtle background */}
-                      {(isSociete || soloHasSubcontractors) && <div className="bg-[#f0f2f7]/60 border-r border-[#e6ecf2]" />}
+                      {/* Day headers — with strong bottom border as separator */}
+                      {(isSociete || soloHasSubcontractors) && <div className="bg-[#f0f2f7]/60 border-r border-[#e6ecf2] border-b-2 border-b-[#d0d7e2]" />}
                       {week.days.map(day => (
-                        <div key={day.dateStr} className={`px-2 py-1.5 text-center border-r border-[#e6ecf2] last:border-r-0 ${day.isToday ? 'bg-[#5ab4e0]/[.04]' : ''}`}>
+                        <div key={day.dateStr} className={`px-2 py-2 text-center border-r border-[#e6ecf2] last:border-r-0 border-b-2 border-b-[#d0d7e2] ${day.isToday ? 'bg-[#5ab4e0]/[.04]' : ''}`}>
                           <div className={`text-[10px] font-bold uppercase tracking-wider ${day.isToday ? 'text-[#5ab4e0]' : 'text-[#7b8ba3]'}`}>
                             {day.label} {day.date.getDate()}
                           </div>
