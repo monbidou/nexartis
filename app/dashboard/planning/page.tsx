@@ -813,7 +813,7 @@ export default function PlanningPage() {
                         {/* Left: Artisan column header */}
                         <div className={`px-4 py-2 flex items-center gap-1.5 border-r border-[#e6ecf2] ${isCurrentWeek ? 'bg-[#5ab4e0]/[.06]' : 'bg-[#f0f2f7]'}`}>
                           <Users className="w-3.5 h-3.5 text-[#7b8ba3]" />
-                          <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#7b8ba3]">Artisans</span>
+                          <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#7b8ba3]">Intervenants</span>
                         </div>
                         {/* Right: Week info above the day columns */}
                         <div className={`px-4 py-2 flex items-center gap-2 text-xs font-bold ${isCurrentWeek ? 'bg-[#5ab4e0]/[.06] text-[#5ab4e0]' : 'bg-[#f6f8fb] text-[#7b8ba3]'}`}>
@@ -1322,9 +1322,43 @@ export default function PlanningPage() {
               {!mDevis && (
                 <div>
                   <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1.5">Client</label>
-                  <select value={mClient} onChange={e => setMClient(e.target.value)} className="w-full px-3.5 py-2.5 border border-[#e6ecf2] rounded-xl text-sm bg-white focus:border-[#5ab4e0] focus:ring-2 focus:ring-[#5ab4e0]/10 outline-none transition-all">
+                  <select value={mClient} onChange={e => {
+                    setMClient(e.target.value)
+                    // Reset chantier si le chantier actuel n'appartient pas au nouveau client
+                    if (mChantier) {
+                      const ch = chantierMap.get(mChantier) as R | undefined
+                      if (ch && e.target.value && ch.client_id !== e.target.value) setMChantier('')
+                    }
+                  }} className="w-full px-3.5 py-2.5 border border-[#e6ecf2] rounded-xl text-sm bg-white focus:border-[#5ab4e0] focus:ring-2 focus:ring-[#5ab4e0]/10 outline-none transition-all">
                     <option value="">— Sélectionner (optionnel)</option>
                     {clients.map(cl => { const r = cl as R; return <option key={r.id as string} value={r.id as string}>{String(r.prenom ?? '')} {String(r.nom ?? '')}</option> })}
+                  </select>
+                </div>
+              )}
+
+              {/* Chantier — visible en saisie libre, filtré par client si sélectionné */}
+              {!mDevis && (
+                <div>
+                  <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                    <HardHat className="w-3.5 h-3.5" />Chantier
+                  </label>
+                  <select value={mChantier} onChange={e => {
+                    setMChantier(e.target.value)
+                    // Auto-remplir le client du chantier sélectionné
+                    if (e.target.value) {
+                      const ch = chantierMap.get(e.target.value) as R | undefined
+                      if (ch?.client_id && !mClient) setMClient(ch.client_id as string)
+                    }
+                  }} className="w-full px-3.5 py-2.5 border border-[#e6ecf2] rounded-xl text-sm bg-white focus:border-[#5ab4e0] focus:ring-2 focus:ring-[#5ab4e0]/10 outline-none transition-all">
+                    <option value="">— Sélectionner un chantier (optionnel)</option>
+                    {chantiers
+                      .filter(ch => !mClient || (ch as R).client_id === mClient)
+                      .map(ch => {
+                        const r = ch as R
+                        const cl = clientMap.get(r.client_id as string) as R | undefined
+                        const clientLabel = cl ? ` — ${String(cl.prenom ?? '')} ${String(cl.nom ?? '')}`.trim() : ''
+                        return <option key={r.id as string} value={r.id as string}>{String(r.titre ?? 'Sans titre')}{clientLabel}</option>
+                      })}
                   </select>
                 </div>
               )}
