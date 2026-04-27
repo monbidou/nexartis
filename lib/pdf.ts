@@ -1106,5 +1106,3 @@ export function generateFacturePdf(data: FactureData): string {
   drawFooterAllPages(doc, ent, data.numero)
   return doc.output('datauristring').split(',')[1]
 }
-1]
-}
