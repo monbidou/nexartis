@@ -88,6 +88,19 @@ export default function ModifierDevisPage() {
     setLines(prev => prev.map(l => (l.id === lid ? { ...l, [field]: value } : l)))
   }
   function removeLine(lid: number) { setLines(prev => prev.filter(l => l.id !== lid)) }
+  function computeSubtotal(idx: number): number {
+    const current = lines[idx]
+    if (!current || (current.type !== 'section' && current.type !== 'subsection')) return 0
+    let subtotal = 0
+    for (let i = idx + 1; i < lines.length; i++) {
+      const l = lines[i]
+      if (current.type === 'section' && l.type === 'section') break
+      if (current.type === 'subsection' && (l.type === 'section' || l.type === 'subsection')) break
+      if (l.type === 'line') subtotal += l.qty * l.priceHT
+    }
+    return subtotal
+  }
+
   function addLine(type: 'line' | 'section' | 'subsection' | 'text' = 'line') {
     setLines(prev => [...prev, { id: nextId++, designation: '', qty: type === 'line' ? 1 : 0, unit: 'U', priceHT: 0, type }])
   }
@@ -219,7 +232,7 @@ export default function ModifierDevisPage() {
           {lines.map(line => (
             <div key={line.id} className={`grid grid-cols-[1fr_70px_90px_100px_100px_36px] items-start px-4 py-2 border-b border-gray-100 ${line.type === 'section' ? 'bg-[#dceefa] border-l-4 border-l-[#5ab4e0]' : line.type === 'subsection' ? 'bg-[#e8f4fb] border-l-2 border-l-[#5ab4e0]/60' : ''}`}>
               <textarea value={line.designation} onChange={e => { updateLine(line.id, 'designation', e.target.value); e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px' }} className={`text-sm font-manrope border-0 outline-none bg-transparent px-1 resize-none overflow-hidden min-h-[38px] ${line.type === 'section' ? 'font-bold text-[#1a6fb5]' : line.type === 'subsection' ? 'font-semibold text-[#0f1a3a]' : ''}`} placeholder={line.type === 'section' ? 'Nom de la section (ex : Demolition, Maconnerie...)' : line.type === 'subsection' ? 'Nom de la sous-section (ex : Cuisine, Plomberie...)' : line.type === 'text' ? 'Texte libre...' : 'Désignation...'} rows={1} />
-              {line.type === 'line' ? (<>
+              {(line.type === 'section' || line.type === 'subsection') ? (<><span /><span /><span /><span className="text-sm font-bold text-right mt-1.5 text-[#1a6fb5]">{formatCurrency(computeSubtotal(lines.indexOf(line)))}</span></>) : line.type === 'line' ? (<>
                 <input type="number" value={line.qty} onChange={e => updateLine(line.id, 'qty', Number(e.target.value))} className="text-sm text-center border-0 outline-none bg-transparent mt-1.5" min={0} />
                 <select value={line.unit} onChange={e => updateLine(line.id, 'unit', e.target.value)} className="text-sm text-center border-0 outline-none bg-transparent mt-1.5 w-full">
                   {UNIT_SUGGESTIONS.map(u => <option key={u} value={u}>{u}</option>)}

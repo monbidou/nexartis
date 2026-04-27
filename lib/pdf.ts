@@ -21,13 +21,14 @@ const C = {
   navyText: [15, 26, 58] as [number, number, number],
   sky: [90, 180, 224] as [number, number, number],         // #5ab4e0
   skyPale: [220, 238, 250] as [number, number, number],    // #dceefa (sections)
-  skyVeryPale: [232, 244, 251] as [number, number, number],// #e8f4fb (objet, fond artisan)
+  skyVeryPale: [232, 244, 251] as [number, number, number],// #e8f4fb (objet)
+  skyArtisanBg: [205, 228, 245] as [number, number, number], // #cde4f5 (fond cadre artisan, plus visible)
   skyBorder: [171, 214, 236] as [number, number, number],  // #abd6ec (bordure 40%)
   netBlue: [26, 111, 181] as [number, number, number],     // #1a6fb5 (NET A PAYER, accents)
   netBlueAccent: [45, 139, 201] as [number, number, number], // #2d8bc9
   green: [34, 197, 94] as [number, number, number],        // #22c55e
   greenDark: [21, 128, 61] as [number, number, number],    // #15803d
-  greenPale: [220, 246, 227] as [number, number, number],  // #dcf6e3 (fond client)
+  greenPale: [201, 239, 213] as [number, number, number],  // #c9efd5 (fond client, plus visible)
   greenBorder: [168, 216, 185] as [number, number, number],// #a8d8b9
   orange: [232, 122, 42] as [number, number, number],      // #e87a2a
   muted: [95, 108, 128] as [number, number, number],       // #5f6c80
@@ -446,7 +447,7 @@ function drawIdentityBoxes(
   clientLines.push({ text: 'C L I E N T', size: 8, bold: true, color: C.greenDark })
   clientLines.push({ text: data.clientNom, size: 11, bold: true, color: C.navyText })
   if (data.clientAdresse) {
-    const parts = data.clientAdresse.split('|').map(s => s.trim()).filter(Boolean)
+    const parts = data.clientAdresse.split(/\s*\|\s*/).map(s => s.trim()).filter(Boolean)
     for (const p of parts) clientLines.push({ text: p, size: 8.5, color: C.muted })
   }
 
@@ -458,7 +459,7 @@ function drawIdentityBoxes(
   const boxH = Math.max(hA, hC) + padTop + 4
 
   // --- Dessin ARTISAN ---
-  setFill(doc, C.skyVeryPale)
+  setFill(doc, C.skyArtisanBg)
   doc.roundedRect(lx, y, boxW, boxH, radius, radius, 'F')
   setDraw(doc, C.skyBorder)
   doc.setLineWidth(0.3)
