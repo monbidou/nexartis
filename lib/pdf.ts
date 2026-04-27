@@ -1,22 +1,57 @@
 // -------------------------------------------------------------------
 // Server-side PDF generation for devis & factures
-// jsPDF — no browser required
+// jsPDF + jspdf-autotable
+// Refonte v2 : hiérarchie 3 niveaux (sections / sous-sections / prestations),
+// nouvelle palette Nexartis, factures de situation, footer répété.
 // -------------------------------------------------------------------
 
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import type { CellHookData, Styles } from 'jspdf-autotable'
+
+// -------------------------------------------------------------------
+// Palette Nexartis (RGB)
+// jsPDF ne supporte pas l'alpha sur setFillColor : on utilise les
+// équivalents solides calculés sur fond blanc pour les zones « avec
+// opacité » (cadres artisan/client, bandeau objet, etc.).
+// -------------------------------------------------------------------
+
+const C = {
+  navy: [15, 26, 58] as [number, number, number],          // #0f1a3a
+  navyText: [15, 26, 58] as [number, number, number],
+  sky: [90, 180, 224] as [number, number, number],         // #5ab4e0
+  skyPale: [220, 238, 250] as [number, number, number],    // #dceefa (sections)
+  skyVeryPale: [232, 244, 251] as [number, number, number],// #e8f4fb (objet, fond artisan)
+  skyBorder: [171, 214, 236] as [number, number, number],  // #abd6ec (bordure 40%)
+  netBlue: [26, 111, 181] as [number, number, number],     // #1a6fb5 (NET A PAYER, accents)
+  netBlueAccent: [45, 139, 201] as [number, number, number], // #2d8bc9
+  green: [34, 197, 94] as [number, number, number],        // #22c55e
+  greenDark: [21, 128, 61] as [number, number, number],    // #15803d
+  greenPale: [220, 246, 227] as [number, number, number],  // #dcf6e3 (fond client)
+  greenBorder: [168, 216, 185] as [number, number, number],// #a8d8b9
+  orange: [232, 122, 42] as [number, number, number],      // #e87a2a
+  muted: [95, 108, 128] as [number, number, number],       // #5f6c80
+  border: [230, 236, 242] as [number, number, number],     // #e6ecf2
+  white: [255, 255, 255] as [number, number, number],
+  black: [40, 40, 40] as [number, number, number],
+}
+
+// -------------------------------------------------------------------
+// Helpers
+// -------------------------------------------------------------------
 
 function fmt(n: number): string {
   return new Intl.NumberFormat('fr-FR', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(n).replace(/\u202F/g, ' ').replace(/\u00A0/g, ' ') + ' €'
+  }).format(n).replace(/ /g, ' ').replace(/ /g, ' ') + ' €'
 }
 
 const fmtDate = (d?: string) => d ? new Date(d).toLocaleDateString('fr-FR') : ''
 
-const BLUE: [number, number, number] = [37, 99, 235]
-const GREEN: [number, number, number] = [16, 185, 129]
+function setFill(doc: jsPDF, c: [number, number, number]) { doc.setFillColor(c[0], c[1], c[2]) }
+function setDraw(doc: jsPDF, c: [number, number, number]) { doc.setDrawColor(c[0], c[1], c[2]) }
+function setText(doc: jsPDF, c: [number, number, number]) { doc.setTextColor(c[0], c[1], c[2]) }
 
 // -------------------------------------------------------------------
 // Interfaces
@@ -46,11 +81,17 @@ interface Entreprise {
   bic?: string
 }
 
-interface Ligne {
+export interface Ligne {
+  id?: string
+  type?: 'section' | 'sous_section' | 'prestation' | 'commentaire' | 'saut_page'
+  niveau?: 1 | 2 | 3
+  numero?: string
+  parent_id?: string | null
+  ordre?: number
   designation: string
-  quantite: number
-  unite: string
-  prix_unitaire_ht: number
+  quantite?: number
+  unite?: string
+  prix_unitaire_ht?: number
   taux_tva?: number
 }
 
@@ -84,12 +125,8 @@ export interface DevisData {
   lignes: Ligne[]
   entreprise: Entreprise
   dechets?: Dechets
-  /** Statut du devis (signe / facture / envoye / brouillon...) — utilisé pour
-   *  afficher "Bon pour accord" + date dans le cadre client si accepté */
   statut?: string
-  /** Date de signature/acceptation (ISO) — affichée si statut signé */
   date_signature?: string
-  /** Signature client en base64 (si dessinée par le client) — affichée à la place du texte si présente */
   client_signature_base64?: string
 }
 
@@ -108,6 +145,16 @@ export interface FactureData {
   lignes: Ligne[]
   entreprise: Entreprise
   notes?: string
+  // Factures de situation
+  type?: 'standard' | 'acompte' | 'situation' | 'avoir'
+  numero_situation?: number
+  pourcentage_situation?: number
+  devis_ref?: string
+  devis_date?: string
+  montant_situation_precedent_ht?: number
+  montant_situation_precedent_ttc?: number
+  reste_a_facturer_ht?: number
+  reste_a_facturer_ttc?: number
 }
 
 // -------------------------------------------------------------------
@@ -123,10 +170,10 @@ const TVA_MENTION_5_5 =
 const TVA_MENTION_AE = 'TVA non applicable, article 293 B du Code Général des Impôts.'
 
 function getTvaMentions(lignes: Ligne[]): string[] {
-  const taux = new Set(lignes.map((l) => l.taux_tva ?? 20))
+  const prest = lignes.filter(isPrestation)
+  const taux = new Set(prest.map((l) => l.taux_tva ?? 20))
   const mentions: string[] = []
-  // Auto-entrepreneur: all lines at 0%
-  const allZero = lignes.length > 0 && lignes.every((l) => (l.taux_tva ?? 20) === 0)
+  const allZero = prest.length > 0 && prest.every((l) => (l.taux_tva ?? 20) === 0)
   if (allZero) { mentions.push(TVA_MENTION_AE); return mentions }
   if (taux.has(10)) mentions.push(TVA_MENTION_10)
   if (taux.has(5.5)) mentions.push(TVA_MENTION_5_5)
@@ -135,66 +182,598 @@ function getTvaMentions(lignes: Ligne[]): string[] {
 
 function computeTvaGroups(lignes: Ligne[]): Record<number, number> {
   const groups: Record<number, number> = {}
-  for (const l of lignes) {
+  for (const l of lignes.filter(isPrestation)) {
     const rate = l.taux_tva ?? 20
-    const ht = l.quantite * l.prix_unitaire_ht
+    const ht = (l.quantite ?? 0) * (l.prix_unitaire_ht ?? 0)
     groups[rate] = (groups[rate] || 0) + ht * (rate / 100)
   }
   return groups
 }
 
+function computeTvaBases(lignes: Ligne[]): Record<number, number> {
+  const bases: Record<number, number> = {}
+  for (const l of lignes.filter(isPrestation)) {
+    const rate = l.taux_tva ?? 20
+    const ht = (l.quantite ?? 0) * (l.prix_unitaire_ht ?? 0)
+    bases[rate] = (bases[rate] || 0) + ht
+  }
+  return bases
+}
+
 // -------------------------------------------------------------------
-// Page-break helper
+// Hiérarchie : normalisation + sous-totaux
 // -------------------------------------------------------------------
 
-function ensureSpace(doc: jsPDF, y: number, needed: number): number {
-  if (y + needed > 280) { doc.addPage(); return 20 }
+function isPrestation(l: Ligne): boolean {
+  // backward compat : ligne sans type/niveau = prestation
+  if (!l.type && !l.niveau) return true
+  if (l.type === 'prestation') return true
+  if (l.niveau === 3 && l.type !== 'commentaire' && l.type !== 'saut_page') return true
+  return false
+}
+
+/**
+ * Normalise les lignes : si aucune n'a de type/niveau (ancien format),
+ * toutes deviennent des prestations niveau 3 avec numéro séquentiel.
+ * Sinon, on remplit les niveau/type/numero manquants au mieux.
+ */
+function normalizeLignes(input: Ligne[]): Ligne[] {
+  const hasHierarchy = input.some(l => l.type || l.niveau || l.numero || l.parent_id)
+
+  if (!hasHierarchy) {
+    return input.map((l, i) => ({
+      ...l,
+      type: 'prestation' as const,
+      niveau: 3 as const,
+      numero: String(i + 1),
+    }))
+  }
+
+  // Format hiérarchique : on garde tel quel, en complétant les défauts
+  return input.map((l, i) => {
+    const niveau = (l.niveau ?? (l.type === 'section' ? 1 : l.type === 'sous_section' ? 2 : 3)) as 1 | 2 | 3
+    const type = l.type ?? (niveau === 1 ? 'section' : niveau === 2 ? 'sous_section' : 'prestation')
+    return {
+      ...l,
+      niveau,
+      type,
+      numero: l.numero ?? String(i + 1),
+    }
+  })
+}
+
+/**
+ * Calcule les sous-totaux pour chaque section et sous-section.
+ * Retourne un Map<id, total HT>.
+ *
+ * Règle :
+ * - Sous-section = somme des prestations dont parent_id = id de la sous-section
+ * - Section = somme des sous-totaux de ses sous-sections + somme directe des
+ *   prestations dont parent_id = id de la section (cas où il n'y a pas de
+ *   sous-section intermédiaire)
+ */
+export function computeSubtotals(lignes: Ligne[]): Map<string, number> {
+  const map = new Map<string, number>()
+  const byId = new Map<string, Ligne>()
+  for (const l of lignes) if (l.id) byId.set(l.id, l)
+
+  // 1) Sous-totaux des sous-sections (somme des prestations enfants)
+  for (const ss of lignes.filter(l => l.type === 'sous_section' && l.id)) {
+    const total = lignes
+      .filter(l => l.parent_id === ss.id && isPrestation(l))
+      .reduce((s, l) => s + (l.quantite ?? 0) * (l.prix_unitaire_ht ?? 0), 0)
+    map.set(ss.id as string, total)
+  }
+
+  // 2) Sous-totaux des sections (sous-sections enfants + prestations
+  //    rattachées directement à la section)
+  for (const sec of lignes.filter(l => l.type === 'section' && l.id)) {
+    const fromSubs = lignes
+      .filter(l => l.parent_id === sec.id && l.type === 'sous_section')
+      .reduce((s, ss) => s + (map.get(ss.id as string) ?? 0), 0)
+    const fromDirect = lignes
+      .filter(l => l.parent_id === sec.id && isPrestation(l))
+      .reduce((s, l) => s + (l.quantite ?? 0) * (l.prix_unitaire_ht ?? 0), 0)
+    map.set(sec.id as string, fromSubs + fromDirect)
+  }
+
+  return map
+}
+
+// -------------------------------------------------------------------
+// Footer répété sur chaque page
+// -------------------------------------------------------------------
+
+function drawFooterAllPages(doc: jsPDF, ent: Entreprise, numero: string) {
+  const total = doc.getNumberOfPages()
+  const pageW = 210
+  const pageH = 297
+  const M = 14
+  const footerTop = pageH - 14 // y du trait sky
+
+  for (let i = 1; i <= total; i++) {
+    doc.setPage(i)
+
+    // Trait sky 0.4mm
+    setDraw(doc, C.sky)
+    doc.setLineWidth(0.4)
+    doc.line(M, footerTop, pageW - M, footerTop)
+
+    let y = footerTop + 3.2
+
+    doc.setFontSize(7)
+    doc.setFont('helvetica', 'normal')
+    setText(doc, C.muted)
+
+    // Ligne 1 : entreprise + adresse + SIRET + email
+    const id = [
+      ent.nom,
+      ent.adresse ? `${ent.adresse}${ent.code_postal || ent.ville ? `, ${ent.code_postal || ''} ${ent.ville || ''}`.replace(/  +/g, ' ').trim() : ''}` : '',
+      ent.siret ? `SIRET : ${ent.siret}` : '',
+      ent.email ? `Email : ${ent.email}` : '',
+    ].filter(Boolean).join(' — ')
+    if (id) doc.text(id, pageW / 2, y, { align: 'center', maxWidth: pageW - 2 * M })
+    y += 3.2
+
+    // Ligne 2 : tel + décennale
+    const line2Parts: string[] = []
+    if (ent.telephone) line2Parts.push(`Tél : ${ent.telephone}`)
+    if (ent.assurance_nom) {
+      line2Parts.push(`Garantie décennale ${ent.assurance_nom}${ent.decennale_numero ? ` (n° ${ent.decennale_numero})` : ''}`)
+    }
+    if (line2Parts.length) doc.text(line2Parts.join(' — '), pageW / 2, y, { align: 'center', maxWidth: pageW - 2 * M })
+
+    // Coin bas-droit : Page X sur Y + N°
+    doc.setFontSize(7)
+    setText(doc, C.muted)
+    doc.text(`Page ${i} sur ${total} — N° ${numero}`, pageW - M, pageH - 4, { align: 'right' })
+  }
+}
+
+// -------------------------------------------------------------------
+// Header (logo + titre + n° + dates) — partagé devis/facture
+// -------------------------------------------------------------------
+
+interface HeaderOpts {
+  title: string          // "DEVIS" ou "FACTURE" ou "FACTURE DE SITUATION"
+  numero: string
+  subtitle?: string      // ex "Situation N° 2"
+  refLine?: string       // ex "Sur devis N° D-2025-001 du 01/01/2025"
+  dateLine: string       // ligne dates centrée
+}
+
+function drawHeader(doc: jsPDF, ent: Entreprise, opts: HeaderOpts, startY: number): number {
+  const pageW = 210
+  const M = 14
+  const centerX = pageW / 2
+  const titleTopY = startY
+
+  // Titre centré
+  doc.setFontSize(22)
+  doc.setFont('helvetica', 'bold')
+  setText(doc, C.netBlue)
+  doc.text(opts.title, centerX, titleTopY + 7, { align: 'center' })
+
+  // N° doc
+  doc.setFontSize(10)
+  doc.setFont('helvetica', 'normal')
+  setText(doc, C.muted)
+  doc.text(`N° ${opts.numero}`, centerX, titleTopY + 13, { align: 'center' })
+
+  let y = titleTopY + 16
+
+  // Sous-titre éventuel (situation)
+  if (opts.subtitle) {
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'bold')
+    setText(doc, C.netBlueAccent)
+    doc.text(opts.subtitle, centerX, y, { align: 'center' })
+    y += 4
+  }
+  if (opts.refLine) {
+    doc.setFontSize(8)
+    doc.setFont('helvetica', 'normal')
+    setText(doc, C.muted)
+    doc.text(opts.refLine, centerX, y, { align: 'center' })
+    y += 4
+  }
+
+  // Logo à gauche, aligné en haut
+  if (ent.logo_url && ent.logo_url.startsWith('data:image')) {
+    try {
+      const logoFormat = ent.logo_url.includes('image/png') ? 'PNG' : 'JPEG'
+      const logoTopY = titleTopY + 1
+      const logoH = 14
+      const imgProps = doc.getImageProperties(ent.logo_url)
+      const ratio = imgProps.width / imgProps.height
+      let logoW = logoH * ratio
+      if (logoW > 45) logoW = 45
+      doc.addImage(ent.logo_url, logoFormat, M, logoTopY, logoW, logoH)
+    } catch { /* logo invalide, ignoré */ }
+  } else if (ent.nom) {
+    // Pas de logo : "Nexartis" stylisé / nom entreprise
+    doc.setFontSize(11)
+    doc.setFont('helvetica', 'bold')
+    setText(doc, C.orange)
+    doc.text(ent.nom, M, titleTopY + 9)
+  }
+
+  // Trait sky 0.7mm sous le header
+  y += 1
+  setFill(doc, C.sky)
+  doc.rect(M, y, pageW - 2 * M, 0.7, 'F')
+  y += 4
+
+  // Ligne dates
+  doc.setFontSize(8)
+  doc.setFont('helvetica', 'normal')
+  setText(doc, C.muted)
+  doc.text(opts.dateLine, centerX, y, { align: 'center' })
+  y += 5
+
   return y
 }
 
 // -------------------------------------------------------------------
-// Footer légal (shared)
+// Cadres ARTISAN + CLIENT
 // -------------------------------------------------------------------
 
-function addFooterLegal(doc: jsPDF, ent: Entreprise, y: number): number {
-  y = ensureSpace(doc, y, 25)
+function drawIdentityBoxes(
+  doc: jsPDF,
+  ent: Entreprise,
+  data: { clientNom: string; clientAdresse?: string },
+  y: number,
+): number {
+  const M = 14
+  const boxW = 88
+  const lx = M
+  const rx = M + boxW + 6
+  const padX = 5
+  const padTop = 5
+  const radius = 1.8
 
-  // Separator
-  doc.setDrawColor(200)
-  doc.line(14, y, 196, y)
-  y += 4
+  // --- Mesure contenu ARTISAN ---
+  const artisanLines: { text: string; size: number; bold?: boolean; color: [number, number, number] }[] = []
+  artisanLines.push({ text: 'A R T I S A N', size: 8, bold: true, color: C.netBlue })
+  artisanLines.push({ text: ent.nom || '', size: 11, bold: true, color: C.navyText })
+  if (ent.adresse) artisanLines.push({ text: ent.adresse, size: 8.5, color: C.muted })
+  if (ent.code_postal || ent.ville) artisanLines.push({ text: `${ent.code_postal || ''} ${ent.ville || ''}`.trim(), size: 8.5, color: C.muted })
+  if (ent.siret) artisanLines.push({ text: `SIRET : ${ent.siret}`, size: 8.5, color: C.muted })
+  if (ent.telephone) artisanLines.push({ text: `Tél : ${ent.telephone}`, size: 8.5, color: C.muted })
 
-  doc.setFontSize(6.5)
-  doc.setFont('helvetica', 'normal')
-  doc.setTextColor(130)
-
-  // Line 1: company identity
-  const id = [
-    ent.nom,
-    ent.adresse ? `${ent.adresse}, ${ent.code_postal || ''} ${ent.ville || ''}`.trim() : '',
-    ent.siret ? `SIRET : ${ent.siret}` : '',
-    ent.rcs_rm || '',
-    ent.tva_intracommunautaire ? `TVA : ${ent.tva_intracommunautaire}` : '',
-  ].filter(Boolean).join(' — ')
-  if (id) { doc.text(id, 105, y, { align: 'center', maxWidth: 180 }); y += 3.5 }
-
-  // Line 2: insurance
-  if (ent.assurance_nom) {
-    const ins = `Assurance décennale : ${ent.assurance_nom}${ent.decennale_numero ? `, police n° ${ent.decennale_numero}` : ''}${ent.assurance_zone ? `, couverture : ${ent.assurance_zone}` : ''}`
-    doc.text(ins, 105, y, { align: 'center', maxWidth: 180 })
-    y += 3.5
+  // --- Mesure contenu CLIENT ---
+  const clientLines: { text: string; size: number; bold?: boolean; color: [number, number, number] }[] = []
+  clientLines.push({ text: 'C L I E N T', size: 8, bold: true, color: C.greenDark })
+  clientLines.push({ text: data.clientNom, size: 11, bold: true, color: C.navyText })
+  if (data.clientAdresse) {
+    const parts = data.clientAdresse.split('|').map(s => s.trim()).filter(Boolean)
+    for (const p of parts) clientLines.push({ text: p, size: 8.5, color: C.muted })
   }
 
-  // Line 3: contact
-  const contact = [ent.telephone ? `Tél : ${ent.telephone}` : '', ent.email ? `Email : ${ent.email}` : ''].filter(Boolean).join(' — ')
-  if (contact) { doc.text(contact, 105, y, { align: 'center' }); y += 3.5 }
+  // Hauteur uniforme
+  const lineHeight = (size: number) => size * 0.42 + 1.6
+  const heightOf = (lines: { size: number }[]) => lines.reduce((s, l) => s + lineHeight(l.size), 0)
+  const hA = heightOf(artisanLines)
+  const hC = heightOf(clientLines)
+  const boxH = Math.max(hA, hC) + padTop + 4
 
-  // Nexartis mention
-  doc.setFontSize(5.5)
-  doc.setTextColor(170)
-  doc.text('Généré via Nexartis — nexartis.fr', 105, y + 1, { align: 'center' })
+  // --- Dessin ARTISAN ---
+  setFill(doc, C.skyVeryPale)
+  doc.roundedRect(lx, y, boxW, boxH, radius, radius, 'F')
+  setDraw(doc, C.skyBorder)
+  doc.setLineWidth(0.3)
+  doc.roundedRect(lx, y, boxW, boxH, radius, radius, 'S')
+  // Bordure gauche épaisse 4px ≈ 1.4mm
+  setFill(doc, C.sky)
+  doc.rect(lx, y, 1.4, boxH, 'F')
 
-  return y + 4
+  let ay = y + padTop
+  for (const line of artisanLines) {
+    doc.setFontSize(line.size)
+    doc.setFont('helvetica', line.bold ? 'bold' : 'normal')
+    setText(doc, line.color)
+    ay += line.size * 0.42
+    doc.text(line.text, lx + padX, ay, { maxWidth: boxW - padX - 3 })
+    ay += 1.6
+  }
+
+  // --- Dessin CLIENT ---
+  setFill(doc, C.greenPale)
+  doc.roundedRect(rx, y, boxW, boxH, radius, radius, 'F')
+  setDraw(doc, C.greenBorder)
+  doc.setLineWidth(0.3)
+  doc.roundedRect(rx, y, boxW, boxH, radius, radius, 'S')
+  setFill(doc, C.green)
+  doc.rect(rx, y, 1.4, boxH, 'F')
+
+  let cy = y + padTop
+  for (const line of clientLines) {
+    doc.setFontSize(line.size)
+    doc.setFont('helvetica', line.bold ? 'bold' : 'normal')
+    setText(doc, line.color)
+    cy += line.size * 0.42
+    doc.text(line.text, rx + padX, cy, { maxWidth: boxW - padX - 3 })
+    cy += 1.6
+  }
+
+  return y + boxH + 4
+}
+
+// -------------------------------------------------------------------
+// Bandeau OBJET
+// -------------------------------------------------------------------
+
+function drawObjet(doc: jsPDF, objet: string, y: number): number {
+  const M = 14
+  const pageW = 210
+  const w = pageW - 2 * M
+  const h = 8
+  setFill(doc, C.skyVeryPale)
+  doc.roundedRect(M, y, w, h, 1.5, 1.5, 'F')
+  // Trait gauche 4px (≈1.4mm) — on le rectangle plein qui recouvre la zone
+  setFill(doc, C.sky)
+  doc.rect(M, y, 1.4, h, 'F')
+
+  doc.setFontSize(8)
+  doc.setFont('helvetica', 'bold')
+  setText(doc, C.netBlueAccent)
+  doc.text('OBJET :', M + 4, y + 5.2)
+
+  doc.setFontSize(10)
+  doc.setFont('helvetica', 'bold')
+  setText(doc, C.navyText)
+  doc.text(objet, M + 22, y + 5.2, { maxWidth: w - 24 })
+
+  return y + h + 3
+}
+
+// -------------------------------------------------------------------
+// Tableau hiérarchique (sections / sous-sections / prestations)
+// -------------------------------------------------------------------
+
+interface RowMeta {
+  kind: 'section' | 'sous_section' | 'prestation' | 'commentaire'
+  ligneIdx: number
+}
+
+function drawHierTable(doc: jsPDF, lignes: Ligne[], startY: number): number {
+  const M = 14
+  const pageW = 210
+  const tableW = pageW - 2 * M
+
+  const subtotals = computeSubtotals(lignes)
+
+  // Construction des lignes du tableau dans l'ordre des `lignes` reçues
+  const body: (string | { content: string; styles?: Partial<Styles> })[][] = []
+  const meta: RowMeta[] = []
+
+  for (let i = 0; i < lignes.length; i++) {
+    const l = lignes[i]
+    if (l.type === 'saut_page') continue
+
+    if (l.type === 'section') {
+      const sub = (l.id && subtotals.get(l.id)) || 0
+      body.push([
+        l.numero ?? '',
+        l.designation,
+        '', '', '',
+        fmt(sub),
+      ])
+      meta.push({ kind: 'section', ligneIdx: i })
+    } else if (l.type === 'sous_section') {
+      const sub = (l.id && subtotals.get(l.id)) || 0
+      body.push([
+        l.numero ?? '',
+        l.designation,
+        '', '', '',
+        fmt(sub),
+      ])
+      meta.push({ kind: 'sous_section', ligneIdx: i })
+    } else if (l.type === 'commentaire') {
+      body.push([
+        l.numero ?? '',
+        l.designation,
+        '', '', '', '',
+      ])
+      meta.push({ kind: 'commentaire', ligneIdx: i })
+    } else {
+      // prestation (default)
+      const q = l.quantite ?? 0
+      const pu = l.prix_unitaire_ht ?? 0
+      body.push([
+        l.numero ?? '',
+        l.designation,
+        String(q),
+        l.unite ?? '',
+        fmt(pu),
+        fmt(q * pu),
+      ])
+      meta.push({ kind: 'prestation', ligneIdx: i })
+    }
+  }
+
+  autoTable(doc, {
+    startY,
+    head: [['N°', 'DÉSIGNATION', 'QTÉ', 'UNITÉ', 'PRIX U. HT', 'TOTAL HT']],
+    body,
+    theme: 'plain',
+    margin: { left: M, right: M },
+    tableWidth: tableW,
+    styles: {
+      font: 'helvetica',
+      fontSize: 8.5,
+      cellPadding: 2.2,
+      lineColor: C.border,
+      lineWidth: 0.1,
+      textColor: C.navyText,
+      overflow: 'linebreak',
+      valign: 'middle',
+    },
+    headStyles: {
+      fillColor: C.navy,
+      textColor: C.white,
+      fontStyle: 'bold',
+      fontSize: 8,
+      halign: 'center',
+      cellPadding: 2.8,
+      lineWidth: 0,
+    },
+    columnStyles: {
+      0: { halign: 'center', cellWidth: 12 },
+      1: { halign: 'left', cellWidth: 'auto' },
+      2: { halign: 'center', cellWidth: 13 },
+      3: { halign: 'center', cellWidth: 13 },
+      4: { halign: 'right', cellWidth: 24 },
+      5: { halign: 'right', cellWidth: 26 },
+    },
+    didParseCell: (data: CellHookData) => {
+      if (data.section !== 'body') return
+      const m = meta[data.row.index]
+      if (!m) return
+
+      if (m.kind === 'section') {
+        data.cell.styles.fillColor = C.skyPale
+        data.cell.styles.fontStyle = 'bold'
+        data.cell.styles.cellPadding = 2.8
+        if (data.column.index === 0) {
+          data.cell.styles.textColor = C.netBlue
+        } else if (data.column.index === 5) {
+          data.cell.styles.textColor = C.netBlue
+          data.cell.styles.halign = 'right'
+        } else {
+          data.cell.styles.textColor = C.navy
+        }
+      } else if (m.kind === 'sous_section') {
+        data.cell.styles.fillColor = C.white
+        data.cell.styles.fontStyle = 'bold'
+        data.cell.styles.cellPadding = 2.6
+        if (data.column.index === 0) {
+          data.cell.styles.textColor = C.muted
+          data.cell.styles.fontStyle = 'normal'
+        } else if (data.column.index === 5) {
+          data.cell.styles.textColor = C.navy
+          data.cell.styles.halign = 'right'
+        } else {
+          data.cell.styles.textColor = C.navy
+        }
+      } else if (m.kind === 'commentaire') {
+        data.cell.styles.fillColor = C.white
+        data.cell.styles.textColor = C.muted
+        data.cell.styles.fontStyle = 'italic'
+      } else {
+        // prestation
+        if (data.column.index === 0) {
+          data.cell.styles.textColor = C.muted
+        } else if (data.column.index === 3) {
+          data.cell.styles.textColor = C.muted
+        } else if (data.column.index === 5) {
+          data.cell.styles.fontStyle = 'bold'
+          data.cell.styles.textColor = C.navy
+        }
+      }
+    },
+    didDrawCell: (data: CellHookData) => {
+      // Trait gauche d'accent pour les bandeaux SECTION (4px sky sur la première colonne)
+      if (data.section === 'body' && data.column.index === 0) {
+        const m = meta[data.row.index]
+        if (m?.kind === 'section') {
+          setFill(doc, C.netBlue)
+          doc.rect(data.cell.x, data.cell.y, 1.2, data.cell.height, 'F')
+        }
+      }
+    },
+  })
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (doc as any).lastAutoTable.finalY + 4
+}
+
+// -------------------------------------------------------------------
+// Bloc totaux + NET A PAYER (à droite)
+// -------------------------------------------------------------------
+
+interface TotalsOpts {
+  ht: number
+  ttc: number
+  tvaGroups: Record<number, number>
+  netLabel?: string
+  netAmount?: number
+}
+
+function drawTotals(doc: jsPDF, opts: TotalsOpts, y: number): number {
+  const pageW = 210
+  const M = 14
+  const rightX = pageW - M - 80   // bloc large 80mm
+  const labelX = rightX
+  const valueX = pageW - M
+
+  doc.setFontSize(9)
+  doc.setFont('helvetica', 'normal')
+
+  // Total HT
+  setText(doc, C.muted); doc.text('Total HT', labelX, y)
+  setText(doc, C.navy); doc.setFont('helvetica', 'bold'); doc.text(fmt(opts.ht), valueX, y, { align: 'right' })
+  y += 5
+
+  // TVA par taux
+  doc.setFont('helvetica', 'normal')
+  const sortedRates = Object.keys(opts.tvaGroups).map(Number).sort((a, b) => a - b)
+  for (const rate of sortedRates) {
+    setText(doc, C.muted); doc.text(`TVA ${rate}%`, labelX, y)
+    setText(doc, C.navy); doc.text(fmt(opts.tvaGroups[rate]), valueX, y, { align: 'right' })
+    y += 4.5
+  }
+
+  // Total TTC
+  setText(doc, C.muted); doc.text('Total TTC', labelX, y)
+  setText(doc, C.navy); doc.setFont('helvetica', 'bold'); doc.text(fmt(opts.ttc), valueX, y, { align: 'right' })
+  y += 6
+
+  // NET A PAYER bandeau
+  const netH = 11
+  const netW = 80
+  setFill(doc, C.netBlue)
+  doc.roundedRect(rightX, y, netW, netH, 2, 2, 'F')
+  doc.setFontSize(10); doc.setFont('helvetica', 'bold'); setText(doc, C.white)
+  doc.text(opts.netLabel ?? 'NET À PAYER', rightX + 4, y + netH / 2 + 1.5)
+  doc.setFontSize(12)
+  doc.text(fmt(opts.netAmount ?? opts.ttc), valueX - 1, y + netH / 2 + 2, { align: 'right' })
+  y += netH + 3
+
+  return y
+}
+
+// -------------------------------------------------------------------
+// Ventilation TVA (tableau simple aligné à droite)
+// -------------------------------------------------------------------
+
+function drawTvaBreakdown(doc: jsPDF, lignes: Ligne[], y: number): number {
+  const groups = computeTvaGroups(lignes)
+  const bases = computeTvaBases(lignes)
+  const rates = Object.keys(groups).map(Number).sort((a, b) => a - b)
+  if (rates.length === 0) return y
+
+  const pageW = 210
+  const M = 14
+  const rightX = pageW - M - 80
+  const valueX = pageW - M
+
+  doc.setFontSize(7.5); doc.setFont('helvetica', 'bold'); setText(doc, C.muted)
+  doc.text('VENTILATION TVA', rightX, y)
+  y += 3
+
+  setDraw(doc, C.border); doc.setLineWidth(0.2)
+  doc.line(rightX, y, valueX, y); y += 3
+
+  doc.setFontSize(8); doc.setFont('helvetica', 'normal')
+  for (const r of rates) {
+    setText(doc, C.muted); doc.text(`Taux ${r}%`, rightX, y)
+    setText(doc, C.navy); doc.text(`Base : ${fmt(bases[r] ?? 0)}`, rightX + 26, y)
+    doc.text(fmt(groups[r]), valueX, y, { align: 'right' })
+    y += 4
+  }
+
+  return y + 1
 }
 
 // ===================================================================
@@ -202,381 +781,170 @@ function addFooterLegal(doc: jsPDF, ent: Entreprise, y: number): number {
 // ===================================================================
 
 export function generateDevisPdf(data: DevisData): string {
-  const doc = new jsPDF()
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' })
   const ent = data.entreprise
-  let y = 12
-  const M = 14 // marge gauche
-  const pageW = 210
+  const lignes = normalizeLignes(data.lignes)
 
-  // ── HEADER : logo à gauche aligné, DEVIS centré au milieu absolu ──
-  // "DEVIS" 22pt : baseline à +6, haut des majuscules ≈ +0.5
-  // "N°" 9pt : baseline à +14, bas du texte ≈ +14.5
-  // → Le logo occupe la zone de 0 à ~15mm (haut du D au bas du numéro)
-  const titleBlockH = 18
-  const titleTopY = y        // haut du bloc
-  const centerX = pageW / 2  // 105mm = centre A4
-
-  // DEVIS — gros titre centré
-  doc.setFontSize(22)
-  doc.setFont('helvetica', 'bold')
-  doc.setTextColor(...BLUE)
-  doc.text('DEVIS', centerX, titleTopY + 6, { align: 'center' })
-
-  // N° — en dessous avec un espacement confortable
-  doc.setFontSize(9)
-  doc.setTextColor(60)
-  doc.text(`N° ${data.numero}`, centerX, titleTopY + 14, { align: 'center' })
-
-  // Logo — à gauche, aligné du haut des lettres DEVIS au bas du numéro
-  // Haut des majuscules "DEVIS" (22pt) ≈ titleTopY + 0.5
-  // Bas du numéro (9pt) ≈ titleTopY + 14.5
-  // → logoH ≈ 14mm, positionné à titleTopY + 0.5
-  if (ent.logo_url && ent.logo_url.startsWith('data:image')) {
-    try {
-      const logoFormat = ent.logo_url.includes('image/png') ? 'PNG' : 'JPEG'
-      const logoTopY = titleTopY + 0.5  // aligné au haut du "D" de DEVIS
-      const logoH = 14                   // du haut de DEVIS au bas du numéro
-      // Récupérer les dimensions réelles de l'image pour calculer le ratio
-      const imgProps = doc.getImageProperties(ent.logo_url)
-      const ratio = imgProps.width / imgProps.height
-      let logoW = logoH * ratio
-      // Limiter la largeur pour les logos très allongés (max 45mm)
-      if (logoW > 45) logoW = 45
-      doc.addImage(ent.logo_url, logoFormat, M, logoTopY, logoW, logoH)
-    } catch { /* logo invalide, on continue sans */ }
-  }
-
-  y = titleTopY + titleBlockH + 2
-
-  // ── TRAIT DÉGRADÉ ──
-  doc.setFillColor(37, 99, 235)
-  doc.rect(M, y, 91, 0.8, 'F')
-  doc.setFillColor(147, 197, 253)
-  doc.rect(M + 91, y, 91, 0.8, 'F')
-  y += 3
-
-  // ── DATES (1 ligne) ──
-  doc.setFontSize(7)
-  doc.setFont('helvetica', 'normal')
-  doc.setTextColor(80)
+  // ── HEADER ──
   const dateParts: string[] = []
   dateParts.push(`Date : ${fmtDate(data.date_emission)}`)
   if (data.date_validite) dateParts.push(`Valide jusqu'au : ${fmtDate(data.date_validite)}`)
-  // Pas de date de début des travaux : non pertinent côté client (peut devenir
-  // obsolète si réponse tardive). Reste utile en interne pour le planning artisan.
   if (data.duree_travaux) dateParts.push(`Durée estimée : ${data.duree_travaux}`)
-  doc.text(dateParts.join('    '), pageW / 2, y + 1, { align: 'center' })
-  y += 5
 
-  // ── 2 CADRES : ARTISAN + CLIENT (hauteur dynamique) ──
-  const boxW = 88
-  const lx = M
-  const rx = M + boxW + 6
-  const boxStartY = y
+  let y = drawHeader(doc, ent, {
+    title: 'DEVIS',
+    numero: data.numero,
+    dateLine: dateParts.join(' | '),
+  }, 12)
 
-  // -- Contenu artisan --
-  let ay = y + 4
-  doc.setFontSize(6.5)
-  doc.setFont('helvetica', 'bold')
-  doc.setTextColor(37, 99, 235)
-  doc.text('ARTISAN', lx + 3, ay); ay += 4
-  doc.setFontSize(9)
-  doc.setTextColor(26, 26, 46)
-  doc.text(ent.nom || '', lx + 3, ay); ay += 3.5
-  doc.setFontSize(7)
-  doc.setFont('helvetica', 'normal')
-  doc.setTextColor(80)
-  if (ent.adresse) { doc.text(ent.adresse, lx + 3, ay); ay += 3 }
-  if (ent.code_postal || ent.ville) { doc.text(`${ent.code_postal || ''} ${ent.ville || ''}`.trim(), lx + 3, ay); ay += 3 }
-  if (ent.siret) { doc.text(`SIRET : ${ent.siret}`, lx + 3, ay); ay += 3 }
-  if (ent.telephone) { doc.text(`Tél : ${ent.telephone}`, lx + 3, ay); ay += 3 }
-
-  // -- Contenu client --
-  let cy = y + 4
-  doc.setFontSize(6.5)
-  doc.setFont('helvetica', 'bold')
-  doc.setTextColor(16, 185, 129)
-  doc.text('CLIENT', rx + 3, cy); cy += 4
-  doc.setFontSize(9)
-  doc.setTextColor(26, 26, 46)
-  doc.text(data.clientNom, rx + 3, cy); cy += 3.5
-  doc.setFontSize(7)
-  doc.setFont('helvetica', 'normal')
-  doc.setTextColor(80)
-  if (data.clientAdresse) {
-    const parts = data.clientAdresse.split('|').map(s => s.trim()).filter(Boolean)
-    for (const p of parts) { doc.text(p, rx + 3, cy, { maxWidth: boxW - 6 }); cy += 3 }
-  }
-
-  // Dessiner les cadres à la bonne hauteur
-  const boxH = Math.max(ay - boxStartY + 2, cy - boxStartY + 2)
-  doc.setDrawColor(37, 99, 235); doc.setLineWidth(0.5); doc.rect(lx, boxStartY, boxW, boxH)
-  doc.setDrawColor(16, 185, 129); doc.rect(rx, boxStartY, boxW, boxH)
-
-  y = boxStartY + boxH + 3
+  // ── CADRES ARTISAN + CLIENT ──
+  y = drawIdentityBoxes(doc, ent, { clientNom: data.clientNom, clientAdresse: data.clientAdresse }, y)
 
   // ── OBJET ──
-  if (data.objet) {
-    doc.setFillColor(239, 246, 255)
-    doc.rect(M, y, 182, 7, 'F')
-    doc.setFillColor(37, 99, 235)
-    doc.rect(M, y, 1, 7, 'F')
-    doc.setFontSize(7.5)
-    doc.setFont('helvetica', 'bold')
-    doc.setTextColor(37, 99, 235)
-    doc.text('Objet :', M + 3, y + 4.5)
-    doc.setFont('helvetica', 'normal')
-    doc.setTextColor(40)
-    doc.text(data.objet, M + 17, y + 4.5, { maxWidth: 162 })
-    y += 10
+  if (data.objet) y = drawObjet(doc, data.objet, y)
+
+  // ── TABLE HIÉRARCHIQUE ──
+  y = drawHierTable(doc, lignes, y)
+
+  // ── TOTAUX (à droite) ──
+  // Vérifie qu'on a la place pour le bloc totaux + signatures
+  const NEEDED_BOTTOM = 95
+  if (y + NEEDED_BOTTOM > 270) { doc.addPage(); y = 20 }
+
+  const tvaGroups = computeTvaGroups(lignes)
+  const totalsStartY = y
+  let rightY = drawTotals(doc, {
+    ht: data.montant_ht,
+    ttc: data.montant_ttc,
+    tvaGroups,
+  }, y)
+
+  // ── ACOMPTE (devis uniquement) ──
+  if (data.acompte_pourcent && data.acompte_pourcent > 0) {
+    const M = 14, pageW = 210
+    const rightX = pageW - M - 80
+    const valueX = pageW - M
+    const acompteTTC = data.montant_ttc * (data.acompte_pourcent / 100)
+    const resteTTC = data.montant_ttc - acompteTTC
+
+    doc.setFontSize(8.5); doc.setFont('helvetica', 'bold'); setText(doc, C.greenDark)
+    doc.text(`Acompte (${data.acompte_pourcent}%)`, rightX, rightY)
+    doc.text(fmt(acompteTTC), valueX, rightY, { align: 'right' })
+    rightY += 4
+    doc.setFont('helvetica', 'normal'); setText(doc, C.muted)
+    doc.text('Reste à facturer', rightX, rightY)
+    doc.text(fmt(resteTTC), valueX, rightY, { align: 'right' })
+    rightY += 5
   }
 
-  // ── TABLE (compacte) ──
-  autoTable(doc, {
-    startY: y,
-    head: [['N°', 'Désignation', 'Qté', 'Unité', 'Prix U. HT', 'Total HT']],
-    body: data.lignes.map((l, i) => [
-      String(i + 1),
-      l.designation,
-      String(l.quantite),
-      l.unite,
-      fmt(l.prix_unitaire_ht),
-      fmt(l.quantite * l.prix_unitaire_ht),
-    ]),
-    theme: 'grid',
-    headStyles: { fillColor: BLUE, fontSize: 7, font: 'helvetica', halign: 'center', textColor: [255, 255, 255], cellPadding: 1.5 },
-    bodyStyles: { fontSize: 7, cellPadding: 1.5 },
-    alternateRowStyles: { fillColor: [248, 250, 255] },
-    columnStyles: {
-      0: { halign: 'center', cellWidth: 9 },
-      2: { halign: 'center', cellWidth: 12 },
-      3: { halign: 'center', cellWidth: 14 },
-      4: { halign: 'right', cellWidth: 24 },
-      5: { halign: 'right', cellWidth: 24 },
-    },
-    margin: { left: M, right: M },
-  })
+  // ── VENTILATION TVA (sous totaux à droite, si plusieurs taux) ──
+  if (Object.keys(tvaGroups).length > 1) {
+    rightY = drawTvaBreakdown(doc, lignes, rightY + 1)
+  }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  y = (doc as any).lastAutoTable.finalY + 6
+  // ── COLONNE GAUCHE : conditions + mentions ──
+  let leftY = totalsStartY
+  const M = 14
+  const leftMaxW = 88
 
-  // ── BAS DE PAGE: 2 colonnes ────────────────────────────────────
-  const leftX = 14
-  const rightX = 110
-  let leftY = y
-  let rightY = y
-
-  // --- COLONNE GAUCHE ---
-
-  // ═══════════════════════════════════════════════════════════════════
-  // BAS DE PAGE — Même layout que le dashboard :
-  // Gauche : Conditions → Mentions légales → Déchets (petit, grisé)
-  // Droite : Totaux → NET À PAYER → Signatures (2 cadres côte à côte)
-  // ═══════════════════════════════════════════════════════════════════
-
-  const FS_SMALL = 6.5   // police petite pour mentions/déchets
-  const FS_BODY = 7       // police body
-  const LH = 2.8          // line height compact
-  const leftMaxW = 88     // largeur colonne gauche
-
-  // --- COLONNE GAUCHE ---
-
-  // Conditions de paiement (en premier — comme le dashboard)
   if (data.conditions_paiement) {
-    doc.setFontSize(FS_BODY)
-    doc.setFont('helvetica', 'bold')
-    doc.setTextColor(26, 26, 46)
-    doc.text('Conditions de paiement', leftX, leftY)
-    leftY += 3.5
-    doc.setFontSize(FS_BODY)
-    doc.setFont('helvetica', 'normal')
-    doc.setTextColor(100)
-    const splitCond = doc.splitTextToSize(data.conditions_paiement, leftMaxW)
-    doc.text(splitCond, leftX, leftY)
-    leftY += splitCond.length * LH + 2
+    doc.setFontSize(8.5); doc.setFont('helvetica', 'bold'); setText(doc, C.navy)
+    doc.text('Conditions de paiement', M, leftY); leftY += 4
+    doc.setFontSize(8); doc.setFont('helvetica', 'normal'); setText(doc, C.muted)
+    const split = doc.splitTextToSize(data.conditions_paiement, leftMaxW)
+    doc.text(split, M, leftY); leftY += split.length * 3.2 + 3
   }
 
-  // Mentions légales (petit, grisé — comme le dashboard)
-  doc.setDrawColor(230)
-  doc.line(leftX, leftY, leftX + leftMaxW, leftY)
-  leftY += 2.5
-  doc.setFontSize(5.5)
-  doc.setFont('helvetica', 'bold')
-  doc.setTextColor(160)
-  doc.text('MENTIONS LÉGALES', leftX, leftY)
-  leftY += 2.5
-  doc.setFontSize(FS_SMALL)
-  doc.setFont('helvetica', 'normal')
-  doc.setTextColor(150)
-  if (ent.assurance_nom || ent.decennale_numero) {
-    const assLine = `Assurance décennale : ${ent.assurance_nom || ''}${ent.decennale_numero ? ` — n° ${ent.decennale_numero}` : ''}${ent.assurance_zone ? ` — Zone : ${ent.assurance_zone}` : ''}`
-    const assWrapped = doc.splitTextToSize(assLine, leftMaxW)
-    doc.text(assWrapped, leftX, leftY); leftY += assWrapped.length * LH
+  // Mentions TVA (italique, petit)
+  const tvaMentions = getTvaMentions(lignes)
+  if (tvaMentions.length > 0) {
+    doc.setFontSize(6.5); doc.setFont('helvetica', 'italic'); setText(doc, C.muted)
+    for (const m of tvaMentions) {
+      const split = doc.splitTextToSize(m, leftMaxW)
+      doc.text(split, M, leftY); leftY += split.length * 2.6 + 1.5
+    }
   }
-  doc.text('Rétractation 14 jours pour travaux hors établissement (art. L221-18 C. conso.).', leftX, leftY, { maxWidth: leftMaxW })
-  leftY += 5
 
-  // Déchets AGEC (discret, grisé, en bas — comme le dashboard)
+  // Déchets AGEC
   if (data.dechets && (data.dechets.nature || data.dechets.collecte_nom)) {
-    doc.setDrawColor(230)
-    doc.line(leftX, leftY, leftX + leftMaxW, leftY)
-    leftY += 2.5
-    doc.setFontSize(5.5)
-    doc.setFont('helvetica', 'bold')
-    doc.setTextColor(160)
-    doc.text('GESTION DES DÉCHETS (AGEC)', leftX, leftY)
-    leftY += 2.5
-    doc.setFontSize(FS_SMALL)
-    doc.setFont('helvetica', 'normal')
-    doc.setTextColor(150)
-    // Tout sur une ligne continue avec des · comme le dashboard
+    leftY += 1
+    setDraw(doc, C.border); doc.setLineWidth(0.2)
+    doc.line(M, leftY, M + leftMaxW, leftY); leftY += 2.5
+    doc.setFontSize(7); doc.setFont('helvetica', 'bold'); setText(doc, C.muted)
+    doc.text('GESTION DES DÉCHETS (AGEC)', M, leftY); leftY += 3
+    doc.setFontSize(7); doc.setFont('helvetica', 'normal'); setText(doc, C.muted)
     const dechParts: string[] = []
     if (data.dechets.nature) dechParts.push(`Nature : ${data.dechets.nature}`)
     if (data.dechets.responsable) dechParts.push(data.dechets.responsable)
     if (data.dechets.tri) dechParts.push(`Tri : ${data.dechets.tri}`)
     if (data.dechets.collecte_nom) dechParts.push(`Collecte : ${data.dechets.collecte_nom}${data.dechets.collecte_type ? ` (${data.dechets.collecte_type})` : ''}`)
-    const dechLine = dechParts.join(' · ')
-    const dechWrapped = doc.splitTextToSize(dechLine, leftMaxW)
-    doc.text(dechWrapped, leftX, leftY)
-    leftY += dechWrapped.length * LH + 1
+    const dechWrapped = doc.splitTextToSize(dechParts.join(' · '), leftMaxW)
+    doc.text(dechWrapped, M, leftY); leftY += dechWrapped.length * 2.8
   }
 
-  // TVA mentions (attestation — petit, italique)
-  const tvaMentions = getTvaMentions(data.lignes)
-  if (tvaMentions.length > 0) {
-    leftY += 1
-    doc.setFontSize(5.5)
-    doc.setFont('helvetica', 'italic')
-    doc.setTextColor(140)
-    for (const mention of tvaMentions) {
-      const lines = doc.splitTextToSize(mention, leftMaxW)
-      leftY = ensureSpace(doc, leftY, lines.length * 2.2 + 1)
-      doc.text(lines, leftX, leftY)
-      leftY += lines.length * 2.2 + 1
+  // ── SIGNATURES (bas de page, 2 cadres dashed) ──
+  let sigY = Math.max(leftY, rightY) + 4
+  // Hauteur minimale réservée
+  if (sigY > 250) { doc.addPage(); sigY = 25 }
+
+  const pageW = 210
+  const sigBoxW = (pageW - 2 * M - 6) / 2  // 2 colonnes égales
+  const sigH = 28
+  const sigLeftX = M
+  const sigRightX = M + sigBoxW + 6
+
+  // Dashed approximation : on fait des petits segments
+  const drawDashedRect = (x: number, yy: number, w: number, h: number, color: [number, number, number]) => {
+    setDraw(doc, color); doc.setLineWidth(0.3)
+    const dash = 1.6, gap = 1.2
+    let cx = x
+    while (cx < x + w) {
+      const end = Math.min(cx + dash, x + w)
+      doc.line(cx, yy, end, yy)
+      doc.line(cx, yy + h, end, yy + h)
+      cx += dash + gap
+    }
+    let cy = yy
+    while (cy < yy + h) {
+      const end = Math.min(cy + dash, yy + h)
+      doc.line(x, cy, x, end)
+      doc.line(x + w, cy, x + w, end)
+      cy += dash + gap
     }
   }
 
-  // --- COLONNE DROITE : TOTAUX ---
-  rightY = ensureSpace(doc, rightY, 50)
-  const tvaGroups = computeTvaGroups(data.lignes)
-
-  doc.setFontSize(FS_BODY)
-  doc.setTextColor(100)
-  doc.setFont('helvetica', 'normal')
-  doc.text('Total HT', rightX, rightY)
-  doc.setTextColor(26, 26, 46)
-  doc.setFont('helvetica', 'bold')
-  doc.text(fmt(data.montant_ht), 196, rightY, { align: 'right' })
-  rightY += 4
-
-  const sortedRates = Object.keys(tvaGroups).map(Number).sort((a, b) => a - b)
-  for (const rate of sortedRates) {
-    doc.setTextColor(100)
-    doc.setFont('helvetica', 'normal')
-    doc.text(`TVA ${rate}%`, rightX, rightY)
-    doc.setTextColor(26, 26, 46)
-    doc.text(fmt(tvaGroups[rate]), 196, rightY, { align: 'right' })
-    rightY += 3.5
-  }
-
-  doc.setTextColor(100)
-  doc.setFont('helvetica', 'normal')
-  doc.text('Total TTC', rightX, rightY)
-  doc.setTextColor(26, 26, 46)
-  doc.setFont('helvetica', 'bold')
-  doc.text(fmt(data.montant_ttc), 196, rightY, { align: 'right' })
-  rightY += 5
-
-  // NET À PAYER — bandeau bleu (comme le dashboard)
-  doc.setFillColor(...BLUE)
-  doc.roundedRect(rightX, rightY - 3, 86, 9, 1.5, 1.5, 'F')
-  doc.setFontSize(8)
-  doc.setFont('helvetica', 'bold')
-  doc.setTextColor(255, 255, 255)
-  doc.text('NET À PAYER', rightX + 3, rightY + 3)
-  doc.text(fmt(data.montant_ttc), 193, rightY + 3, { align: 'right' })
-  rightY += 10
-
-  // Acompte (sous NET À PAYER)
-  if (data.acompte_pourcent && data.acompte_pourcent > 0) {
-    const acompteTTC = data.montant_ttc * (data.acompte_pourcent / 100)
-    const resteTTC = data.montant_ttc - acompteTTC
-    doc.setFontSize(FS_BODY)
-    doc.setFont('helvetica', 'bold')
-    doc.setTextColor(...GREEN)
-    doc.text(`Acompte (${data.acompte_pourcent}%) :`, rightX, rightY)
-    doc.text(fmt(acompteTTC), 196, rightY, { align: 'right' })
-    rightY += 3.5
-    doc.setTextColor(80)
-    doc.setFont('helvetica', 'normal')
-    doc.text('Reste à facturer :', rightX, rightY)
-    doc.text(fmt(resteTTC), 196, rightY, { align: 'right' })
-    rightY += 4
-  }
-
-  // ── SIGNATURES — 2 cadres côte à côte SOUS "Net à payer" (colonne droite) ──
-  // Comme le dashboard : artisan gauche, client droite, même taille
-  const sigW = 42       // chaque cadre = moitié de 86 - gap
-  const sigH = 18
-  const sigY = rightY + 1
-  const sigLeftX = rightX
-  const sigRightX = rightX + sigW + 2
-
-  // Cadre artisan
-  doc.setDrawColor(200)
-  doc.setLineWidth(0.3)
-  doc.rect(sigLeftX, sigY, sigW, sigH)
-  doc.setFontSize(5)
-  doc.setFont('helvetica', 'bold')
-  doc.setTextColor(160)
-  doc.text('ARTISAN', sigLeftX + sigW / 2, sigY + 3, { align: 'center' })
-  // Image signature/tampon
+  // Cadre ARTISAN
+  drawDashedRect(sigLeftX, sigY, sigBoxW, sigH, C.sky)
+  doc.setFontSize(8); doc.setFont('helvetica', 'bold'); setText(doc, C.netBlue)
+  doc.text('A R T I S A N', sigLeftX + 3, sigY + 5)
   const artisanVisual = ent.signature_base64 || ent.tampon_base64
   if (artisanVisual) {
-    try { doc.addImage(artisanVisual, 'PNG', sigLeftX + 2, sigY + 4.5, 0, sigH - 6) } catch { /* ignore */ }
+    try { doc.addImage(artisanVisual, 'PNG', sigLeftX + 4, sigY + 7, 0, sigH - 12) } catch { /* ignore */ }
   }
 
-  // Cadre client
-  doc.rect(sigRightX, sigY, sigW, sigH)
-  doc.setFontSize(5)
-  doc.setFont('helvetica', 'bold')
-  doc.setTextColor(160)
-  doc.text('CLIENT', sigRightX + sigW / 2, sigY + 3, { align: 'center' })
+  // Cadre CLIENT
+  drawDashedRect(sigRightX, sigY, sigBoxW, sigH, C.green)
+  doc.setFontSize(8); doc.setFont('helvetica', 'bold'); setText(doc, C.greenDark)
+  doc.text('C L I E N T', sigRightX + 3, sigY + 5)
 
-  // Si le devis est accepté/signé, afficher "Bon pour accord" + date,
-  // ou la signature scannée si elle existe. Sinon "En attente".
   const isAccepte = data.statut === 'signe' || data.statut === 'facture'
   if (isAccepte) {
     if (data.client_signature_base64) {
-      try {
-        doc.addImage(data.client_signature_base64, 'PNG', sigRightX + 2, sigY + 4.5, 0, sigH - 8)
-      } catch { /* ignore */ }
+      try { doc.addImage(data.client_signature_base64, 'PNG', sigRightX + 4, sigY + 7, 0, sigH - 14) } catch { /* ignore */ }
     } else {
-      doc.setFontSize(7)
-      doc.setFont('helvetica', 'bold')
-      doc.setTextColor(22, 101, 52) // vert foncé (#166534)
-      doc.text('Bon pour accord', sigRightX + sigW / 2, sigY + sigH / 2, { align: 'center' })
+      doc.setFontSize(9); doc.setFont('helvetica', 'bold'); setText(doc, C.greenDark)
+      doc.text('Bon pour accord', sigRightX + sigBoxW / 2, sigY + sigH / 2 + 1, { align: 'center' })
     }
     if (data.date_signature) {
-      doc.setFontSize(5.5)
-      doc.setFont('helvetica', 'normal')
-      doc.setTextColor(120)
-      doc.text(fmtDate(data.date_signature), sigRightX + sigW / 2, sigY + sigH - 2, { align: 'center' })
+      doc.setFontSize(7); doc.setFont('helvetica', 'normal'); setText(doc, C.muted)
+      doc.text(`Le ${fmtDate(data.date_signature)}`, sigRightX + sigBoxW / 2, sigY + sigH - 3, { align: 'center' })
     }
   } else {
-    doc.setFontSize(6)
-    doc.setFont('helvetica', 'italic')
-    doc.setTextColor(180)
-    doc.text('En attente', sigRightX + sigW / 2, sigY + sigH / 2 + 2, { align: 'center' })
+    doc.setFontSize(8); doc.setFont('helvetica', 'italic'); setText(doc, C.muted)
+    doc.text('Date et signature précédées de "Bon pour accord"', sigRightX + sigBoxW / 2, sigY + sigH - 3, { align: 'center' })
   }
 
-  rightY = sigY + sigH + 2
-
-  y = Math.max(leftY, rightY) + 3
-
-  // ── FOOTER LÉGAL ───────────────────────────────────────────────
-  addFooterLegal(doc, ent, y)
-
+  drawFooterAllPages(doc, ent, data.numero)
   return doc.output('datauristring').split(',')[1]
 }
 
@@ -585,257 +953,158 @@ export function generateDevisPdf(data: DevisData): string {
 // ===================================================================
 
 export function generateFacturePdf(data: FactureData): string {
-  const doc = new jsPDF()
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' })
   const ent = data.entreprise
-  let y = 12
-  const M = 14
-  const pageW = 210
+  const lignes = normalizeLignes(data.lignes)
+  const isSituation = data.type === 'situation'
 
-  // ── HEADER : logo à gauche, FACTURE centré au milieu absolu ──
-  const titleBlockH = 18
-  const titleTopY = y
-  const centerX = pageW / 2
-
-  doc.setFontSize(22)
-  doc.setFont('helvetica', 'bold')
-  doc.setTextColor(...BLUE)
-  doc.text('FACTURE', centerX, titleTopY + 6, { align: 'center' })
-  doc.setFontSize(9)
-  doc.setTextColor(60)
-  doc.text(`N° ${data.numero}`, centerX, titleTopY + 14, { align: 'center' })
-
-  // Logo — aligné du haut des lettres FACTURE au bas du numéro
-  if (ent.logo_url && ent.logo_url.startsWith('data:image')) {
-    try {
-      const logoFormat = ent.logo_url.includes('image/png') ? 'PNG' : 'JPEG'
-      const logoTopY = titleTopY + 0.5
-      const logoH = 14
-      const imgProps = doc.getImageProperties(ent.logo_url)
-      const ratio = imgProps.width / imgProps.height
-      let logoW = logoH * ratio
-      if (logoW > 45) logoW = 45
-      doc.addImage(ent.logo_url, logoFormat, M, logoTopY, logoW, logoH)
-    } catch { /* logo invalide */ }
-  }
-
-  y = titleTopY + titleBlockH + 2
-
-  // ── TRAIT DÉGRADÉ ──
-  doc.setFillColor(37, 99, 235)
-  doc.rect(M, y, 91, 0.8, 'F')
-  doc.setFillColor(147, 197, 253)
-  doc.rect(M + 91, y, 91, 0.8, 'F')
-  y += 3
-
-  // ── DATES (1 ligne) ──
-  doc.setFontSize(7)
-  doc.setFont('helvetica', 'normal')
-  doc.setTextColor(80)
   const dateParts: string[] = []
   dateParts.push(`Date : ${fmtDate(data.date_emission)}`)
   if (data.date_echeance) dateParts.push(`Échéance : ${fmtDate(data.date_echeance)}`)
   if (data.date_prestation) dateParts.push(`Prestation : ${fmtDate(data.date_prestation)}`)
-  doc.text(dateParts.join('    '), pageW / 2, y + 1, { align: 'center' })
-  y += 5
 
-  // ── 2 CADRES : ARTISAN + CLIENT (hauteur dynamique) ──
-  const boxW = 88
-  const lx = M
-  const rx = M + boxW + 6
-  const boxStartY = y
+  const headerOpts: HeaderOpts = isSituation
+    ? {
+      title: 'FACTURE DE SITUATION',
+      numero: data.numero,
+      subtitle: data.numero_situation ? `Situation N° ${data.numero_situation}` : undefined,
+      refLine: data.devis_ref ? `Sur devis N° ${data.devis_ref}${data.devis_date ? ` du ${fmtDate(data.devis_date)}` : ''}` : undefined,
+      dateLine: dateParts.join(' | '),
+    }
+    : {
+      title: 'FACTURE',
+      numero: data.numero,
+      dateLine: dateParts.join(' | '),
+    }
 
-  let ay = y + 4
-  doc.setFontSize(6.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(37, 99, 235)
-  doc.text('ARTISAN', lx + 3, ay); ay += 4
-  doc.setFontSize(9); doc.setTextColor(26, 26, 46)
-  doc.text(ent.nom || '', lx + 3, ay); ay += 3.5
-  doc.setFontSize(7); doc.setFont('helvetica', 'normal'); doc.setTextColor(80)
-  if (ent.adresse) { doc.text(ent.adresse, lx + 3, ay); ay += 3 }
-  if (ent.code_postal || ent.ville) { doc.text(`${ent.code_postal || ''} ${ent.ville || ''}`.trim(), lx + 3, ay); ay += 3 }
-  if (ent.siret) { doc.text(`SIRET : ${ent.siret}`, lx + 3, ay); ay += 3 }
-  if (ent.telephone) { doc.text(`Tél : ${ent.telephone}`, lx + 3, ay); ay += 3 }
+  let y = drawHeader(doc, ent, headerOpts, 12)
+  y = drawIdentityBoxes(doc, ent, { clientNom: data.clientNom, clientAdresse: data.clientAdresse }, y)
+  if (data.objet) y = drawObjet(doc, data.objet, y)
 
-  let cy = y + 4
-  doc.setFontSize(6.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(16, 185, 129)
-  doc.text('CLIENT', rx + 3, cy); cy += 4
-  doc.setFontSize(9); doc.setTextColor(26, 26, 46)
-  doc.text(data.clientNom, rx + 3, cy); cy += 3.5
-  doc.setFontSize(7); doc.setFont('helvetica', 'normal'); doc.setTextColor(80)
-  if (data.clientAdresse) {
-    const parts = data.clientAdresse.split('|').map(s => s.trim()).filter(Boolean)
-    for (const p of parts) { doc.text(p, rx + 3, cy, { maxWidth: boxW - 6 }); cy += 3 }
+  if (isSituation) {
+    const M = 14, pageW = 210
+    const w = pageW - 2 * M
+    const pct = data.pourcentage_situation ?? 0
+    const totalTTC = data.montant_ttc / (pct > 0 ? pct / 100 : 1)
+    const desc = `Situation #${data.numero_situation ?? '?'} pour le devis n° ${data.devis_ref ?? '-'}${data.devis_date ? ` du ${fmtDate(data.devis_date)}` : ''} - ${pct}% TTC sur un montant total de ${fmt(totalTTC)} TTC`
+
+    setFill(doc, C.skyVeryPale)
+    const blockH = 22
+    doc.roundedRect(M, y, w, blockH, 2, 2, 'F')
+    setFill(doc, C.sky); doc.rect(M, y, 1.4, blockH, 'F')
+
+    doc.setFontSize(9); doc.setFont('helvetica', 'bold'); setText(doc, C.netBlueAccent)
+    doc.text('DESCRIPTION DE LA SITUATION', M + 5, y + 5.5)
+    doc.setFontSize(9); doc.setFont('helvetica', 'normal'); setText(doc, C.navy)
+    const split = doc.splitTextToSize(desc, w - 10)
+    doc.text(split, M + 5, y + 11)
+    y += blockH + 4
+
+    autoTable(doc, {
+      startY: y,
+      head: [['DÉSIGNATION', 'TOTAL HT']],
+      body: [[`Situation N° ${data.numero_situation ?? '?'} (${pct}%)`, fmt(data.montant_ht)]],
+      theme: 'plain',
+      margin: { left: M, right: M },
+      styles: { font: 'helvetica', fontSize: 9, cellPadding: 3, textColor: C.navy, lineColor: C.border, lineWidth: 0.1 },
+      headStyles: { fillColor: C.navy, textColor: C.white, fontStyle: 'bold', halign: 'center' },
+      columnStyles: { 0: { halign: 'left' }, 1: { halign: 'right', cellWidth: 32 } },
+    })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    y = (doc as any).lastAutoTable.finalY + 4
+  } else {
+    y = drawHierTable(doc, lignes, y)
   }
 
-  const boxH = Math.max(ay - boxStartY + 2, cy - boxStartY + 2)
-  doc.setDrawColor(37, 99, 235); doc.setLineWidth(0.5); doc.rect(lx, boxStartY, boxW, boxH)
-  doc.setDrawColor(16, 185, 129); doc.rect(rx, boxStartY, boxW, boxH)
+  const NEEDED_BOTTOM = 75
+  if (y + NEEDED_BOTTOM > 270) { doc.addPage(); y = 20 }
 
-  y = boxStartY + boxH + 3
+  const tvaGroups = computeTvaGroups(lignes)
+  const totalsStartY = y
+  let rightY = drawTotals(doc, {
+    ht: data.montant_ht,
+    ttc: data.montant_ttc,
+    tvaGroups,
+  }, y)
 
-  // ── OBJET ──
-  if (data.objet) {
-    doc.setFillColor(239, 246, 255)
-    doc.rect(M, y, 182, 7, 'F')
-    doc.setFillColor(37, 99, 235)
-    doc.rect(M, y, 1, 7, 'F')
-    doc.setFontSize(7.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(37, 99, 235)
-    doc.text('Objet :', M + 3, y + 4.5)
-    doc.setFont('helvetica', 'normal'); doc.setTextColor(40)
-    doc.text(data.objet, M + 17, y + 4.5, { maxWidth: 162 })
-    y += 10
+  if (isSituation && (data.reste_a_facturer_ht !== undefined || data.reste_a_facturer_ttc !== undefined)) {
+    const M = 14, pageW = 210
+    const rightX = pageW - M - 80
+    const valueX = pageW - M
+
+    if (data.reste_a_facturer_ht !== undefined) {
+      doc.setFontSize(8.5); doc.setFont('helvetica', 'normal'); setText(doc, C.muted)
+      doc.text('Reste à facturer HT', rightX, rightY)
+      setText(doc, C.navy); doc.text(fmt(data.reste_a_facturer_ht), valueX, rightY, { align: 'right' })
+      rightY += 4
+    }
+    if (data.reste_a_facturer_ttc !== undefined) {
+      doc.setFontSize(8.5); doc.setFont('helvetica', 'bold'); setText(doc, C.netBlue)
+      doc.text('Reste à facturer TTC', rightX, rightY)
+      doc.text(fmt(data.reste_a_facturer_ttc), valueX, rightY, { align: 'right' })
+      rightY += 5
+    }
   }
 
-  // ── TABLE (compacte) ──
-  autoTable(doc, {
-    startY: y,
-    head: [['N°', 'Désignation', 'Qté', 'Unité', 'Prix U. HT', 'Total HT']],
-    body: data.lignes.map((l, i) => [
-      String(i + 1),
-      l.designation,
-      String(l.quantite),
-      l.unite,
-      fmt(l.prix_unitaire_ht),
-      fmt(l.quantite * l.prix_unitaire_ht),
-    ]),
-    theme: 'grid',
-    headStyles: { fillColor: BLUE, fontSize: 7, font: 'helvetica', halign: 'center', textColor: [255, 255, 255], cellPadding: 1.5 },
-    bodyStyles: { fontSize: 7, cellPadding: 1.5 },
-    alternateRowStyles: { fillColor: [248, 250, 255] },
-    columnStyles: {
-      0: { halign: 'center', cellWidth: 9 },
-      2: { halign: 'center', cellWidth: 12 },
-      3: { halign: 'center', cellWidth: 14 },
-      4: { halign: 'right', cellWidth: 24 },
-      5: { halign: 'right', cellWidth: 24 },
-    },
-    margin: { left: M, right: M },
-  })
+  if (Object.keys(tvaGroups).length > 1) {
+    rightY = drawTvaBreakdown(doc, lignes, rightY + 1)
+  }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  y = (doc as any).lastAutoTable.finalY + 6
-
-  // ── BAS DE PAGE: 2 colonnes (identique au devis) ──────────────
-  const leftX = 14
-  const rightX = 110
-  let leftY = y
-  let rightY = y
-
-  // --- COLONNE GAUCHE (compact, même style que devis) ---
-  const FS_SMALL = 6.5
-  const FS_BODY = 7
-  const LH = 2.8
+  let leftY = totalsStartY
+  const M = 14
   const leftMaxW = 88
 
   if (data.notes) {
-    doc.setFontSize(FS_BODY); doc.setFont('helvetica', 'bold'); doc.setTextColor(26, 26, 46)
-    doc.text('Conditions de paiement', leftX, leftY); leftY += 3.5
-    doc.setFontSize(FS_BODY); doc.setFont('helvetica', 'normal'); doc.setTextColor(100)
-    const splitCond = doc.splitTextToSize(data.notes, leftMaxW)
-    doc.text(splitCond, leftX, leftY); leftY += splitCond.length * LH + 2
+    doc.setFontSize(8.5); doc.setFont('helvetica', 'bold'); setText(doc, C.navy)
+    doc.text('Conditions de paiement', M, leftY); leftY += 4
+    doc.setFontSize(8); doc.setFont('helvetica', 'normal'); setText(doc, C.muted)
+    const split = doc.splitTextToSize(data.notes, leftMaxW)
+    doc.text(split, M, leftY); leftY += split.length * 3.2 + 3
   }
 
-  // Pénalités de retard (petit, grisé)
-  doc.setDrawColor(230); doc.line(leftX, leftY, leftX + leftMaxW, leftY); leftY += 2.5
-  doc.setFontSize(FS_SMALL); doc.setTextColor(150); doc.setFont('helvetica', 'normal')
-  doc.text('Pénalités de retard : 3x le taux d\'intérêt légal en vigueur.', leftX, leftY); leftY += LH
+  doc.setFontSize(7); doc.setFont('helvetica', 'normal'); setText(doc, C.muted)
+  doc.text('Pénalités de retard : 3x le taux d\'intérêt légal en vigueur.', M, leftY); leftY += 3
   if (data.clientType === 'professionnel') {
-    doc.text('Indemnité forfaitaire recouvrement : 40 €.', leftX, leftY); leftY += LH
+    doc.text('Indemnité forfaitaire recouvrement : 40 €.', M, leftY); leftY += 3
   }
-  doc.text('Escompte pour paiement anticipé : néant.', leftX, leftY); leftY += LH + 1
+  doc.text('Escompte pour paiement anticipé : néant.', M, leftY); leftY += 4
 
-  // TVA mentions
-  const tvaMentions = getTvaMentions(data.lignes)
-  if (tvaMentions.length > 0) {
-    doc.setFontSize(5.5); doc.setFont('helvetica', 'italic'); doc.setTextColor(140)
-    for (const mention of tvaMentions) {
-      const lines = doc.splitTextToSize(mention, leftMaxW)
-      leftY = ensureSpace(doc, leftY, lines.length * 2.2 + 1)
-      doc.text(lines, leftX, leftY); leftY += lines.length * 2.2 + 1
-    }
-  }
-
-  // --- COLONNE DROITE: TOTAUX (compact) ---
-  rightY = ensureSpace(doc, rightY, 40)
-  const tvaGroups = computeTvaGroups(data.lignes)
-
-  doc.setFontSize(FS_BODY)
-  doc.setTextColor(100); doc.setFont('helvetica', 'normal')
-  doc.text('Total HT', rightX, rightY)
-  doc.setTextColor(26, 26, 46); doc.setFont('helvetica', 'bold')
-  doc.text(fmt(data.montant_ht), 196, rightY, { align: 'right' }); rightY += 4
-
-  const sortedRates = Object.keys(tvaGroups).map(Number).sort((a, b) => a - b)
-  for (const rate of sortedRates) {
-    doc.setTextColor(100); doc.setFont('helvetica', 'normal')
-    doc.text(`TVA ${rate}%`, rightX, rightY)
-    doc.setTextColor(26, 26, 46)
-    doc.text(fmt(tvaGroups[rate]), 196, rightY, { align: 'right' }); rightY += 3.5
-  }
-
-  doc.setTextColor(100); doc.setFont('helvetica', 'normal')
-  doc.text('Total TTC', rightX, rightY)
-  doc.setTextColor(26, 26, 46); doc.setFont('helvetica', 'bold')
-  doc.text(fmt(data.montant_ttc), 196, rightY, { align: 'right' }); rightY += 5
-
-  // NET À PAYER banner
-  doc.setFillColor(...BLUE)
-  doc.roundedRect(rightX, rightY - 3, 86, 9, 1.5, 1.5, 'F')
-  doc.setFontSize(8); doc.setFont('helvetica', 'bold'); doc.setTextColor(255, 255, 255)
-  doc.text('NET À PAYER', rightX + 3, rightY + 3)
-  doc.text(fmt(data.montant_ttc), 193, rightY + 3, { align: 'right' }); rightY += 12
-
-  y = Math.max(leftY, rightY) + 3
-
-  // ── PAS DE SIGNATURES SUR FACTURE (différence avec devis) ─────
-
-  // ── COORDONNÉES BANCAIRES (encart "Pour régler par virement") ─
-  // Affiché UNIQUEMENT si l'IBAN est renseigné dans le profil entreprise.
-  // Position : bas-gauche, encadré gris clair, format IBAN avec espaces tous les 4 car.
   if (ent.iban && ent.iban.trim()) {
-    y = ensureSpace(doc, y, 22)
-    const ribX = 14
-    const ribW = 100
+    const ribW = leftMaxW
     const ribH = 18
-    // Cadre gris clair
-    doc.setDrawColor(200, 200, 200)
-    doc.setFillColor(248, 250, 252)
-    doc.setLineWidth(0.3)
-    doc.roundedRect(ribX, y, ribW, ribH, 1.5, 1.5, 'FD')
-    // Label
-    doc.setFontSize(7)
-    doc.setFont('helvetica', 'bold')
-    doc.setTextColor(37, 99, 235)
-    doc.text('POUR RÉGLER PAR VIREMENT', ribX + 3, y + 4)
-    // IBAN formaté avec espaces tous les 4 caractères (lisibilité)
+    setFill(doc, [248, 250, 252])
+    setDraw(doc, [200, 200, 200]); doc.setLineWidth(0.3)
+    doc.roundedRect(M, leftY, ribW, ribH, 1.5, 1.5, 'FD')
+
+    doc.setFontSize(7.5); doc.setFont('helvetica', 'bold'); setText(doc, C.netBlue)
+    doc.text('POUR RÉGLER PAR VIREMENT', M + 3, leftY + 4.5)
+
     const ibanClean = ent.iban.replace(/\s+/g, '').toUpperCase()
     const ibanFormatted = ibanClean.match(/.{1,4}/g)?.join(' ') || ibanClean
-    doc.setFontSize(8.5)
-    doc.setFont('courier', 'bold')
-    doc.setTextColor(15, 23, 42)
-    doc.text(`IBAN : ${ibanFormatted}`, ribX + 3, y + 9)
-    // BIC en dessous (si renseigné)
+    doc.setFontSize(8); doc.setFont('courier', 'bold'); setText(doc, C.navy)
+    doc.text(`IBAN : ${ibanFormatted}`, M + 3, leftY + 9)
     if (ent.bic && ent.bic.trim()) {
       doc.setFontSize(7.5)
-      doc.text(`BIC : ${ent.bic.trim().toUpperCase()}`, ribX + 3, y + 13)
+      doc.text(`BIC : ${ent.bic.trim().toUpperCase()}`, M + 3, leftY + 13)
     }
-    // Bénéficiaire (nom de l'entreprise)
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(6.5)
-    doc.setTextColor(107, 114, 128)
-    doc.text(`Bénéficiaire : ${ent.nom || ''}`, ribX + 3, y + 16.5)
-    y += ribH + 4
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(6.5); setText(doc, C.muted)
+    doc.text(`Bénéficiaire : ${ent.nom || ''}`, M + 3, leftY + 16.5)
+    leftY += ribH + 3
   }
 
-  // ── MENTION LÉGALE FACTURE ────────────────────────────────────
-  y = ensureSpace(doc, y, 8)
-  doc.setFontSize(6.5)
-  doc.setFont('helvetica', 'italic')
-  doc.setTextColor(107, 114, 128)
-  doc.text('Facture émise conformément aux articles L441-3 et suivants du Code de commerce.', 14, y, { maxWidth: 182 })
-  y += 6
+  const tvaMentions = getTvaMentions(lignes)
+  if (tvaMentions.length > 0) {
+    doc.setFontSize(6.5); doc.setFont('helvetica', 'italic'); setText(doc, C.muted)
+    for (const m of tvaMentions) {
+      const split = doc.splitTextToSize(m, leftMaxW)
+      doc.text(split, M, leftY); leftY += split.length * 2.6 + 1.5
+    }
+  }
+  doc.setFontSize(6.5); doc.setFont('helvetica', 'italic'); setText(doc, C.muted)
+  doc.text('Facture émise conformément aux articles L441-3 et suivants du Code de commerce.', M, leftY, { maxWidth: leftMaxW })
 
-  // ── FOOTER LÉGAL ──────────────────────────────────────────────
-  addFooterLegal(doc, ent, y)
-
+  drawFooterAllPages(doc, ent, data.numero)
   return doc.output('datauristring').split(',')[1]
+}
+1]
 }
