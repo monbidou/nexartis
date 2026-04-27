@@ -6,9 +6,9 @@ import { useParams, useRouter } from 'next/navigation'
 import { Trash2, Plus, ArrowLeft } from 'lucide-react'
 import { useSupabaseRecord, useDevisLignes, useEntreprise, updateRow, insertRow, LoadingSkeleton } from '@/lib/hooks'
 
-interface LineItem { id: number; designation: string; qty: number; unit: string; priceHT: number; type: 'line' | 'section' | 'text' }
+interface LineItem { id: number; designation: string; qty: number; unit: string; priceHT: number; type: 'line' | 'section' | 'subsection' | 'text' }
 interface DevisRecord { id: string; numero: string; statut: string; date_emission?: string; date_validite?: string; date_debut_travaux?: string; duree_estimee?: string; description?: string; objet?: string; conditions_paiement?: string; notes_internes?: string; notes_client?: string; montant_ht?: number; montant_tva?: number; montant_ttc?: number }
-interface LigneRecord { id: string; designation: string; quantite: number; unite: string; prix_unitaire_ht: number; taux_tva: number; ordre: number }
+interface LigneRecord { id: string; designation: string; quantite: number; unite: string; prix_unitaire_ht: number; taux_tva: number; ordre: number; type?: string; niveau?: number }
 
 const UNIT_SUGGESTIONS = ['U', 'm²', 'm', 'ml', 'cm', 'kg', 't', 'h', 'jour', 'demi-journée', 'forfait', 'ensemble', 'lot', 'm³']
 let nextId = 1000
@@ -72,14 +72,10 @@ export default function ModifierDevisPage() {
   useEffect(() => {
     if (!lignesRaw || lignesRaw.length === 0 || lines.length > 0) return
     const raw = lignesRaw as unknown as LigneRecord[]
-    setLines(raw.map((l, i) => ({
-      id: nextId + i,
-      designation: l.designation || '',
-      qty: l.quantite || 1,
-      unit: l.unite || 'U',
-      priceHT: l.prix_unitaire_ht || 0,
-      type: 'line' as const,
-    })))
+    setLines(raw.map((l, i) => {
+      const reactType: LineItem['type'] = l.type === 'section' ? 'section' : l.type === 'sous_section' ? 'subsection' : l.type === 'commentaire' ? 'text' : 'line'
+      return { id: nextId + i, designation: l.designation || '', qty: l.quantite || 1, unit: l.unite || 'U', priceHT: l.prix_unitaire_ht || 0, type: reactType }
+    }))
     nextId += raw.length
     if (raw.length > 0 && raw[0].taux_tva != null) {
       const tva = raw[0].taux_tva
@@ -92,8 +88,8 @@ export default function ModifierDevisPage() {
     setLines(prev => prev.map(l => (l.id === lid ? { ...l, [field]: value } : l)))
   }
   function removeLine(lid: number) { setLines(prev => prev.filter(l => l.id !== lid)) }
-  function addLine(type: 'line' | 'section' | 'text' = 'line') {
-    setLines(prev => [...prev, { id: nextId++, designation: type === 'section' ? '--- Section ---' : '', qty: type === 'line' ? 1 : 0, unit: 'U', priceHT: 0, type }])
+  function addLine(type: 'line' | 'section' | 'subsection' | 'text' = 'line') {
+    setLines(prev => [...prev, { id: nextId++, designation: '', qty: type === 'line' ? 1 : 0, unit: 'U', priceHT: 0, type }])
   }
 
   const effectiveTva = autoEntrepreneur ? 0 : globalTvaRate
@@ -147,6 +143,8 @@ export default function ModifierDevisPage() {
       for (let i = 0; i < lines.length; i++) {
         const l = lines[i]
         if (l.type !== 'line' && !l.designation) continue
+        const dbType = l.type === 'section' ? 'section' : l.type === 'subsection' ? 'sous_section' : l.type === 'text' ? 'commentaire' : 'prestation'
+        const dbNiveau = l.type === 'section' ? 1 : l.type === 'subsection' ? 2 : 3
         await insertRow('devis_lignes', {
           devis_id: devis.id,
           designation: l.designation,
@@ -155,6 +153,8 @@ export default function ModifierDevisPage() {
           prix_unitaire_ht: l.priceHT,
           taux_tva: effectiveTva,
           ordre: i + 1,
+          type: dbType,
+          niveau: dbNiveau,
         })
       }
       if (action === 'brouillon') {
@@ -217,8 +217,8 @@ export default function ModifierDevisPage() {
             <span>Désignation</span><span className="text-center">Qté</span><span className="text-center">Unité</span><span className="text-right">Prix U. HT</span><span className="text-right">Total HT</span><span />
           </div>
           {lines.map(line => (
-            <div key={line.id} className="grid grid-cols-[1fr_70px_90px_100px_100px_36px] items-start px-4 py-2 border-b border-gray-100">
-              <textarea value={line.designation} onChange={e => { updateLine(line.id, 'designation', e.target.value); e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px' }} className="text-sm font-manrope border-0 outline-none bg-transparent px-1 resize-none overflow-hidden min-h-[38px]" placeholder="Désignation..." rows={1} />
+            <div key={line.id} className={`grid grid-cols-[1fr_70px_90px_100px_100px_36px] items-start px-4 py-2 border-b border-gray-100 ${line.type === 'section' ? 'bg-[#dceefa] border-l-4 border-l-[#5ab4e0]' : line.type === 'subsection' ? 'bg-[#e8f4fb] border-l-2 border-l-[#5ab4e0]/60' : ''}`}>
+              <textarea value={line.designation} onChange={e => { updateLine(line.id, 'designation', e.target.value); e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px' }} className={`text-sm font-manrope border-0 outline-none bg-transparent px-1 resize-none overflow-hidden min-h-[38px] ${line.type === 'section' ? 'font-bold text-[#1a6fb5]' : line.type === 'subsection' ? 'font-semibold text-[#0f1a3a]' : ''}`} placeholder={line.type === 'section' ? 'Nom de la section (ex : Demolition, Maconnerie...)' : line.type === 'subsection' ? 'Nom de la sous-section (ex : Cuisine, Plomberie...)' : line.type === 'text' ? 'Texte libre...' : 'Désignation...'} rows={1} />
               {line.type === 'line' ? (<>
                 <input type="number" value={line.qty} onChange={e => updateLine(line.id, 'qty', Number(e.target.value))} className="text-sm text-center border-0 outline-none bg-transparent mt-1.5" min={0} />
                 <select value={line.unit} onChange={e => updateLine(line.id, 'unit', e.target.value)} className="text-sm text-center border-0 outline-none bg-transparent mt-1.5 w-full">
@@ -233,7 +233,8 @@ export default function ModifierDevisPage() {
           {/* Units are now in select dropdowns */}
           <div className="flex flex-wrap gap-2 p-4">
             <button onClick={() => addLine('line')} className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 text-sm font-manrope hover:bg-gray-100"><Plus size={14} /> Ajouter une ligne</button>
-            <button onClick={() => addLine('section')} className="flex items-center gap-1.5 px-4 py-2 text-sm font-manrope text-[#6b7280]"><Plus size={14} /> Section</button>
+            <button onClick={() => addLine('section')} className="flex items-center gap-1.5 px-4 py-2 text-sm font-manrope text-[#1a6fb5] bg-[#dceefa] border border-[#5ab4e0]/30 rounded-lg hover:bg-[#cde4f5]"><Plus size={14} /> Section</button>
+            <button onClick={() => addLine('subsection')} className="flex items-center gap-1.5 px-4 py-2 text-sm font-manrope text-[#1a6fb5] bg-[#e8f4fb] border border-[#5ab4e0]/20 rounded-lg hover:bg-[#dceefa]"><Plus size={14} /> Sous-section</button>
           </div>
         </div>
 
