@@ -5,6 +5,9 @@ export const metadata: Metadata = {
   title: "Logiciel Devis Chauffagiste — Nexartis | 25€/mois tout inclus",
   description:
     "Créez vos devis chauffage et climatisation en quelques minutes. TVA réduite automatique. Conforme Factur-X 2026. Essai gratuit.",
+  alternates: {
+    canonical: '/logiciel-devis-chauffagiste',
+  },
 };
 
 const data = {

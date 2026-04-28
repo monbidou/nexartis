@@ -5,6 +5,9 @@ export const metadata: Metadata = {
   title: "Logiciel Artisan Bordeaux — Nexartis | Fait en Gironde | 25€/mois",
   description:
     "Nexartis, le logiciel artisan créé à Bordeaux. Devis, factures, planning pour les artisans de Gironde. 25€/mois tout inclus.",
+  alternates: {
+    canonical: '/logiciel-artisan-bordeaux',
+  },
 };
 
 const data = {

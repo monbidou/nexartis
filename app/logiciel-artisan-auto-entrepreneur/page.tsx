@@ -5,6 +5,9 @@ export const metadata: Metadata = {
   title: "Logiciel Auto-Entrepreneur Artisan — Nexartis | 25€/mois tout inclus",
   description:
     "Le logiciel le moins cher pour les auto-entrepreneurs du bâtiment. Devis, factures, planning. 25€/mois tout inclus. Essai gratuit.",
+  alternates: {
+    canonical: '/logiciel-artisan-auto-entrepreneur',
+  },
 };
 
 const data = {

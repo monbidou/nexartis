@@ -5,6 +5,9 @@ export const metadata: Metadata = {
   title: "Logiciel Devis Électricien — Nexartis | 25€/mois tout inclus",
   description:
     "Créez vos devis électricité en quelques minutes. Normes NF C 15-100 intégrées. Conforme Factur-X 2026. Essai gratuit.",
+  alternates: {
+    canonical: '/logiciel-devis-electricien',
+  },
 };
 
 const data = {

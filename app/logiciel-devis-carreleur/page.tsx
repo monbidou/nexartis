@@ -5,6 +5,9 @@ export const metadata: Metadata = {
   title: "Logiciel Devis Carreleur — Nexartis | 25€/mois tout inclus",
   description:
     "Créez vos devis carrelage en quelques minutes. Fournitures et pose séparées. Conforme Factur-X 2026. Essai gratuit.",
+  alternates: {
+    canonical: '/logiciel-devis-carreleur',
+  },
 };
 
 const data = {

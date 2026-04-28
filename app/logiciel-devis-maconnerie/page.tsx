@@ -5,6 +5,9 @@ export const metadata: Metadata = {
   title: "Logiciel Devis Maçon — Nexartis | 25€/mois tout inclus",
   description:
     "Créez vos devis maçonnerie en quelques minutes. Gestion des situations de travaux. Conforme Factur-X 2026. Essai gratuit.",
+  alternates: {
+    canonical: '/logiciel-devis-maconnerie',
+  },
 };
 
 const data = {

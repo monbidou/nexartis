@@ -5,6 +5,9 @@ export const metadata: Metadata = {
   title: "Logiciel Devis Plombier — Nexartis | 25€/mois tout inclus",
   description:
     "Créez vos devis plomberie en quelques minutes. TVA 10% et 5.5% automatique. Conforme Factur-X 2026. Essai gratuit 14 jours.",
+  alternates: {
+    canonical: '/logiciel-devis-plombier',
+  },
 };
 
 const data = {

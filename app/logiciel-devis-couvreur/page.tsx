@@ -5,6 +5,9 @@ export const metadata: Metadata = {
   title: "Logiciel Devis Couvreur — Nexartis | 25€/mois tout inclus",
   description:
     "Créez vos devis couverture et toiture en quelques minutes. Situations de travaux incluses. Conforme Factur-X 2026. Essai gratuit.",
+  alternates: {
+    canonical: '/logiciel-devis-couvreur',
+  },
 };
 
 const data = {

@@ -5,6 +5,9 @@ export const metadata: Metadata = {
   title: "Logiciel Devis Paysagiste — Nexartis | 25€/mois tout inclus",
   description:
     "Créez vos devis paysagisme et entretien espaces verts en quelques minutes. Conforme Factur-X 2026. Essai gratuit.",
+  alternates: {
+    canonical: '/logiciel-devis-paysagiste',
+  },
 };
 
 const data = {

@@ -5,6 +5,9 @@ export const metadata: Metadata = {
   title: "Logiciel Artisan Marseille — Nexartis | 25€/mois tout inclus",
   description:
     "Nexartis pour les artisans de Marseille et des Bouches-du-Rhône. Devis, factures, planning. 25€/mois. Essai gratuit.",
+  alternates: {
+    canonical: '/logiciel-artisan-marseille',
+  },
 };
 
 const data = {

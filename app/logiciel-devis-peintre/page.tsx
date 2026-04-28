@@ -5,6 +5,9 @@ export const metadata: Metadata = {
   title: "Logiciel Devis Peintre — Nexartis | 25€/mois tout inclus",
   description:
     "Créez vos devis peinture en quelques minutes. Calcul surfaces automatique. Conforme Factur-X 2026. Essai gratuit.",
+  alternates: {
+    canonical: '/logiciel-devis-peintre',
+  },
 };
 
 const data = {

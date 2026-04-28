@@ -5,6 +5,9 @@ export const metadata: Metadata = {
   title: "Logiciel Devis Menuisier — Nexartis | 25€/mois tout inclus",
   description:
     "Créez vos devis menuiserie en quelques minutes. Fournitures et pose détaillées. Conforme Factur-X 2026. Essai gratuit.",
+  alternates: {
+    canonical: '/logiciel-devis-menuisier',
+  },
 };
 
 const data = {

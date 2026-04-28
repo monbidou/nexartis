@@ -5,6 +5,9 @@ export const metadata: Metadata = {
   title: "Logiciel Artisan Lyon — Nexartis | 25€/mois tout inclus",
   description:
     "Nexartis pour les artisans de Lyon et du Rhône. Devis, factures, planning intelligent. 25€/mois tout inclus. Essai gratuit.",
+  alternates: {
+    canonical: '/logiciel-artisan-lyon',
+  },
 };
 
 const data = {

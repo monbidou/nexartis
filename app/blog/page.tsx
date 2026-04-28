@@ -4,6 +4,9 @@ export const metadata: Metadata = {
   title: 'Blog Nexartis — Conseils pratiques pour artisans',
   description:
     'Guides, astuces et actualités pour les artisans de tous corps de métier. Devis, facturation, planning, TVA, Factur-X 2026.',
+  alternates: {
+    canonical: '/blog',
+  },
 }
 
 const posts = [

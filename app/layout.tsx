@@ -64,7 +64,7 @@ export const metadata: Metadata = {
     description: 'Gestion devis factures chantiers pour artisans. Essai gratuit 14 jours.',
   },
   alternates: {
-    canonical: 'https://nexartis.fr',
+    canonical: '/',
   },
   verification: {
     google: 'FJBByC3CPJtSwTo4mqYE8ijL_ZbvJS3Ha2jITTB3KN8',
