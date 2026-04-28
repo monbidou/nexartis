@@ -332,6 +332,28 @@ function drawFooterAllPages(doc: jsPDF, ent: Entreprise, numero: string) {
 }
 
 // -------------------------------------------------------------------
+// Mini-header pour pages 2+ (titre + numéro + page X/Y, trait sky)
+// Doit être appelé APRÈS le rendu complet (toutes pages connues)
+// -------------------------------------------------------------------
+
+function drawMiniHeaderAllPagesAfterFirst(doc: jsPDF, title: string, numero: string) {
+  const total = doc.getNumberOfPages()
+  if (total < 2) return
+  const pageW = 210
+  const M = 14
+
+  for (let i = 2; i <= total; i++) {
+    doc.setPage(i)
+    // Texte centré "TITRE N° XXX — Page X/Y"
+    doc.setFontSize(9); doc.setFont('helvetica', 'bold'); setText(doc, C.navy)
+    doc.text(`${title} N° ${numero} — Page ${i}/${total}`, pageW / 2, 10, { align: 'center' })
+    // Trait sky 0.3mm
+    setDraw(doc, C.sky); doc.setLineWidth(0.3)
+    doc.line(M, 13, pageW - M, 13)
+  }
+}
+
+// -------------------------------------------------------------------
 // Header (logo + titre + n° + dates) — partagé devis/facture
 // -------------------------------------------------------------------
 
@@ -598,8 +620,10 @@ function drawHierTable(doc: jsPDF, lignes: Ligne[], startY: number): number {
     head: [['N°', 'DÉSIGNATION', 'QTÉ', 'UNITÉ', 'PRIX U. HT', 'TOTAL HT']],
     body,
     theme: 'plain',
-    margin: { left: M, right: M },
+    margin: { left: M, right: M, top: 18, bottom: 22 },
     tableWidth: tableW,
+    showHead: 'everyPage',
+    rowPageBreak: 'avoid',
     styles: {
       font: 'helvetica',
       fontSize: 8.5,
@@ -690,7 +714,7 @@ function drawHierTable(doc: jsPDF, lignes: Ligne[], startY: number): number {
 }
 
 // -------------------------------------------------------------------
-// Bloc totaux + NET A PAYER (à droite)
+// Bloc totaux + NET A PAYER (à droite) — refonte v3 : 3 blocs encadrés
 // -------------------------------------------------------------------
 
 interface TotalsOpts {
@@ -699,47 +723,141 @@ interface TotalsOpts {
   tvaGroups: Record<number, number>
   netLabel?: string
   netAmount?: number
+  // Bloc C — Acompte (devis uniquement)
+  acomptePct?: number
+  acompteMontant?: number
+  resteMontant?: number
+  // Bloc C alternatif — Reste à facturer (factures de situation)
+  resteAFacturerHT?: number
+  resteAFacturerTTC?: number
 }
 
 function drawTotals(doc: jsPDF, opts: TotalsOpts, y: number): number {
   const pageW = 210
   const M = 14
-  const rightX = pageW - M - 80   // bloc large 80mm
-  const labelX = rightX
-  const valueX = pageW - M
+  const blockW = 80
+  const rightX = pageW - M - blockW
+  const padX = 3
+  const valueX = pageW - M - padX
+  const labelX = rightX + padX
 
-  doc.setFontSize(9)
-  doc.setFont('helvetica', 'normal')
-
-  // Total HT
-  setText(doc, C.muted); doc.text('Total HT', labelX, y)
-  setText(doc, C.navy); doc.setFont('helvetica', 'bold'); doc.text(fmt(opts.ht), valueX, y, { align: 'right' })
-  y += 5
-
-  // TVA par taux
-  doc.setFont('helvetica', 'normal')
+  // ── BLOC A — RÉCAPITULATIF HT/TVA/TTC ──
   const sortedRates = Object.keys(opts.tvaGroups).map(Number).sort((a, b) => a - b)
-  for (const rate of sortedRates) {
-    setText(doc, C.muted); doc.text(`TVA ${rate}%`, labelX, y)
-    setText(doc, C.navy); doc.text(fmt(opts.tvaGroups[rate]), valueX, y, { align: 'right' })
-    y += 4.5
+  const headerH = 4.5     // hauteur du header "RÉCAPITULATIF"
+  const rowH = 4.5        // hauteur de chaque ligne
+  const rowsCount = 2 + sortedRates.length // HT + TVA(s) + TTC
+  const blockAH = headerH + rowsCount * rowH + 1.5
+
+  // Cadre extérieur
+  setFill(doc, C.white)
+  setDraw(doc, C.border); doc.setLineWidth(0.2)
+  doc.roundedRect(rightX, y, blockW, blockAH, 1.5, 1.5, 'FD')
+
+  // Header "RÉCAPITULATIF"
+  doc.setFontSize(7); doc.setFont('helvetica', 'bold'); setText(doc, C.muted)
+  doc.text('RÉCAPITULATIF', labelX, y + 3.2)
+
+  let rowY = y + headerH + 0.5
+  let rowIdx = 0
+
+  // Helper : dessine une ligne
+  const drawRow = (label: string, value: string, isBold: boolean) => {
+    // Fond alterné
+    if (rowIdx % 2 === 0) {
+      doc.setFillColor(249, 250, 251)
+      doc.rect(rightX + 0.3, rowY, blockW - 0.6, rowH, 'F')
+    }
+    // Bordure haute (sauf 1ère ligne)
+    if (rowIdx > 0) {
+      setDraw(doc, C.border); doc.setLineWidth(0.15)
+      doc.line(rightX + 1.5, rowY, rightX + blockW - 1.5, rowY)
+    }
+    doc.setFontSize(8.5)
+    doc.setFont('helvetica', 'normal'); setText(doc, C.muted)
+    doc.text(label, labelX, rowY + rowH - 1.4)
+    doc.setFont('helvetica', isBold ? 'bold' : 'normal'); setText(doc, C.navy)
+    doc.text(value, valueX, rowY + rowH - 1.4, { align: 'right' })
+    rowY += rowH
+    rowIdx++
   }
 
+  // Total HT
+  drawRow('Total HT', fmt(opts.ht), true)
+  // TVA par taux
+  for (const rate of sortedRates) {
+    drawRow(`TVA ${rate}%`, fmt(opts.tvaGroups[rate]), false)
+  }
   // Total TTC
-  setText(doc, C.muted); doc.text('Total TTC', labelX, y)
-  setText(doc, C.navy); doc.setFont('helvetica', 'bold'); doc.text(fmt(opts.ttc), valueX, y, { align: 'right' })
-  y += 6
+  drawRow('Total TTC', fmt(opts.ttc), true)
 
-  // NET A PAYER bandeau
+  y = y + blockAH + 2
+
+  // ── BLOC B — NET À PAYER ──
   const netH = 11
-  const netW = 80
   setFill(doc, C.netBlue)
-  doc.roundedRect(rightX, y, netW, netH, 2, 2, 'F')
+  doc.roundedRect(rightX, y, blockW, netH, 2, 2, 'F')
   doc.setFontSize(10); doc.setFont('helvetica', 'bold'); setText(doc, C.white)
   doc.text(opts.netLabel ?? 'NET À PAYER', rightX + 4, y + netH / 2 + 1.5)
   doc.setFontSize(12)
-  doc.text(fmt(opts.netAmount ?? opts.ttc), valueX - 1, y + netH / 2 + 2, { align: 'right' })
-  y += netH + 3
+  doc.text(fmt(opts.netAmount ?? opts.ttc), pageW - M - 4, y + netH / 2 + 2, { align: 'right' })
+  y += netH + 2
+
+  // ── BLOC C — Acompte (devis) OU Reste à facturer (situation) ──
+  const hasAcompte = opts.acomptePct !== undefined && opts.acomptePct > 0
+    && opts.acompteMontant !== undefined && opts.resteMontant !== undefined
+  const hasReste = opts.resteAFacturerHT !== undefined || opts.resteAFacturerTTC !== undefined
+
+  if (hasAcompte) {
+    const accH = 13
+    // Fond vert pâle
+    setFill(doc, C.greenPale)
+    doc.roundedRect(rightX, y, blockW, accH, 1.5, 1.5, 'F')
+    // Barre gauche verte
+    setFill(doc, C.green)
+    doc.rect(rightX, y, 1.4, accH, 'F')
+
+    const lineGap = 5
+    const yLine1 = y + 5
+    const yLine2 = yLine1 + lineGap
+
+    // Ligne 1 : Acompte
+    doc.setFontSize(8.5); doc.setFont('helvetica', 'bold'); setText(doc, C.greenDark)
+    doc.text(`Acompte (${opts.acomptePct}%)`, rightX + 4, yLine1)
+    doc.setFontSize(9)
+    doc.text(fmt(opts.acompteMontant!), pageW - M - padX, yLine1, { align: 'right' })
+
+    // Ligne 2 : Reste à facturer
+    doc.setFontSize(8); doc.setFont('helvetica', 'normal'); setText(doc, C.muted)
+    doc.text('Reste à facturer', rightX + 4, yLine2)
+    doc.setFontSize(8.5); doc.setFont('helvetica', 'bold'); setText(doc, C.navy)
+    doc.text(fmt(opts.resteMontant!), pageW - M - padX, yLine2, { align: 'right' })
+
+    y += accH + 2
+  } else if (hasReste) {
+    const accH = 13
+    setFill(doc, C.greenPale)
+    doc.roundedRect(rightX, y, blockW, accH, 1.5, 1.5, 'F')
+    setFill(doc, C.green)
+    doc.rect(rightX, y, 1.4, accH, 'F')
+
+    const lineGap = 5
+    const yLine1 = y + 5
+    const yLine2 = yLine1 + lineGap
+
+    if (opts.resteAFacturerHT !== undefined) {
+      doc.setFontSize(8.5); doc.setFont('helvetica', 'normal'); setText(doc, C.muted)
+      doc.text('Reste à facturer HT', rightX + 4, yLine1)
+      doc.setFont('helvetica', 'bold'); setText(doc, C.navy)
+      doc.text(fmt(opts.resteAFacturerHT), pageW - M - padX, yLine1, { align: 'right' })
+    }
+    if (opts.resteAFacturerTTC !== undefined) {
+      doc.setFontSize(8.5); doc.setFont('helvetica', 'bold'); setText(doc, C.greenDark)
+      doc.text('Reste à facturer TTC', rightX + 4, yLine2)
+      doc.text(fmt(opts.resteAFacturerTTC), pageW - M - padX, yLine2, { align: 'right' })
+    }
+
+    y += accH + 2
+  }
 
   return y
 }
@@ -808,35 +926,24 @@ export function generateDevisPdf(data: DevisData): string {
   y = drawHierTable(doc, lignes, y)
 
   // ── TOTAUX (à droite) ──
-  // Vérifie qu'on a la place pour le bloc totaux + signatures
-  const NEEDED_BOTTOM = 95
+  // Hauteur estimée : récap (~30mm) + NET (11+2) + acompte éventuel (15) + signatures (~32) ≈ 95mm
+  const hasAcompte = !!(data.acompte_pourcent && data.acompte_pourcent > 0)
+  const NEEDED_BOTTOM = hasAcompte ? 100 : 85
   if (y + NEEDED_BOTTOM > 270) { doc.addPage(); y = 20 }
 
   const tvaGroups = computeTvaGroups(lignes)
   const totalsStartY = y
+  const acompteTTC = hasAcompte ? data.montant_ttc * ((data.acompte_pourcent as number) / 100) : undefined
+  const resteTTC = hasAcompte ? data.montant_ttc - (acompteTTC as number) : undefined
+
   let rightY = drawTotals(doc, {
     ht: data.montant_ht,
     ttc: data.montant_ttc,
     tvaGroups,
+    acomptePct: hasAcompte ? data.acompte_pourcent : undefined,
+    acompteMontant: acompteTTC,
+    resteMontant: resteTTC,
   }, y)
-
-  // ── ACOMPTE (devis uniquement) ──
-  if (data.acompte_pourcent && data.acompte_pourcent > 0) {
-    const M = 14, pageW = 210
-    const rightX = pageW - M - 80
-    const valueX = pageW - M
-    const acompteTTC = data.montant_ttc * (data.acompte_pourcent / 100)
-    const resteTTC = data.montant_ttc - acompteTTC
-
-    doc.setFontSize(8.5); doc.setFont('helvetica', 'bold'); setText(doc, C.greenDark)
-    doc.text(`Acompte (${data.acompte_pourcent}%)`, rightX, rightY)
-    doc.text(fmt(acompteTTC), valueX, rightY, { align: 'right' })
-    rightY += 4
-    doc.setFont('helvetica', 'normal'); setText(doc, C.muted)
-    doc.text('Reste à facturer', rightX, rightY)
-    doc.text(fmt(resteTTC), valueX, rightY, { align: 'right' })
-    rightY += 5
-  }
 
   // ── VENTILATION TVA (sous totaux à droite, si plusieurs taux) ──
   if (Object.keys(tvaGroups).length > 1) {
@@ -945,6 +1052,7 @@ export function generateDevisPdf(data: DevisData): string {
     doc.text('Date et signature précédées de "Bon pour accord"', sigRightX + sigBoxW / 2, sigY + sigH - 3, { align: 'center' })
   }
 
+  drawMiniHeaderAllPagesAfterFirst(doc, 'DEVIS', data.numero)
   drawFooterAllPages(doc, ent, data.numero)
   return doc.output('datauristring').split(',')[1]
 }
@@ -1004,7 +1112,7 @@ export function generateFacturePdf(data: FactureData): string {
     autoTable(doc, {
       startY: y,
       head: [['DÉSIGNATION', 'TOTAL HT']],
-      body: [[`Situation N° ${data.numero_situation ?? '?'} (${pct}%)`, fmt(data.montant_ht)]],
+      body: [[`Situation N°${data.numero_situation ?? '?'} (${pct}%)`, fmt(data.montant_ht)]],
       theme: 'plain',
       margin: { left: M, right: M },
       styles: { font: 'helvetica', fontSize: 9, cellPadding: 3, textColor: C.navy, lineColor: C.border, lineWidth: 0.1 },
@@ -1017,39 +1125,19 @@ export function generateFacturePdf(data: FactureData): string {
     y = drawHierTable(doc, lignes, y)
   }
 
-  const NEEDED_BOTTOM = 75
+  const hasReste = isSituation && (data.reste_a_facturer_ht !== undefined || data.reste_a_facturer_ttc !== undefined)
+  const NEEDED_BOTTOM = hasReste ? 95 : 80
   if (y + NEEDED_BOTTOM > 270) { doc.addPage(); y = 20 }
 
   const tvaGroups = computeTvaGroups(lignes)
   const totalsStartY = y
-  let rightY = drawTotals(doc, {
+  drawTotals(doc, {
     ht: data.montant_ht,
     ttc: data.montant_ttc,
     tvaGroups,
+    resteAFacturerHT: hasReste ? data.reste_a_facturer_ht : undefined,
+    resteAFacturerTTC: hasReste ? data.reste_a_facturer_ttc : undefined,
   }, y)
-
-  if (isSituation && (data.reste_a_facturer_ht !== undefined || data.reste_a_facturer_ttc !== undefined)) {
-    const M = 14, pageW = 210
-    const rightX = pageW - M - 80
-    const valueX = pageW - M
-
-    if (data.reste_a_facturer_ht !== undefined) {
-      doc.setFontSize(8.5); doc.setFont('helvetica', 'normal'); setText(doc, C.muted)
-      doc.text('Reste à facturer HT', rightX, rightY)
-      setText(doc, C.navy); doc.text(fmt(data.reste_a_facturer_ht), valueX, rightY, { align: 'right' })
-      rightY += 4
-    }
-    if (data.reste_a_facturer_ttc !== undefined) {
-      doc.setFontSize(8.5); doc.setFont('helvetica', 'bold'); setText(doc, C.netBlue)
-      doc.text('Reste à facturer TTC', rightX, rightY)
-      doc.text(fmt(data.reste_a_facturer_ttc), valueX, rightY, { align: 'right' })
-      rightY += 5
-    }
-  }
-
-  if (Object.keys(tvaGroups).length > 1) {
-    rightY = drawTvaBreakdown(doc, lignes, rightY + 1)
-  }
 
   let leftY = totalsStartY
   const M = 14
@@ -1064,7 +1152,7 @@ export function generateFacturePdf(data: FactureData): string {
   }
 
   doc.setFontSize(7); doc.setFont('helvetica', 'normal'); setText(doc, C.muted)
-  doc.text('Pénalités de retard : 3x le taux d\'intérêt légal en vigueur.', M, leftY); leftY += 3
+  doc.text("Pénalités de retard : 3x le taux d'intérêt légal en vigueur.", M, leftY); leftY += 3
   if (data.clientType === 'professionnel') {
     doc.text('Indemnité forfaitaire recouvrement : 40 €.', M, leftY); leftY += 3
   }
@@ -1104,6 +1192,12 @@ export function generateFacturePdf(data: FactureData): string {
   doc.setFontSize(6.5); doc.setFont('helvetica', 'italic'); setText(doc, C.muted)
   doc.text('Facture émise conformément aux articles L441-3 et suivants du Code de commerce.', M, leftY, { maxWidth: leftMaxW })
 
+  if (Object.keys(tvaGroups).length > 1) {
+    drawTvaBreakdown(doc, lignes, totalsStartY)
+  }
+
+  const miniTitle = isSituation ? 'FACTURE DE SITUATION' : 'FACTURE'
+  drawMiniHeaderAllPagesAfterFirst(doc, miniTitle, data.numero)
   drawFooterAllPages(doc, ent, data.numero)
   return doc.output('datauristring').split(',')[1]
 }
