@@ -582,13 +582,34 @@ export default function AdminPage() {
             <p className="text-xs text-gray-400 font-manrope">Gestion des {stats.total} compte{stats.total > 1 ? 's' : ''} Nexartis</p>
           </div>
         </div>
-        <button
-          onClick={fetchUsers}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-manrope bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition text-[#1a1a2e]"
-        >
-          <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
-          Actualiser
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={async () => {
+              if (!confirm('Recalculer la numerotation hierarchique de TOUS les devis et factures existants ? Cette operation peut prendre quelques secondes.')) return
+              showToastMsg('Migration en cours...')
+              try {
+                const res = await fetch('/api/admin/migrate-numerotation', { method: 'POST' })
+                const json = await res.json()
+                if (res.ok) showToastMsg(json.message || 'Migration terminee')
+                else showToastMsg('Erreur : ' + (json.error || 'inconnue'))
+              } catch {
+                showToastMsg('Erreur reseau')
+              }
+            }}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-manrope bg-[#5ab4e0]/10 border border-[#5ab4e0]/30 rounded-lg hover:bg-[#5ab4e0]/20 transition text-[#1a6fb5]"
+            title="Recalcule les numeros 1, 1.1, 1.1.1 sur tous les devis et factures existants"
+          >
+            <RefreshCw size={13} />
+            Renumeroter
+          </button>
+          <button
+            onClick={fetchUsers}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-manrope bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition text-[#1a1a2e]"
+          >
+            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+            Actualiser
+          </button>
+        </div>
       </div>
 
       {/* Statistiques */}
