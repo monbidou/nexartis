@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   Shield, RefreshCw, Crown, Clock, Ban, CheckCircle, Users, Search,
   Trash2, X, ChevronRight, Mail, Building2, Wrench, Calendar, LogIn,
-  AlertTriangle, UserCheck,
+  AlertTriangle, UserCheck, Gift,
 } from 'lucide-react'
 import { useUser } from '@/lib/hooks'
 
@@ -135,7 +135,7 @@ function UserDetailModal({
 }: {
   user: UserRecord
   onClose: () => void
-  onSave: (id: string, type: string, notes: string) => Promise<void>
+  onSave: (id: string, type: string, notes: string, expireAt?: string | null) => Promise<void>
   onDelete: (userId: string) => Promise<void>
   onConfirm: (userId: string) => Promise<void>
 }) {
@@ -145,6 +145,7 @@ function UserDetailModal({
   const [deleting, setDeleting] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [confirming, setConfirming] = useState(false)
+  const [offering, setOffering] = useState<number | null>(null)
   const displayName = getUserDisplayName(user)
   const isConfirmed = !!user.email_confirmed_at
 
@@ -152,6 +153,27 @@ function UserDetailModal({
     setSaving(true)
     await onSave(user.id, type, notes)
     setSaving(false)
+    onClose()
+  }
+
+  async function handleOfferMonths(months: number) {
+    setOffering(months)
+    // Calculer la nouvelle date d'expiration
+    // Si l'abonnement est déjà actif et expire dans le futur, on ajoute les mois à cette date.
+    // Sinon, on part de maintenant.
+    const now = new Date()
+    const currentExpire = user.abonnement_expire_at ? new Date(user.abonnement_expire_at) : null
+    const baseDate = currentExpire && currentExpire > now ? currentExpire : now
+    const newExpire = new Date(baseDate)
+    newExpire.setDate(newExpire.getDate() + months * 30)
+
+    // Ajouter une note d'historique automatique
+    const stamp = now.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    const noteLine = `[${stamp}] +${months} mois offert${months > 1 ? 's' : ''} (expire le ${newExpire.toLocaleDateString('fr-FR')})`
+    const newNotes = notes.trim() ? `${notes}\n${noteLine}` : noteLine
+
+    await onSave(user.id, 'actif', newNotes, newExpire.toISOString())
+    setOffering(null)
     onClose()
   }
 
@@ -320,6 +342,40 @@ function UserDetailModal({
             </div>
           </div>
 
+          {/* Geste commercial — offrir un mois gratuit */}
+          <div className="bg-gradient-to-br from-[#5ab4e0]/10 to-[#5ab4e0]/5 rounded-xl p-4 border border-[#5ab4e0]/30">
+            <h3 className="font-syne font-bold text-sm text-[#1a1a2e] flex items-center gap-2 mb-1">
+              <Gift size={14} className="text-[#5ab4e0]" /> Geste commercial
+            </h3>
+            <p className="text-xs text-gray-500 font-manrope mb-3">
+              Offrir des mois gratuits. Le compte passera en <strong>Actif</strong> et la date d&apos;expiration sera mise à jour automatiquement.
+            </p>
+            {user.abonnement_expire_at && (
+              <div className="text-xs font-manrope text-[#1a1a2e] bg-white rounded-lg px-3 py-2 mb-3 flex items-center gap-2">
+                <Calendar size={12} className="text-gray-400" />
+                Actif jusqu&apos;au <strong>{formatDate(user.abonnement_expire_at)}</strong>
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => handleOfferMonths(1)}
+                disabled={offering !== null || saving}
+                className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-[#5ab4e0] text-white text-sm font-manrope font-semibold hover:bg-[#4aa3d0] transition disabled:opacity-60"
+              >
+                <Gift size={14} />
+                {offering === 1 ? 'En cours...' : '+1 mois offert'}
+              </button>
+              <button
+                onClick={() => handleOfferMonths(3)}
+                disabled={offering !== null || saving}
+                className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-white border-2 border-[#5ab4e0] text-[#5ab4e0] text-sm font-manrope font-semibold hover:bg-[#5ab4e0]/10 transition disabled:opacity-60"
+              >
+                <Gift size={14} />
+                {offering === 3 ? 'En cours...' : '+3 mois offerts'}
+              </button>
+            </div>
+          </div>
+
           {/* Notes admin */}
           <div>
             <label className="block text-sm font-manrope font-semibold text-[#1a1a2e] mb-1.5">
@@ -439,14 +495,21 @@ export default function AdminPage() {
     setTimeout(() => setToast(null), 3000)
   }
 
-  async function handleSave(entrepriseId: string, abonnementType: string, notes: string) {
+  async function handleSave(entrepriseId: string, abonnementType: string, notes: string, expireAt?: string | null) {
+    const body: Record<string, unknown> = {
+      entreprise_id: entrepriseId,
+      abonnement_type: abonnementType,
+      notes_admin: notes,
+    }
+    if (expireAt !== undefined) body.abonnement_expire_at = expireAt
+
     const res = await fetch('/api/admin/users', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ entreprise_id: entrepriseId, abonnement_type: abonnementType, notes_admin: notes }),
+      body: JSON.stringify(body),
     })
     if (res.ok) {
-      showToastMsg('Abonnement mis à jour ✓')
+      showToastMsg(expireAt ? 'Mois offert appliqué ✓' : 'Abonnement mis à jour ✓')
       fetchUsers()
     } else {
       showToastMsg('Erreur lors de la mise à jour')
