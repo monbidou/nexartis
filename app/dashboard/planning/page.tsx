@@ -1445,13 +1445,14 @@ export default function PlanningPage() {
                 </div>
               )}
 
-              {/* Description — auto-remplie si devis, sinon saisie */}
-              {(!mDevis || editMode) && (
-                <div>
-                  <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1.5">Description des travaux *</label>
-                  <input type="text" value={mObjet} onChange={e => setMObjet(e.target.value)} placeholder="Ex: Pose tableau électrique + câblage" className="w-full px-3.5 py-2.5 border border-[#e6ecf2] rounded-xl text-sm focus:border-[#5ab4e0] focus:ring-2 focus:ring-[#5ab4e0]/10 outline-none transition-all placeholder:text-[#7b8ba3]" required />
-                </div>
-              )}
+              {/* Description — toujours visible et editable, pre-remplie depuis le devis si dispo */}
+              <div>
+                <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1.5">Description des travaux *</label>
+                <input type="text" value={mObjet} onChange={e => setMObjet(e.target.value)} placeholder="Ex: Pose tableau electrique + cablage" className="w-full px-3.5 py-2.5 border border-[#e6ecf2] rounded-xl text-sm focus:border-[#5ab4e0] focus:ring-2 focus:ring-[#5ab4e0]/10 outline-none transition-all placeholder:text-[#7b8ba3]" required />
+                {mDevis && !mObjet && (
+                  <p className="text-[11px] text-[#e87a2a] mt-1">Le devis lie n'a pas d'objet — saisissez une description pour creer l'intervention.</p>
+                )}
+              </div>
 
               <div>
                 <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1.5">Statut</label>
