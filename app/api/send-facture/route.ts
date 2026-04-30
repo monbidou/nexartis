@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { generateFacturePdf } from '@/lib/pdf'
+import { computeHierarchicalNumbers } from '@/lib/numerotation'
 import {
   getAuthenticatedUser, getClientIp, checkRateLimit,
   isValidUUID, isValidEmail,
@@ -67,6 +68,15 @@ export async function POST(req: NextRequest) {
     const fmt = (n: number) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(n)
     const dateEcheance = facture.date_echeance ? new Date(facture.date_echeance).toLocaleDateString('fr-FR') : ''
 
+    // Recalcul de la numerotation hierarchique a la volee (filet de securite)
+    const lignesAvecNumero = computeHierarchicalNumbers(
+      (lignes || []).map((l: Record<string, unknown>) => ({
+        type: (l.type as 'section' | 'sous_section' | 'prestation' | 'commentaire' | 'saut_page' | undefined),
+        numero: (l.numero as string | undefined),
+        _orig: l,
+      })),
+    )
+
     // Generate PDF
     const pdfBase64 = generateFacturePdf({
       numero: facture.numero,
@@ -79,17 +89,20 @@ export async function POST(req: NextRequest) {
       montant_ht: totalHT,
       montant_tva: totalTVA,
       montant_ttc: totalTTC,
-      lignes: (lignes || []).map((l: Record<string, unknown>) => ({
-        designation: (l.designation as string) || '',
-        quantite: (l.quantite as number) || 0,
-        unite: (l.unite as string) || '',
-        prix_unitaire_ht: (l.prix_unitaire_ht as number) || 0,
-        taux_tva: (l.taux_tva as number) || 20,
-        type: (l.type as 'section' | 'sous_section' | 'prestation' | 'commentaire' | 'saut_page' | undefined),
-        niveau: (l.niveau as 1 | 2 | 3 | undefined),
-        parent_id: (l.parent_id as string | null | undefined),
-        numero: (l.numero as string | undefined),
-      })),
+      lignes: lignesAvecNumero.map((item) => {
+        const l = item._orig as Record<string, unknown>
+        return {
+          designation: (l.designation as string) || '',
+          quantite: (l.quantite as number) || 0,
+          unite: (l.unite as string) || '',
+          prix_unitaire_ht: (l.prix_unitaire_ht as number) || 0,
+          taux_tva: (l.taux_tva as number) || 20,
+          type: (l.type as 'section' | 'sous_section' | 'prestation' | 'commentaire' | 'saut_page' | undefined),
+          niveau: (l.niveau as 1 | 2 | 3 | undefined),
+          parent_id: (l.parent_id as string | null | undefined),
+          numero: item.numero,
+        }
+      }),
       entreprise: ent,
       notes: facture.notes,
     })
