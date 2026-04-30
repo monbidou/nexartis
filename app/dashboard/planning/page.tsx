@@ -58,7 +58,14 @@ function getMonday(d: Date): Date {
   const diff = date.getDate() - day + (day === 0 ? -6 : 1)
   date.setDate(diff); date.setHours(0, 0, 0, 0); return date
 }
-function fmtISO(d: Date): string { return d.toISOString().split('T')[0] }
+function fmtISO(d: Date): string {
+  // Format YYYY-MM-DD en LOCAL (pas UTC) pour eviter le bug de timezone
+  // qui faisait apparaitre les dates avec un jour de decalage.
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
 function initials(name: string) { return name.split(' ').map(w => w[0] ?? '').join('').toUpperCase().slice(0, 2) }
 function isSameDay(d1: Date, d2: Date) { return fmtISO(d1) === fmtISO(d2) }
 function creneauLabel(c: string) { return CRENEAUX.find(cr => cr.value === c)?.label ?? c }
@@ -257,7 +264,7 @@ function PlanningPageInner() {
       let safety = 0
       const cur = new Date(startD)
       while (cur <= last && safety < 60) {
-        const dayKey = cur.toISOString().split('T')[0]
+        const dayKey = fmtISO(cur)
         if (!map.has(dayKey)) map.set(dayKey, [])
         map.get(dayKey)!.push(rec)
         cur.setDate(cur.getDate() + 1)
@@ -297,7 +304,7 @@ function PlanningPageInner() {
       let safety = 0
       const cur = new Date(startD)
       while (cur <= last && safety < 60) {
-        const dayKey = cur.toISOString().split('T')[0]
+        const dayKey = fmtISO(cur)
         const key = `${ivId}__${dayKey}`
         if (!map.has(key)) map.set(key, [])
         map.get(key)!.push(rec)
@@ -683,7 +690,10 @@ function PlanningPageInner() {
       return
     }
     // Securite : refuser le drop sur samedi/dimanche si mode 5 jours
-    const targetDay = new Date(dateStr).getDay() // 0 = dimanche, 6 = samedi
+    // Parse manuel pour eviter les bugs timezone (new Date('2026-05-04') interprete comme UTC)
+    const [yy, mm, dd] = dateStr.split('-').map(Number)
+    const targetDate = new Date(yy, mm - 1, dd)
+    const targetDay = targetDate.getDay() // 0 = dimanche, 6 = samedi
     if (!showWeekend && (targetDay === 0 || targetDay === 6)) {
       showToast('Activez le mode 7 jours pour planifier sur samedi/dimanche')
       setDraggedId(null)
