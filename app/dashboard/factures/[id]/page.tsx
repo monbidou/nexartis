@@ -321,45 +321,43 @@ export default function FactureDetailPage() {
 
             <div style={{height:3, background:'linear-gradient(90deg,#2563eb,#93c5fd)', borderRadius:2, marginBottom:14}} />
 
-            {/* Cadres Artisan + Client — bordures colorées complètes (comme devis) */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 18, alignItems: 'stretch' }}>
-              {/* Cadre artisan — bordure bleue complète */}
-              <div style={{ border: '2px solid #2563eb', borderRadius: 10, padding: 16, display: 'flex', flexDirection: 'column' }}>
-                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: '#2563eb', marginBottom: 10 }}>Artisan</div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: '#111', marginBottom: 6 }}>{String(entreprise?.nom || 'Mon Entreprise')}</div>
-                <div style={{ fontSize: 14, color: '#6b7280', lineHeight: 2 }}>
+            {/* Cadres Artisan + Client — identiques au devis */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12, alignItems: 'stretch' }}>
+              {/* Cadre artisan — fond bleu pale + bordure gauche bleue */}
+              <div style={{ background: '#cde4f5', border: '1px solid #5ab4e0', borderLeft: '4px solid #5ab4e0', borderRadius: 8, padding: 10, display: 'flex', flexDirection: 'column' }}>
+                <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: '#1a6fb5', marginBottom: 6 }}>Artisan</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#111', marginBottom: 3 }}>{String(entreprise?.nom || 'Mon Entreprise')}</div>
+                <div style={{ fontSize: 11, color: '#6b7280', lineHeight: 1.7 }}>
                   {Boolean(entreprise?.adresse) && <div>{String(entreprise?.adresse || '')}</div>}
                   {Boolean(entreprise?.code_postal || entreprise?.ville) && <div>{String(entreprise?.code_postal || '')} {String(entreprise?.ville || '')}</div>}
                   {Boolean(entreprise?.siret) && <div>SIRET : {String(entreprise?.siret || '')}</div>}
-                  {Boolean(entreprise?.telephone) && <div>Tél : {String(entreprise?.telephone || '')}</div>}
+                  {Boolean(entreprise?.telephone) && <div>Tel : {String(entreprise?.telephone || '')}</div>}
                 </div>
               </div>
-              {/* Cadre client — bordure verte complète */}
-              <div style={{ border: '2px solid #10b981', borderRadius: 10, padding: 16, display: 'flex', flexDirection: 'column' }}>
-                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: '#10b981', marginBottom: 10 }}>Client</div>
-                <div style={{ lineHeight: 2 }}>
+              {/* Cadre client — fond vert pale + bordure gauche verte */}
+              <div style={{ background: '#c9efd5', border: '1px solid #22c55e', borderLeft: '4px solid #22c55e', borderRadius: 8, padding: 10, display: 'flex', flexDirection: 'column' }}>
+                <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: '#15803d', marginBottom: 6 }}>Client</div>
+                <div style={{ lineHeight: 1.7 }}>
                   {facture.notes_client ? (() => {
-                    // Split sur | (avec ou sans espaces autour) ET sur virgule
-                    // pour s'assurer que code postal + ville passent sur une ligne séparée.
                     const parts = facture.notes_client
                       .split(/\s*\|\s*/)
                       .flatMap((s: string) => s.split(/,(?=\s*\d{5}\b)/))
                       .map((s: string) => s.trim())
                       .filter(Boolean)
                     return parts.map((info: string, i: number) => (
-                      <div key={i} style={{ fontWeight: i === 0 ? 700 : 400, color: i === 0 ? '#111' : '#6b7280', fontSize: i === 0 ? 16 : 14 }}>
+                      <div key={i} style={{ fontWeight: i === 0 ? 700 : 400, color: i === 0 ? '#111' : '#6b7280', fontSize: i === 0 ? 12 : 11 }}>
                         {info}
                       </div>
                     ))
                   })() : (
                     <>
-                      <div style={{ fontWeight: 700, color: '#111', fontSize: 16 }}>{resolvedClientName}</div>
-                      {client?.adresse && <div style={{ color: '#6b7280', fontSize: 14 }}>{client.adresse}</div>}
+                      <div style={{ fontWeight: 700, color: '#111', fontSize: 12 }}>{resolvedClientName}</div>
+                      {client?.adresse && <div style={{ color: '#6b7280', fontSize: 11 }}>{client.adresse}</div>}
                       {(client?.code_postal || client?.ville) && (
-                        <div style={{ color: '#6b7280', fontSize: 14 }}>{client?.code_postal ?? ''} {client?.ville ?? ''}</div>
+                        <div style={{ color: '#6b7280', fontSize: 11 }}>{client?.code_postal ?? ''} {client?.ville ?? ''}</div>
                       )}
-                      {client?.telephone && <div style={{ color: '#6b7280', fontSize: 14 }}>{client.telephone}</div>}
-                      {client?.email && <div style={{ color: '#6b7280', fontSize: 14 }}>{client.email}</div>}
+                      {client?.telephone && <div style={{ color: '#6b7280', fontSize: 11 }}>{client.telephone}</div>}
+                      {client?.email && <div style={{ color: '#6b7280', fontSize: 11 }}>{client.email}</div>}
                     </>
                   )}
                 </div>
@@ -378,15 +376,15 @@ export default function FactureDetailPage() {
 
             {/* TABLEAU */}
             {lignes.length > 0 && (
-              <table className="w-full mb-8">
+              <table className="w-full mb-3 print-table">
                 <thead>
                   <tr className="bg-[#2563eb] text-white">
-                    <th className="px-3 py-2.5 text-center text-xs font-manrope font-semibold uppercase w-10">N°</th>
-                    <th className="px-3 py-2.5 text-left text-xs font-manrope font-semibold uppercase">Désignation</th>
-                    <th className="px-3 py-2.5 text-center text-xs font-manrope font-semibold uppercase w-16">Qté</th>
-                    <th className="px-3 py-2.5 text-center text-xs font-manrope font-semibold uppercase w-16">Unité</th>
-                    <th className="px-3 py-2.5 text-right text-xs font-manrope font-semibold uppercase w-24">P.U. HT</th>
-                    <th className="px-3 py-2.5 text-right text-xs font-manrope font-semibold uppercase w-24">Total HT</th>
+                    <th className="px-2 py-1.5 text-left text-[10px] font-manrope font-semibold uppercase w-8">N°</th>
+                    <th className="px-2 py-1.5 text-left text-[10px] font-manrope font-semibold uppercase">Désignation</th>
+                    <th className="px-2 py-1.5 text-center text-[10px] font-manrope font-semibold uppercase w-14">Qté</th>
+                    <th className="px-2 py-1.5 text-center text-[10px] font-manrope font-semibold uppercase w-14">Unité</th>
+                    <th className="px-2 py-1.5 text-right text-[10px] font-manrope font-semibold uppercase w-20">Prix U. HT</th>
+                    <th className="px-2 py-1.5 text-right text-[10px] font-manrope font-semibold uppercase w-20">Total HT</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -406,18 +404,18 @@ export default function FactureDetailPage() {
                     }
                     if (ligne.type === 'section') {
                       return (
-                        <tr key={ligne.id ?? i} className="bg-[#a8d4ec] border-l-[6px] border-[#1a6fb5]">
-                          <td className="px-2 py-2 text-[12px] font-manrope font-extrabold text-[#0f3d63]">{ligne.numero || ''}</td>
-                          <td className="px-2 py-2 text-[12px] font-manrope font-extrabold text-[#0f1a3a] uppercase tracking-wide" colSpan={4}>{ligne.designation}</td>
-                          <td className="px-2 py-2 text-[12px] font-manrope text-right font-extrabold text-[#0f3d63]">{fmt(subtotalAt(i))}</td>
+                        <tr key={ligne.id ?? i} className="bg-[#a8d4ec]">
+                          <td className="px-2 py-1.5 text-[11px] font-manrope font-bold text-[#0f3d63]">{ligne.numero || ''}</td>
+                          <td className="px-2 py-1.5 text-[11px] font-manrope font-bold text-[#0f1a3a]" colSpan={4}>{ligne.designation}</td>
+                          <td className="px-2 py-1.5 text-[11px] font-manrope text-right font-bold text-[#0f3d63]">{fmt(subtotalAt(i))}</td>
                         </tr>
                       )
                     }
                     if (ligne.type === 'sous_section') {
                       return (
-                        <tr key={ligne.id ?? i} className="bg-white border-l-[4px] border-[#5ab4e0]">
-                          <td className="px-2 py-1.5 text-[11px] font-manrope text-[#5f6c80] pl-6">{ligne.numero || ''}</td>
-                          <td className="px-2 py-1.5 text-[11px] font-manrope font-semibold italic text-[#1a6fb5]" colSpan={4}>↳ {ligne.designation}</td>
+                        <tr key={ligne.id ?? i} className="bg-[#dceefa]">
+                          <td className="px-2 py-1.5 text-[11px] font-manrope font-semibold text-[#1a6fb5]">{ligne.numero || ''}</td>
+                          <td className="px-2 py-1.5 text-[11px] font-manrope font-semibold text-[#0f1a3a]" colSpan={4}>{ligne.designation}</td>
                           <td className="px-2 py-1.5 text-[11px] font-manrope text-right font-semibold text-[#1a6fb5]">{fmt(subtotalAt(i))}</td>
                         </tr>
                       )
@@ -444,12 +442,12 @@ export default function FactureDetailPage() {
                     }
                     return (
                       <tr key={ligne.id ?? i} className={i % 2 === 1 ? 'bg-[#f8faff]' : ''}>
-                        <td className="px-3 py-2.5 text-sm font-manrope text-center text-[#6b7280]">{ligne.numero || i + 1}</td>
-                        <td className="px-3 py-2.5 text-sm font-manrope text-[#1a1a2e]">{ligne.designation}</td>
-                        <td className="px-3 py-2.5 text-sm font-manrope text-center text-[#1a1a2e]">{ligne.quantite}</td>
-                        <td className="px-3 py-2.5 text-sm font-manrope text-center text-[#6b7280]">{ligne.unite}</td>
-                        <td className="px-3 py-2.5 text-sm font-manrope text-right text-[#1a1a2e]">{fmt(ligne.prix_unitaire_ht ?? 0)}</td>
-                        <td className="px-3 py-2.5 text-sm font-manrope text-right font-semibold text-[#1a1a2e]">{fmt(ligne.total_ht || (ligne.quantite ?? 0) * (ligne.prix_unitaire_ht ?? 0))}</td>
+                        <td className="px-2 py-1.5 text-[11px] font-manrope text-[#6b7280]">{ligne.numero || ''}</td>
+                        <td className="px-2 py-1.5 text-[11px] font-manrope text-[#1a1a2e]">{ligne.designation}</td>
+                        <td className="px-2 py-1.5 text-[11px] font-manrope text-center text-[#1a1a2e]">{ligne.quantite}</td>
+                        <td className="px-2 py-1.5 text-[11px] font-manrope text-center text-[#6b7280]">{ligne.unite}</td>
+                        <td className="px-2 py-1.5 text-[11px] font-manrope text-right text-[#1a1a2e]">{fmt(ligne.prix_unitaire_ht ?? 0)}</td>
+                        <td className="px-2 py-1.5 text-[11px] font-manrope text-right font-semibold text-[#1a1a2e]">{fmt(ligne.total_ht || (ligne.quantite ?? 0) * (ligne.prix_unitaire_ht ?? 0))}</td>
                       </tr>
                     )
                   })}

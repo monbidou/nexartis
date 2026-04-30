@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { Trash2, Plus, ArrowLeft } from 'lucide-react'
@@ -8,15 +8,15 @@ import { useSupabaseRecord, useEntreprise, updateRow, insertRow, LoadingSkeleton
 import { createClient } from '@/lib/supabase/client'
 import { computeHierarchicalNumbers } from '@/lib/numerotation'
 
-interface LineItem { id: number; designation: string; qty: number; unit: string; priceHT: number; taux_tva: number; type: 'line' | 'section' | 'text' }
+interface LineItem { id: number; designation: string; qty: number; unit: string; priceHT: number; taux_tva: number; type: 'line' | 'section' | 'subsection' | 'text' }
 interface FactureRecord { id: string; numero: string; statut: string; type?: string; date_emission?: string; date_echeance?: string; notes?: string; montant_ht?: number; montant_tva?: number; montant_ttc?: number; client_id?: string; devis_id?: string }
-interface LigneRecord { id: string; designation: string; quantite: number; unite: string; prix_unitaire_ht: number; taux_tva: number; ordre: number }
+interface LigneRecord { id: string; designation: string; quantite: number; unite: string; prix_unitaire_ht: number; taux_tva: number; ordre: number; type?: string }
 
-const UNIT_SUGGESTIONS = ['U', 'm\u00b2', 'm', 'ml', 'cm', 'kg', 't', 'h', 'jour', 'demi-journ\u00e9e', 'forfait', 'ensemble', 'lot', 'm\u00b3']
+const UNIT_SUGGESTIONS = ['U', 'm²', 'm', 'ml', 'cm', 'kg', 't', 'h', 'jour', 'demi-journée', 'forfait', 'ensemble', 'lot', 'm³']
 let nextId = 1000
 
 function formatCurrency(n: number): string {
-  return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' \u20ac'
+  return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
 }
 
 const inputCls = 'w-full h-10 rounded-lg border border-gray-200 px-3 text-sm font-manrope outline-none focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] transition-colors placeholder:text-gray-400'
@@ -41,7 +41,6 @@ export default function ModifierFacturePage() {
   const [loaded, setLoaded] = useState(false)
   const [loadingLignes, setLoadingLignes] = useState(true)
 
-  // Load facture data into form
   useEffect(() => {
     if (!facture || loaded) return
     setDateEmission(facture.date_emission || '')
@@ -50,22 +49,24 @@ export default function ModifierFacturePage() {
     setLoaded(true)
   }, [facture, loaded])
 
-  // Load lignes
   useEffect(() => {
     if (!id || lines.length > 0) return
     const supabase = createClient()
     supabase.from('facture_lignes').select('*').eq('facture_id', id).order('ordre').then(({ data }) => {
       if (data && data.length > 0) {
         const raw = data as unknown as LigneRecord[]
-        setLines(raw.map((l, i) => ({
-          id: nextId + i,
-          designation: l.designation || '',
-          qty: l.quantite || 1,
-          unit: l.unite || 'U',
-          priceHT: l.prix_unitaire_ht || 0,
-          taux_tva: l.taux_tva || 10,
-          type: (l.designation && l.designation.startsWith('---') ? 'section' : 'line') as 'line' | 'section',
-        })))
+        setLines(raw.map((l, i) => {
+          const reactType: LineItem['type'] = l.type === 'section' ? 'section' : l.type === 'sous_section' ? 'subsection' : l.type === 'commentaire' ? 'text' : 'line'
+          return {
+            id: nextId + i,
+            designation: l.designation || '',
+            qty: l.quantite || 1,
+            unit: l.unite || 'U',
+            priceHT: l.prix_unitaire_ht || 0,
+            taux_tva: l.taux_tva || 10,
+            type: reactType,
+          }
+        }))
         nextId += raw.length
         if (raw.length > 0 && raw[0].taux_tva != null) {
           const tva = raw[0].taux_tva
@@ -81,13 +82,24 @@ export default function ModifierFacturePage() {
     setLines(prev => prev.map(l => (l.id === lid ? { ...l, [field]: value } : l)))
   }
   function removeLine(lid: number) { setLines(prev => prev.filter(l => l.id !== lid)) }
-  function addLine(type: 'line' | 'section' = 'line') {
-    setLines(prev => [...prev, { id: nextId++, designation: type === 'section' ? '--- Section ---' : '', qty: type === 'line' ? 1 : 0, unit: 'U', priceHT: 0, taux_tva: globalTvaRate, type }])
+  function computeSubtotal(idx: number): number {
+    const current = lines[idx]
+    if (!current || (current.type !== 'section' && current.type !== 'subsection')) return 0
+    let subtotal = 0
+    for (let i = idx + 1; i < lines.length; i++) {
+      const l = lines[i]
+      if (current.type === 'section' && l.type === 'section') break
+      if (current.type === 'subsection' && (l.type === 'section' || l.type === 'subsection')) break
+      if (l.type === 'line') subtotal += l.qty * l.priceHT
+    }
+    return subtotal
+  }
+  function addLine(type: 'line' | 'section' | 'subsection' | 'text' = 'line') {
+    setLines(prev => [...prev, { id: nextId++, designation: '', qty: type === 'line' ? 1 : 0, unit: 'U', priceHT: 0, taux_tva: globalTvaRate, type }])
   }
 
   const effectiveTva = autoEntrepreneur ? 0 : globalTvaRate
 
-  // Calculate totals with TVA groups
   let totalHT = 0
   const tvaGroups: Record<number, number> = {}
   lines.forEach(l => {
@@ -103,6 +115,19 @@ export default function ModifierFacturePage() {
   const totalTVA = Object.values(tvaGroups).reduce((s, v) => s + v, 0)
   const totalTTC = totalHT + totalTVA
 
+  // Numerotation live pour affichage dans l'editeur
+  const liveNumbers = useMemo(() => {
+    type MappedLine = { type: 'section' | 'sous_section' | 'prestation' | 'commentaire'; lineId: number }
+    const mapped: MappedLine[] = lines.map(l => ({
+      type: (l.type === 'section' ? 'section' : l.type === 'subsection' ? 'sous_section' : l.type === 'text' ? 'commentaire' : 'prestation') as MappedLine['type'],
+      lineId: l.id,
+    }))
+    const numbered = computeHierarchicalNumbers(mapped)
+    const result: Record<number, string> = {}
+    numbered.forEach(n => { result[n.lineId] = n.numero })
+    return result
+  }, [lines])
+
   const handleSave = useCallback(async (action: 'brouillon' | 'enregistrer') => {
     if (!facture) return
     setSaving(true)
@@ -117,23 +142,19 @@ export default function ModifierFacturePage() {
         montant_tva: totalTVA,
         montant_ttc: totalTTC,
       })
-      // Delete old lignes and re-insert
       const supabase = createClient()
       await supabase.from('facture_lignes').delete().eq('facture_id', facture.id)
-
-      // Preparer les lignes pour la numerotation hierarchique
       const lignesFiltrees = lines.filter(l => l.type === 'line' || !!l.designation)
       const lignesPourNumero = lignesFiltrees.map(l => ({
-        type: (l.type === 'section' ? 'section' : 'prestation') as 'section' | 'prestation',
+        type: (l.type === 'section' ? 'section' : l.type === 'subsection' ? 'sous_section' : l.type === 'text' ? 'commentaire' : 'prestation') as 'section' | 'sous_section' | 'prestation' | 'commentaire',
         _orig: l,
       }))
       const lignesAvecNumero = computeHierarchicalNumbers(lignesPourNumero)
-
       for (let i = 0; i < lignesAvecNumero.length; i++) {
         const item = lignesAvecNumero[i]
         const l = item._orig as typeof lines[0]
         const dbType = item.type
-        const dbNiveau = dbType === 'section' ? 1 : 3
+        const dbNiveau = dbType === 'section' ? 1 : dbType === 'sous_section' ? 2 : 3
         await insertRow('facture_lignes', {
           facture_id: facture.id,
           designation: l.designation,
@@ -148,7 +169,7 @@ export default function ModifierFacturePage() {
         })
       }
       if (action === 'brouillon') {
-        setToastMsg('Modifications sauvegard\u00e9es')
+        setToastMsg('Modifications sauvegardées')
         setTimeout(() => setToastMsg(null), 3000)
         setSaving(false)
       } else {
@@ -182,8 +203,8 @@ export default function ModifierFacturePage() {
 
         {/* Dates */}
         <div className="bg-white rounded-xl border border-gray-200 p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div><label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">Date d&apos;\u00e9mission</label><input type="date" value={dateEmission} onChange={e => setDateEmission(e.target.value)} className={inputCls} /></div>
-          <div><label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">Date d&apos;\u00e9ch\u00e9ance</label><input type="date" value={dateEcheance} onChange={e => setDateEcheance(e.target.value)} className={inputCls} /></div>
+          <div><label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">Date d&apos;émission</label><input type="date" value={dateEmission} onChange={e => setDateEmission(e.target.value)} className={inputCls} /></div>
+          <div><label className="block text-sm font-manrope font-medium text-[#1a1a2e] mb-1">Date d&apos;échéance</label><input type="date" value={dateEcheance} onChange={e => setDateEcheance(e.target.value)} className={inputCls} /></div>
         </div>
 
         {/* Auto-entrepreneur */}
@@ -194,13 +215,14 @@ export default function ModifierFacturePage() {
 
         {/* Lines table */}
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <div className="bg-[#5ab4e0] text-white grid grid-cols-[1fr_70px_90px_100px_80px_100px_36px] items-center px-4 py-3 text-xs font-manrope font-semibold uppercase">
-            <span>D\u00e9signation</span><span className="text-center">Qt\u00e9</span><span className="text-center">Unit\u00e9</span><span className="text-right">Prix U. HT</span><span className="text-center">TVA</span><span className="text-right">Total HT</span><span />
+          <div className="bg-[#5ab4e0] text-white grid grid-cols-[55px_1fr_70px_90px_100px_80px_100px_36px] items-center px-4 py-3 text-xs font-manrope font-semibold uppercase">
+            <span className="text-center">N°</span><span>Désignation</span><span className="text-center">Qté</span><span className="text-center">Unité</span><span className="text-right">Prix U. HT</span><span className="text-center">TVA</span><span className="text-right">Total HT</span><span />
           </div>
           {lines.map(line => (
-            <div key={line.id} className="grid grid-cols-[1fr_70px_90px_100px_80px_100px_36px] items-start px-4 py-2 border-b border-gray-100">
-              <textarea value={line.designation} onChange={e => { updateLine(line.id, 'designation', e.target.value); e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px' }} className="text-sm font-manrope border-0 outline-none bg-transparent px-1 resize-none overflow-hidden min-h-[38px]" placeholder="D\u00e9signation..." rows={1} />
-              {line.type === 'line' ? (<>
+            <div key={line.id} className={`grid grid-cols-[55px_1fr_70px_90px_100px_80px_100px_36px] items-start px-4 py-2 border-b border-gray-100 ${line.type === 'section' ? 'bg-[#dceefa] border-l-4 border-l-[#5ab4e0]' : line.type === 'subsection' ? 'bg-[#e8f4fb] border-l-2 border-l-[#5ab4e0]/60' : ''}`}>
+              <span className={`text-xs text-center mt-2 block ${line.type === 'section' ? 'font-bold text-[#0f3d63]' : line.type === 'subsection' ? 'font-semibold text-[#1a6fb5]' : 'text-gray-400'}`}>{liveNumbers[line.id] || ''}</span>
+              <textarea value={line.designation} onChange={e => { updateLine(line.id, 'designation', e.target.value); e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px' }} className={`text-sm font-manrope border-0 outline-none bg-transparent px-1 resize-none overflow-hidden min-h-[38px] ${line.type === 'section' ? 'font-bold text-[#1a6fb5]' : line.type === 'subsection' ? 'font-semibold text-[#0f1a3a]' : ''}`} placeholder={line.type === 'section' ? 'Nom de la section...' : line.type === 'subsection' ? 'Nom de la sous-section...' : line.type === 'text' ? 'Texte libre...' : 'Désignation...'} rows={1} />
+              {(line.type === 'section' || line.type === 'subsection') ? (<><span /><span /><span /><span className="text-sm font-bold text-right mt-1.5 text-[#1a6fb5]">{formatCurrency(computeSubtotal(lines.indexOf(line)))}</span><span /></>) : line.type === 'line' ? (<>
                 <input type="number" value={line.qty} onChange={e => updateLine(line.id, 'qty', Number(e.target.value))} className="text-sm text-center border-0 outline-none bg-transparent mt-1.5" min={0} />
                 <select value={line.unit} onChange={e => updateLine(line.id, 'unit', e.target.value)} className="text-sm text-center border-0 outline-none bg-transparent mt-1.5 w-full">
                   {UNIT_SUGGESTIONS.map(u => <option key={u} value={u}>{u}</option>)}
@@ -216,7 +238,8 @@ export default function ModifierFacturePage() {
           ))}
           <div className="flex flex-wrap gap-2 p-4">
             <button onClick={() => addLine('line')} className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 text-sm font-manrope hover:bg-gray-100"><Plus size={14} /> Ajouter une ligne</button>
-            <button onClick={() => addLine('section')} className="flex items-center gap-1.5 px-4 py-2 text-sm font-manrope text-[#6b7280]"><Plus size={14} /> Section</button>
+            <button onClick={() => addLine('section')} className="flex items-center gap-1.5 px-4 py-2 text-sm font-manrope text-[#1a6fb5] bg-[#dceefa] border border-[#5ab4e0]/30 rounded-lg hover:bg-[#cde4f5]"><Plus size={14} /> Section</button>
+            <button onClick={() => addLine('subsection')} className="flex items-center gap-1.5 px-4 py-2 text-sm font-manrope text-[#1a6fb5] bg-[#e8f4fb] border border-[#5ab4e0]/20 rounded-lg hover:bg-[#dceefa]"><Plus size={14} /> Sous-section</button>
           </div>
         </div>
 
@@ -224,7 +247,7 @@ export default function ModifierFacturePage() {
         {!autoEntrepreneur && (
           <div className="bg-white rounded-xl border border-gray-200 p-4 flex flex-wrap items-center gap-4">
             <div className="flex items-center gap-2">
-              <label className="text-sm font-manrope font-medium">TVA par d\u00e9faut :</label>
+              <label className="text-sm font-manrope font-medium">TVA par défaut :</label>
               <select value={globalTvaRate} onChange={e => { const v = Number(e.target.value); setGlobalTvaRate(v); setLines(prev => prev.map(l => ({ ...l, taux_tva: v }))) }} className="h-9 rounded-lg border border-gray-200 px-3 text-sm font-manrope bg-white cursor-pointer">
                 <option value={5.5}>5,5%</option><option value={10}>10%</option><option value={20}>20%</option>
               </select>

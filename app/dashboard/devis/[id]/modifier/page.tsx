@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { Trash2, Plus, ArrowLeft } from 'lucide-react'
@@ -34,8 +34,6 @@ export default function ModifierDevisPage() {
   const [showTvaOnDevis, setShowTvaOnDevis] = useState(true)
   const [autoEntrepreneur, setAutoEntrepreneur] = useState(false)
 
-  // Auto-cocher TVA 0 si l'entreprise est en franchise (propage le paramètre entreprise)
-  // + forcer si forme juridique = micro-entreprise / EI (franchise par défaut)
   useEffect(() => {
     const fj = (entreprise?.forme_juridique || '').toLowerCase()
     const estMicro = fj.includes('micro') || fj === 'ei' || fj.includes('entreprise individuelle')
@@ -56,7 +54,6 @@ export default function ModifierDevisPage() {
   const [toastMsg, setToastMsg] = useState<string | null>(null)
   const [loaded, setLoaded] = useState(false)
 
-  // Load devis data into form
   useEffect(() => {
     if (!devis || loaded) return
     setDateDevis(devis.date_emission || '')
@@ -69,7 +66,6 @@ export default function ModifierDevisPage() {
     setLoaded(true)
   }, [devis, loaded])
 
-  // Load lignes
   useEffect(() => {
     if (!lignesRaw || lignesRaw.length === 0 || lines.length > 0) return
     const raw = lignesRaw as unknown as LigneRecord[]
@@ -112,19 +108,23 @@ export default function ModifierDevisPage() {
   const totalTVA = effectiveTva > 0 ? totalHT * (effectiveTva / 100) : 0
   const totalTTC = totalHT + totalTVA
 
+  // Numerotation live pour affichage dans l'editeur
+  const liveNumbers = useMemo(() => {
+    type MappedLine = { type: 'section' | 'sous_section' | 'prestation' | 'commentaire'; lineId: number }
+    const mapped: MappedLine[] = lines.map(l => ({
+      type: (l.type === 'section' ? 'section' : l.type === 'subsection' ? 'sous_section' : l.type === 'text' ? 'commentaire' : 'prestation') as MappedLine['type'],
+      lineId: l.id,
+    }))
+    const numbered = computeHierarchicalNumbers(mapped)
+    const result: Record<number, string> = {}
+    numbered.forEach(n => { result[n.lineId] = n.numero })
+    return result
+  }, [lines])
+
   const handleSave = useCallback(async (action: 'brouillon' | 'enregistrer' | 'envoyer') => {
     if (!devis) return
     setSaving(true)
     setError(null)
-
-    // RÈGLES DE STATUT après modification :
-    //  - "Brouillon"   → toujours 'brouillon'
-    //  - "Enregistrer" → si le devis avait DÉJÀ été partagé avec le client
-    //                    (statut 'envoye' ou 'signe'), on le repasse en 'brouillon'
-    //                    car la version envoyée au client n'est plus à jour.
-    //                    Sinon (devis en cours), on passe à 'finalise'.
-    //  - "Envoyer"     → 'finalise' (le passage à 'envoye' se fait UNIQUEMENT
-    //                    quand le mail part vraiment via /api/send-devis)
     const wasSharedWithClient = devis.statut === 'envoye' || devis.statut === 'signe'
     let nouveauStatut: string
     if (action === 'brouillon') {
@@ -132,10 +132,8 @@ export default function ModifierDevisPage() {
     } else if (action === 'enregistrer') {
       nouveauStatut = wasSharedWithClient ? 'brouillon' : 'finalise'
     } else {
-      // action === 'envoyer'
       nouveauStatut = 'finalise'
     }
-
     try {
       await updateRow('devis', devis.id, {
         statut: nouveauStatut,
@@ -151,18 +149,14 @@ export default function ModifierDevisPage() {
         montant_tva: totalTVA,
         montant_ttc: totalTTC,
       })
-      // Delete old lignes and re-insert (simplest approach)
       const supabase = (await import('@/lib/supabase/client')).createClient()
       await supabase.from('devis_lignes').delete().eq('devis_id', devis.id)
-
-      // Preparer les lignes avec leur type DB pour la numerotation
       const lignesFiltrees = lines.filter(l => l.type === 'line' || !!l.designation)
       const lignesPourNumero = lignesFiltrees.map(l => ({
         type: (l.type === 'section' ? 'section' : l.type === 'subsection' ? 'sous_section' : l.type === 'text' ? 'commentaire' : 'prestation') as 'section' | 'sous_section' | 'prestation' | 'commentaire',
         _orig: l,
       }))
       const lignesAvecNumero = computeHierarchicalNumbers(lignesPourNumero)
-
       for (let i = 0; i < lignesAvecNumero.length; i++) {
         const item = lignesAvecNumero[i]
         const l = item._orig as typeof lines[0]
@@ -206,10 +200,10 @@ export default function ModifierDevisPage() {
           <h2 className="font-syne font-bold text-lg text-[#1a1a2e]">Modifier {devis.numero}</h2>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => handleSave('brouillon')} disabled={saving} className="h-9 px-3 rounded-lg border border-gray-300 text-sm font-manrope text-[#6b7280] hover:bg-gray-50 disabled:opacity-50">💾 Brouillon</button>
-          <button onClick={() => handleSave('enregistrer')} disabled={saving} className="h-9 px-3 rounded-lg bg-emerald-600 text-white text-sm font-syne font-bold hover:bg-emerald-700 disabled:opacity-50">✅ Enregistrer</button>
+          <button onClick={() => handleSave('brouillon')} disabled={saving} className="h-9 px-3 rounded-lg border border-gray-300 text-sm font-manrope text-[#6b7280] hover:bg-gray-50 disabled:opacity-50">Brouillon</button>
+          <button onClick={() => handleSave('enregistrer')} disabled={saving} className="h-9 px-3 rounded-lg bg-emerald-600 text-white text-sm font-syne font-bold hover:bg-emerald-700 disabled:opacity-50">Enregistrer</button>
           <div className="w-px h-6 bg-gray-200 mx-1" />
-          <button onClick={() => handleSave('envoyer')} disabled={saving} className="h-9 px-3 rounded-lg bg-[#e87a2a] text-white text-sm font-syne font-bold hover:bg-[#f09050] disabled:opacity-50">📤 Envoyer</button>
+          <button onClick={() => handleSave('envoyer')} disabled={saving} className="h-9 px-3 rounded-lg bg-[#e87a2a] text-white text-sm font-syne font-bold hover:bg-[#f09050] disabled:opacity-50">Envoyer</button>
         </div>
       </div>
 
@@ -237,12 +231,13 @@ export default function ModifierDevisPage() {
 
         {/* Lines table */}
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <div className="bg-[#5ab4e0] text-white grid grid-cols-[1fr_70px_90px_100px_100px_36px] items-center px-4 py-3 text-xs font-manrope font-semibold uppercase">
-            <span>Désignation</span><span className="text-center">Qté</span><span className="text-center">Unité</span><span className="text-right">Prix U. HT</span><span className="text-right">Total HT</span><span />
+          <div className="bg-[#5ab4e0] text-white grid grid-cols-[55px_1fr_70px_90px_100px_100px_36px] items-center px-4 py-3 text-xs font-manrope font-semibold uppercase">
+            <span className="text-center">N°</span><span>Désignation</span><span className="text-center">Qté</span><span className="text-center">Unité</span><span className="text-right">Prix U. HT</span><span className="text-right">Total HT</span><span />
           </div>
           {lines.map(line => (
-            <div key={line.id} className={`grid grid-cols-[1fr_70px_90px_100px_100px_36px] items-start px-4 py-2 border-b border-gray-100 ${line.type === 'section' ? 'bg-[#dceefa] border-l-4 border-l-[#5ab4e0]' : line.type === 'subsection' ? 'bg-[#e8f4fb] border-l-2 border-l-[#5ab4e0]/60' : ''}`}>
-              <textarea value={line.designation} onChange={e => { updateLine(line.id, 'designation', e.target.value); e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px' }} className={`text-sm font-manrope border-0 outline-none bg-transparent px-1 resize-none overflow-hidden min-h-[38px] ${line.type === 'section' ? 'font-bold text-[#1a6fb5]' : line.type === 'subsection' ? 'font-semibold text-[#0f1a3a]' : ''}`} placeholder={line.type === 'section' ? 'Nom de la section (ex : Demolition, Maconnerie...)' : line.type === 'subsection' ? 'Nom de la sous-section (ex : Cuisine, Plomberie...)' : line.type === 'text' ? 'Texte libre...' : 'Désignation...'} rows={1} />
+            <div key={line.id} className={`grid grid-cols-[55px_1fr_70px_90px_100px_100px_36px] items-start px-4 py-2 border-b border-gray-100 ${line.type === 'section' ? 'bg-[#dceefa] border-l-4 border-l-[#5ab4e0]' : line.type === 'subsection' ? 'bg-[#e8f4fb] border-l-2 border-l-[#5ab4e0]/60' : ''}`}>
+              <span className={`text-xs text-center mt-2 block ${line.type === 'section' ? 'font-bold text-[#0f3d63]' : line.type === 'subsection' ? 'font-semibold text-[#1a6fb5]' : 'text-gray-400'}`}>{liveNumbers[line.id] || ''}</span>
+              <textarea value={line.designation} onChange={e => { updateLine(line.id, 'designation', e.target.value); e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px' }} className={`text-sm font-manrope border-0 outline-none bg-transparent px-1 resize-none overflow-hidden min-h-[38px] ${line.type === 'section' ? 'font-bold text-[#1a6fb5]' : line.type === 'subsection' ? 'font-semibold text-[#0f1a3a]' : ''}`} placeholder={line.type === 'section' ? 'Nom de la section...' : line.type === 'subsection' ? 'Nom de la sous-section...' : line.type === 'text' ? 'Texte libre...' : 'Désignation...'} rows={1} />
               {(line.type === 'section' || line.type === 'subsection') ? (<><span /><span /><span /><span className="text-sm font-bold text-right mt-1.5 text-[#1a6fb5]">{formatCurrency(computeSubtotal(lines.indexOf(line)))}</span></>) : line.type === 'line' ? (<>
                 <input type="number" value={line.qty} onChange={e => updateLine(line.id, 'qty', Number(e.target.value))} className="text-sm text-center border-0 outline-none bg-transparent mt-1.5" min={0} />
                 <select value={line.unit} onChange={e => updateLine(line.id, 'unit', e.target.value)} className="text-sm text-center border-0 outline-none bg-transparent mt-1.5 w-full">
@@ -254,7 +249,6 @@ export default function ModifierDevisPage() {
               <button onClick={() => removeLine(line.id)} className="p-1 text-gray-300 hover:text-red-500 mt-1.5"><Trash2 size={14} /></button>
             </div>
           ))}
-          {/* Units are now in select dropdowns */}
           <div className="flex flex-wrap gap-2 p-4">
             <button onClick={() => addLine('line')} className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 text-sm font-manrope hover:bg-gray-100"><Plus size={14} /> Ajouter une ligne</button>
             <button onClick={() => addLine('section')} className="flex items-center gap-1.5 px-4 py-2 text-sm font-manrope text-[#1a6fb5] bg-[#dceefa] border border-[#5ab4e0]/30 rounded-lg hover:bg-[#cde4f5]"><Plus size={14} /> Section</button>
@@ -294,10 +288,10 @@ export default function ModifierDevisPage() {
 
         {/* Bottom buttons */}
         <div className="flex flex-wrap items-center gap-3 justify-end pb-8">
-          <button onClick={() => handleSave('brouillon')} disabled={saving} className="h-12 px-6 rounded-lg border border-gray-300 text-sm font-manrope text-[#6b7280] hover:bg-gray-50 disabled:opacity-50">💾 Brouillon</button>
-          <button onClick={() => handleSave('enregistrer')} disabled={saving} className="h-12 px-6 rounded-lg bg-emerald-600 text-white font-syne font-bold text-sm hover:bg-emerald-700 disabled:opacity-50">✅ Enregistrer</button>
+          <button onClick={() => handleSave('brouillon')} disabled={saving} className="h-12 px-6 rounded-lg border border-gray-300 text-sm font-manrope text-[#6b7280] hover:bg-gray-50 disabled:opacity-50">Brouillon</button>
+          <button onClick={() => handleSave('enregistrer')} disabled={saving} className="h-12 px-6 rounded-lg bg-emerald-600 text-white font-syne font-bold text-sm hover:bg-emerald-700 disabled:opacity-50">Enregistrer</button>
           <div className="w-px h-8 bg-gray-200 mx-1" />
-          <button onClick={() => handleSave('envoyer')} disabled={saving} className="h-12 px-8 rounded-lg bg-[#e87a2a] text-white font-syne font-bold text-sm hover:bg-[#f09050] disabled:opacity-50">📤 Envoyer</button>
+          <button onClick={() => handleSave('envoyer')} disabled={saving} className="h-12 px-8 rounded-lg bg-[#e87a2a] text-white font-syne font-bold text-sm hover:bg-[#f09050] disabled:opacity-50">Envoyer</button>
         </div>
       </div>
 

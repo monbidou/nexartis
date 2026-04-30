@@ -557,27 +557,28 @@ export default function DevisDetailPage() {
                       return sum
                     }
                     return lignes.map((l, i) => {
+                      const numAffiche = l.numero || ''
                       if (l.type === 'section') {
                         return (
-                          <tr key={l.id ?? i} className="bg-[#dceefa] border-l-4 border-[#5ab4e0]">
-                            <td className="px-2 py-1.5 text-[11px] font-manrope font-bold text-[#1a6fb5]">{l.numero || ''}</td>
+                          <tr key={l.id ?? i} className="bg-[#a8d4ec]">
+                            <td className="px-2 py-1.5 text-[11px] font-manrope font-bold text-[#0f3d63]">{numAffiche}</td>
                             <td className="px-2 py-1.5 text-[11px] font-manrope font-bold text-[#0f1a3a]" colSpan={4}>{l.designation}</td>
-                            <td className="px-2 py-1.5 text-[11px] font-manrope text-right font-bold text-[#1a6fb5]">{formatCurrency(subtotalAt(i))}</td>
+                            <td className="px-2 py-1.5 text-[11px] font-manrope text-right font-bold text-[#0f3d63]">{formatCurrency(subtotalAt(i))}</td>
                           </tr>
                         )
                       }
                       if (l.type === 'sous_section') {
                         return (
-                          <tr key={l.id ?? i} className="bg-[#e8f4fb] border-l-2 border-[#5ab4e0]/60">
-                            <td className="px-2 py-1.5 text-[11px] font-manrope text-[#5f6c80]">{l.numero || ''}</td>
+                          <tr key={l.id ?? i} className="bg-[#dceefa]">
+                            <td className="px-2 py-1.5 text-[11px] font-manrope font-semibold text-[#1a6fb5]">{numAffiche}</td>
                             <td className="px-2 py-1.5 text-[11px] font-manrope font-semibold text-[#0f1a3a]" colSpan={4}>{l.designation}</td>
-                            <td className="px-2 py-1.5 text-[11px] font-manrope text-right font-semibold text-[#0f1a3a]">{formatCurrency(subtotalAt(i))}</td>
+                            <td className="px-2 py-1.5 text-[11px] font-manrope text-right font-semibold text-[#1a6fb5]">{formatCurrency(subtotalAt(i))}</td>
                           </tr>
                         )
                       }
                       return (
                         <tr key={l.id ?? i} className={i % 2 === 1 ? 'bg-[#f8faff]' : ''}>
-                          <td className="px-2 py-1.5 text-[11px] font-manrope text-[#6b7280]">{l.numero || ''}</td>
+                          <td className="px-2 py-1.5 text-[11px] font-manrope text-[#6b7280]">{numAffiche}</td>
                           <td className="px-2 py-1.5 text-[11px] font-manrope text-[#1a1a2e]">{l.designation}</td>
                           <td className="px-2 py-1.5 text-[11px] font-manrope text-center text-[#1a1a2e]">{l.quantite}</td>
                           <td className="px-2 py-1.5 text-[11px] font-manrope text-center text-[#6b7280]">{l.unite}</td>
