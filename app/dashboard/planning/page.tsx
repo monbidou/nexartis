@@ -494,7 +494,16 @@ export default function PlanningPage() {
   }
 
   const submitIntervention = async () => {
-    if (!mIntervenant || !mDate || !mObjet) return
+    if (!mIntervenant || !mDate) return
+
+    // Si pas de description saisie, fallback automatique sur le titre du devis
+    // ou sur "Intervention" pour ne pas bloquer la planification (utile pour
+    // les depannages urgents ou demandes par telephone).
+    let titreFinal = (mObjet || '').trim()
+    if (!titreFinal) {
+      const devisLie = mDevis ? (devisMap.get(mDevis) as R | undefined) : null
+      titreFinal = String(devisLie?.objet ?? devisLie?.numero ?? 'Intervention')
+    }
 
     // Validation du créneau personnalisé
     if (mCreneau === 'creneau') {
@@ -528,8 +537,8 @@ export default function PlanningPage() {
         client_id: mClient || null,
         chantier_id: mChantier || null,
         devis_id: mDevis || null,
-        titre: mObjet,
-        description_travaux: mObjet,
+        titre: titreFinal,
+        description_travaux: titreFinal,
         date_debut: `${mDate}T${startTime}:00`,
         date_fin: `${mDateFin || mDate}T${endTime}:00`,
         heure_debut: startTime,
@@ -1445,13 +1454,10 @@ export default function PlanningPage() {
                 </div>
               )}
 
-              {/* Description — toujours visible et editable, pre-remplie depuis le devis si dispo */}
+              {/* Description — toujours visible et editable, optionnelle */}
               <div>
-                <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1.5">Description des travaux *</label>
-                <input type="text" value={mObjet} onChange={e => setMObjet(e.target.value)} placeholder="Ex: Pose tableau electrique + cablage" className="w-full px-3.5 py-2.5 border border-[#e6ecf2] rounded-xl text-sm focus:border-[#5ab4e0] focus:ring-2 focus:ring-[#5ab4e0]/10 outline-none transition-all placeholder:text-[#7b8ba3]" required />
-                {mDevis && !mObjet && (
-                  <p className="text-[11px] text-[#e87a2a] mt-1">Le devis lie n'a pas d'objet — saisissez une description pour creer l'intervention.</p>
-                )}
+                <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1.5">Description des travaux <span className="text-[#7b8ba3] font-normal normal-case">(optionnel)</span></label>
+                <input type="text" value={mObjet} onChange={e => setMObjet(e.target.value)} placeholder="Ex: Pose tableau electrique, depannage, intervention urgente..." className="w-full px-3.5 py-2.5 border border-[#e6ecf2] rounded-xl text-sm focus:border-[#5ab4e0] focus:ring-2 focus:ring-[#5ab4e0]/10 outline-none transition-all placeholder:text-[#7b8ba3]" />
               </div>
 
               <div>
@@ -1467,7 +1473,7 @@ export default function PlanningPage() {
             </div>
             <div className="px-6 py-4 border-t border-[#e6ecf2] flex justify-end gap-3">
               <button onClick={() => { setShowModal(false); setEditMode(false); setEditId(null) }} className="px-5 py-2.5 border border-[#e6ecf2] rounded-xl text-sm font-semibold text-[#1e293b] hover:border-[#5ab4e0] hover:text-[#5ab4e0] transition-all">Annuler</button>
-              <button onClick={submitIntervention} disabled={submitting || !mIntervenant || !mDate || !mObjet}
+              <button onClick={submitIntervention} disabled={submitting || !mIntervenant || !mDate}
                 className="px-5 py-2.5 bg-gradient-to-r from-[#e87a2a] to-[#f09050] text-white rounded-xl text-sm font-semibold shadow-[0_4px_15px_rgba(232,122,42,.3)] hover:shadow-[0_6px_20px_rgba(232,122,42,.4)] hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
                 {submitting ? (editMode ? 'Modification...' : 'Création...') : (editMode ? "Enregistrer les modifications" : "Créer l'intervention")}
               </button>
