@@ -1,17 +1,20 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   Search,
   Users,
   Plus,
-  UserPlus,
   X,
   Trash2,
+  Pencil,
+  Clock,
 } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 import {
   useIntervenants,
   insertRow,
+  updateRow,
   deleteRow,
   LoadingSkeleton,
   ErrorBanner,
@@ -44,13 +47,13 @@ const CONTRAT_LABELS: Record<string, string> = {
   cdi: 'CDI',
   cdd: 'CDD',
   apprenti: 'Apprenti',
-  interimaire: 'Intérimaire',
+  interimaire: 'Interimaire',
   'sous-traitant': 'Sous-traitant',
 }
 
 const TYPE_LABELS: Record<string, string> = {
-  employe: 'Employé',
-  interimaire: 'Intérimaire',
+  employe: 'Employe',
+  interimaire: 'Interimaire',
   'sous-traitant': 'Sous-traitant',
 }
 
@@ -71,10 +74,6 @@ const AVATAR_COLORS = [
   'bg-indigo-500',
 ]
 
-function getInitials(prenom: string, nom: string): string {
-  return `${(prenom || '')[0] || ''}${(nom || '')[0] || ''}`.toUpperCase()
-}
-
 function getAvatarColor(couleur: string | null, id: string): string {
   if (couleur) return couleur
   const index = Math.abs(id.split('').reduce((a, c) => a + c.charCodeAt(0), 0)) % AVATAR_COLORS.length
@@ -88,6 +87,155 @@ function getTypeFromContrat(typeContrat: IntervenantType): FilterType {
   return 'employe'
 }
 
+function formatEuro(n: number) {
+  return n.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })
+}
+
+// -------------------------------------------------------------------
+// Modal Historique
+// -------------------------------------------------------------------
+
+interface HistoriqueData {
+  chantiers: Array<{ id: string; titre: string; statut: string; date_debut: string | null }>
+  paiements: Array<{ id: string; montant_paye: number; statut: string; chantier_id: string }>
+  totalPaye: number
+}
+
+function ModalHistorique({
+  intervenant,
+  onClose,
+}: {
+  intervenant: Intervenant
+  onClose: () => void
+}) {
+  const [loading, setLoading] = useState(true)
+  const [data, setData] = useState<HistoriqueData>({ chantiers: [], paiements: [], totalPaye: 0 })
+
+  const fetchHistorique = useCallback(async () => {
+    setLoading(true)
+    try {
+      const supabase = createClient()
+      const { data: rows } = await supabase
+        .from('chantier_intervenants')
+        .select('chantier_id')
+        .eq('intervenant_id', intervenant.id)
+
+      const chantierIds = (rows ?? []).map((r: Record<string, unknown>) => r.chantier_id as string)
+
+      let chantiers: Array<{ id: string; titre: string; statut: string; date_debut: string | null }> = []
+      if (chantierIds.length > 0) {
+        const { data: chantiersData } = await supabase
+          .from('chantiers')
+          .select('id, titre, statut, date_debut')
+          .in('id', chantierIds)
+          .order('date_debut', { ascending: false })
+        chantiers = (chantiersData ?? []) as typeof chantiers
+      }
+
+      let paiements: Array<{ id: string; montant_paye: number; statut: string; chantier_id: string }> = []
+      let totalPaye = 0
+      if (intervenant.type_contrat === 'sous-traitant') {
+        const { data: paiData } = await supabase
+          .from('sous_traitant_paiements')
+          .select('id, montant_paye, statut, chantier_id')
+          .eq('intervenant_id', intervenant.id)
+        paiements = (paiData ?? []) as typeof paiements
+        totalPaye = paiements
+          .filter((p) => p.statut === 'paye')
+          .reduce((sum, p) => sum + (Number(p.montant_paye) || 0), 0)
+      }
+
+      setData({ chantiers, paiements, totalPaye })
+    } catch (_) {
+      // silently ignore
+    } finally {
+      setLoading(false)
+    }
+  }, [intervenant.id, intervenant.type_contrat])
+
+  useEffect(() => {
+    fetchHistorique()
+  }, [fetchHistorique])
+
+  const isST = intervenant.type_contrat === 'sous-traitant'
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 p-6 space-y-5 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-syne font-bold text-[#0f1a3a]">
+            Historique &mdash; {intervenant.prenom} {intervenant.nom}
+          </h2>
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-gray-100 transition-colors">
+            <X size={18} className="text-gray-500" />
+          </button>
+        </div>
+
+        {loading ? (
+          <p className="text-sm font-manrope text-gray-500 text-center py-8">Chargement...</p>
+        ) : (
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-sm font-syne font-bold text-[#0f1a3a] mb-2">
+                Chantiers ({data.chantiers.length})
+              </h3>
+              {data.chantiers.length === 0 ? (
+                <p className="text-xs font-manrope text-gray-400">Aucun chantier associe.</p>
+              ) : (
+                <ul className="space-y-1.5">
+                  {data.chantiers.map((c) => (
+                    <li key={c.id} className="flex items-center justify-between text-sm font-manrope">
+                      <a
+                        href={'/dashboard/chantiers/' + c.id}
+                        className="text-[#5ab4e0] hover:underline truncate flex-1"
+                      >
+                        {c.titre || 'Chantier sans titre'}
+                      </a>
+                      <span className="ml-2 text-xs text-gray-400 flex-shrink-0">
+                        {c.date_debut ? new Date(c.date_debut).toLocaleDateString('fr-FR') : '--'}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {isST && (
+              <div>
+                <h3 className="text-sm font-syne font-bold text-[#0f1a3a] mb-2">
+                  Paiements sous-traitant
+                </h3>
+                {data.paiements.length === 0 ? (
+                  <p className="text-xs font-manrope text-gray-400">Aucun paiement enregistre.</p>
+                ) : (
+                  <ul className="space-y-1.5">
+                    {data.paiements.map((p) => (
+                      <li key={p.id} className="flex items-center justify-between text-sm font-manrope">
+                        <span className={p.statut === 'paye' ? 'text-emerald-600 font-semibold' : 'text-gray-500'}>
+                          {formatEuro(Number(p.montant_paye) || 0)}
+                        </span>
+                        <span className="text-xs text-gray-400 capitalize">{p.statut}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {data.totalPaye > 0 && (
+                  <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
+                    <span className="text-sm font-syne font-bold text-[#0f1a3a]">Total paye</span>
+                    <span className="text-sm font-syne font-bold text-emerald-600">
+                      {formatEuro(data.totalPaye)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // -------------------------------------------------------------------
 // Page
 // -------------------------------------------------------------------
@@ -98,45 +246,39 @@ export default function EquipePage() {
   const [filterMetier, setFilterMetier] = useState<string>('tous')
   const [showModal, setShowModal] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [editingIntervenant, setEditingIntervenant] = useState<Intervenant | null>(null)
+  const [editSaving, setEditSaving] = useState(false)
+  const [historiqueIntervenant, setHistoriqueIntervenant] = useState<Intervenant | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
 
   const { data: intervenants, loading, error, refetch } = useIntervenants()
   const allIntervenants = (intervenants as unknown as Intervenant[])
 
-  // Extract unique métiers, sorted alphabetically
   const uniqueMetiers = Array.from(
     new Set(allIntervenants.map((e) => e.metier).filter(Boolean))
   ).sort()
 
-  // Calculate stats
   const employes = allIntervenants.filter((e) => ['cdi', 'cdd', 'apprenti'].includes(e.type_contrat))
   const interimaires = allIntervenants.filter((e) => e.type_contrat === 'interimaire')
   const sousTraitants = allIntervenants.filter((e) => e.type_contrat === 'sous-traitant')
 
-  // Apply filters
   const filtered = allIntervenants.filter((e) => {
-    // Filter by type
     const eType = getTypeFromContrat(e.type_contrat)
     if (filterType !== 'tous' && eType !== filterType) return false
-
-    // Filter by métier
     if (filterMetier !== 'tous' && e.metier !== filterMetier) return false
-
-    // Filter by search
     if (search) {
       const q = search.toLowerCase()
-      const fullName = `${e.prenom} ${e.nom}`.toLowerCase()
+      const fullName = (e.prenom + ' ' + e.nom).toLowerCase()
       return (
         fullName.includes(q) ||
         e.metier.toLowerCase().includes(q) ||
         e.email.toLowerCase().includes(q)
       )
     }
-
     return true
   })
 
-  // Modal form state
+  // --- Form creer ---
   const [form, setForm] = useState({
     prenom: '',
     nom: '',
@@ -169,18 +311,67 @@ export default function EquipePage() {
       setShowModal(false)
       resetForm()
     } catch {
-      // error handled silently
+      // silently
     } finally {
       setSaving(false)
     }
   }
 
+  // --- Form modifier ---
+  const [editForm, setEditForm] = useState({
+    prenom: '',
+    nom: '',
+    email: '',
+    telephone: '',
+    metier: '',
+    type_contrat: 'cdi' as IntervenantType,
+    niveau_acces: 'compagnon' as Intervenant['niveau_acces'],
+  })
+
+  const openEdit = (intervenant: Intervenant) => {
+    setEditForm({
+      prenom: intervenant.prenom || '',
+      nom: intervenant.nom || '',
+      email: intervenant.email || '',
+      telephone: intervenant.telephone || '',
+      metier: intervenant.metier || '',
+      type_contrat: intervenant.type_contrat,
+      niveau_acces: intervenant.niveau_acces,
+    })
+    setEditingIntervenant(intervenant)
+  }
+
+  const handleUpdate = async () => {
+    if (!editingIntervenant) return
+    setEditSaving(true)
+    try {
+      // On met a jour UNIQUEMENT les champs de l'intervenant.
+      // On ne supprime JAMAIS chantier_intervenants ou sous_traitant_paiements lors d'un changement de type.
+      await updateRow('intervenants', editingIntervenant.id, {
+        prenom: editForm.prenom,
+        nom: editForm.nom,
+        email: editForm.email,
+        telephone: editForm.telephone,
+        metier: editForm.metier,
+        type_contrat: editForm.type_contrat,
+        niveau_acces: editForm.niveau_acces,
+      })
+      refetch()
+      setEditingIntervenant(null)
+    } catch {
+      // silently
+    } finally {
+      setEditSaving(false)
+    }
+  }
+
+  // --- Supprimer ---
   const handleDelete = async (id: string) => {
     try {
       await deleteRow('intervenants', id)
       refetch()
     } catch {
-      // error handled silently
+      // silently
     } finally {
       setDeleteConfirm(null)
     }
@@ -206,7 +397,7 @@ export default function EquipePage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-syne font-bold text-[#0f1a3a]">Mon équipe</h1>
+        <h1 className="text-2xl font-syne font-bold text-[#0f1a3a]">Mon equipe</h1>
         <button
           onClick={() => setShowModal(true)}
           className="inline-flex items-center justify-center gap-2 h-10 px-5 rounded-lg bg-[#f59e0b] hover:bg-[#f08c1c] text-white text-sm font-syne font-bold transition-colors"
@@ -219,10 +410,10 @@ export default function EquipePage() {
       {/* Stats chips */}
       <div className="flex flex-wrap gap-2">
         <div className="px-3 py-1.5 rounded-full bg-blue-100 text-sm font-manrope text-[#0f1a3a]">
-          <span className="font-semibold">{employes.length}</span> employé{employes.length !== 1 ? 's' : ''}
+          <span className="font-semibold">{employes.length}</span> employe{employes.length !== 1 ? 's' : ''}
         </div>
         <div className="px-3 py-1.5 rounded-full bg-amber-100 text-sm font-manrope text-[#0f1a3a]">
-          <span className="font-semibold">{interimaires.length}</span> intérimaire{interimaires.length !== 1 ? 's' : ''}
+          <span className="font-semibold">{interimaires.length}</span> interimaire{interimaires.length !== 1 ? 's' : ''}
         </div>
         <div className="px-3 py-1.5 rounded-full bg-emerald-100 text-sm font-manrope text-[#0f1a3a]">
           <span className="font-semibold">{sousTraitants.length}</span> sous-traitant{sousTraitants.length !== 1 ? 's' : ''}
@@ -231,7 +422,6 @@ export default function EquipePage() {
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-        {/* Search */}
         <div className="relative flex-1">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
@@ -243,25 +433,23 @@ export default function EquipePage() {
           />
         </div>
 
-        {/* Type filter */}
         <select
           value={filterType}
           onChange={(e) => setFilterType(e.target.value as FilterType)}
           className="h-10 px-3 rounded-lg border border-gray-200 text-sm font-manrope text-[#1a1a2e] focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none transition-colors"
         >
           <option value="tous">Tous les types</option>
-          <option value="employe">Employés</option>
-          <option value="interimaire">Intérimaires</option>
+          <option value="employe">Employes</option>
+          <option value="interimaire">Interimaires</option>
           <option value="sous-traitant">Sous-traitants</option>
         </select>
 
-        {/* Métier filter */}
         <select
           value={filterMetier}
           onChange={(e) => setFilterMetier(e.target.value)}
           className="h-10 px-3 rounded-lg border border-gray-200 text-sm font-manrope text-[#1a1a2e] focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none transition-colors"
         >
-          <option value="tous">Tous les métiers</option>
+          <option value="tous">Tous les metiers</option>
           {uniqueMetiers.map((metier) => (
             <option key={metier} value={metier}>
               {metier}
@@ -275,13 +463,12 @@ export default function EquipePage() {
         <table className="w-full">
           <thead>
             <tr className="bg-gray-50">
-              <th className="px-4 py-3 text-left text-xs font-manrope font-semibold uppercase tracking-wider text-gray-500">Avatar</th>
               <th className="px-4 py-3 text-left text-xs font-manrope font-semibold uppercase tracking-wider text-gray-500">Nom</th>
               <th className="px-4 py-3 text-left text-xs font-manrope font-semibold uppercase tracking-wider text-gray-500">Type</th>
               <th className="px-4 py-3 text-left text-xs font-manrope font-semibold uppercase tracking-wider text-gray-500">Contrat</th>
-              <th className="px-4 py-3 text-left text-xs font-manrope font-semibold uppercase tracking-wider text-gray-500">Métier</th>
+              <th className="px-4 py-3 text-left text-xs font-manrope font-semibold uppercase tracking-wider text-gray-500">Metier</th>
               <th className="px-4 py-3 text-left text-xs font-manrope font-semibold uppercase tracking-wider text-gray-500">Email</th>
-              <th className="px-4 py-3 text-left text-xs font-manrope font-semibold uppercase tracking-wider text-gray-500">Téléphone</th>
+              <th className="px-4 py-3 text-left text-xs font-manrope font-semibold uppercase tracking-wider text-gray-500">Telephone</th>
               <th className="px-4 py-3 text-left text-xs font-manrope font-semibold uppercase tracking-wider text-gray-500">Actions</th>
             </tr>
           </thead>
@@ -292,15 +479,8 @@ export default function EquipePage() {
               return (
                 <tr
                   key={intervenant.id}
-                  className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${
-                    idx % 2 === 1 ? 'bg-[#f8f9fa]' : ''
-                  }`}
+                  className={'border-b border-gray-100 hover:bg-gray-50 transition-colors ' + (idx % 2 === 1 ? 'bg-[#f8f9fa]' : '')}
                 >
-                  <td className="px-4 py-3">
-                    <div className={`w-8 h-8 rounded-full ${getAvatarColor(intervenant.couleur, intervenant.id)} flex items-center justify-center text-white text-xs font-syne font-bold`}>
-                      {getInitials(intervenant.prenom, intervenant.nom)}
-                    </div>
-                  </td>
                   <td className="px-4 py-3">
                     <div>
                       <p className="text-sm font-manrope font-semibold text-[#1a1a2e]">{intervenant.nom}</p>
@@ -322,13 +502,21 @@ export default function EquipePage() {
                   <td className="px-4 py-3 text-sm font-manrope text-gray-600">{intervenant.email}</td>
                   <td className="px-4 py-3 text-sm font-manrope text-gray-600">{intervenant.telephone}</td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      {intervenant.niveau_acces === 'compagnon' && (
-                        <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#5ab4e0] text-[#5ab4e0] hover:bg-[#5ab4e0] hover:text-white text-xs font-syne font-bold transition-colors">
-                          <UserPlus size={13} />
-                          Inviter
-                        </button>
-                      )}
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => openEdit(intervenant)}
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-[#5ab4e0] hover:bg-blue-50 transition-colors"
+                        title="Modifier"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <button
+                        onClick={() => setHistoriqueIntervenant(intervenant)}
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-violet-500 hover:bg-violet-50 transition-colors"
+                        title="Voir historique"
+                      >
+                        <Clock size={14} />
+                      </button>
                       {deleteConfirm === intervenant.id ? (
                         <div className="flex items-center gap-1">
                           <button
@@ -360,11 +548,10 @@ export default function EquipePage() {
             })}
           </tbody>
         </table>
-
         {filtered.length === 0 && (
           <div className="py-12 text-center">
             <Users size={40} className="mx-auto text-gray-300 mb-3" />
-            <p className="text-sm font-manrope text-gray-500">Aucun membre trouvé</p>
+            <p className="text-sm font-manrope text-gray-500">Aucun membre trouve</p>
           </div>
         )}
       </div>
@@ -379,17 +566,11 @@ export default function EquipePage() {
               key={intervenant.id}
               className="bg-white rounded-lg border border-gray-200 p-4 space-y-3"
             >
-              {/* Line 1: Avatar + Nom Prénom + Type badge */}
               <div className="flex items-start gap-3 justify-between">
-                <div className="flex items-start gap-3 flex-1">
-                  <div className={`w-10 h-10 rounded-full ${getAvatarColor(intervenant.couleur, intervenant.id)} flex items-center justify-center text-white text-sm font-syne font-bold flex-shrink-0`}>
-                    {getInitials(intervenant.prenom, intervenant.nom)}
-                  </div>
-                  <div>
-                    <p className="text-sm font-manrope font-semibold text-[#1a1a2e]">
-                      {intervenant.nom} {intervenant.prenom}
-                    </p>
-                  </div>
+                <div className="flex-1">
+                  <p className="text-sm font-manrope font-semibold text-[#1a1a2e]">
+                    {intervenant.nom} {intervenant.prenom}
+                  </p>
                 </div>
                 <span
                   className="px-2 py-1 rounded-full text-xs font-syne font-bold text-white whitespace-nowrap"
@@ -398,26 +579,26 @@ export default function EquipePage() {
                   {TYPE_LABELS[type]}
                 </span>
               </div>
-
-              {/* Line 2: Métier · Contrat */}
               <div className="text-xs font-manrope text-gray-500">
-                {intervenant.metier} · {CONTRAT_LABELS[intervenant.type_contrat] || intervenant.type_contrat}
+                {intervenant.metier} &middot; {CONTRAT_LABELS[intervenant.type_contrat] || intervenant.type_contrat}
               </div>
-
-              {/* Line 3: Email */}
               <div className="text-xs font-manrope text-gray-600">{intervenant.email}</div>
-
-              {/* Line 4: Téléphone */}
               <div className="text-xs font-manrope text-gray-600">{intervenant.telephone}</div>
-
-              {/* Line 5: Actions */}
               <div className="flex items-center gap-2 pt-2">
-                {intervenant.niveau_acces === 'compagnon' && (
-                  <button className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#5ab4e0] text-[#5ab4e0] hover:bg-[#5ab4e0] hover:text-white text-xs font-syne font-bold transition-colors">
-                    <UserPlus size={13} />
-                    Inviter
-                  </button>
-                )}
+                <button
+                  onClick={() => openEdit(intervenant)}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#5ab4e0] text-[#5ab4e0] hover:bg-[#5ab4e0] hover:text-white text-xs font-syne font-bold transition-colors"
+                >
+                  <Pencil size={13} />
+                  Modifier
+                </button>
+                <button
+                  onClick={() => setHistoriqueIntervenant(intervenant)}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-violet-400 text-violet-500 hover:bg-violet-500 hover:text-white text-xs font-syne font-bold transition-colors"
+                >
+                  <Clock size={13} />
+                  Historique
+                </button>
                 {deleteConfirm === intervenant.id ? (
                   <div className="flex items-center gap-1 flex-1">
                     <button
@@ -446,11 +627,10 @@ export default function EquipePage() {
             </div>
           )
         })}
-
         {filtered.length === 0 && (
           <div className="py-12 text-center">
             <Users size={40} className="mx-auto text-gray-300 mb-3" />
-            <p className="text-sm font-manrope text-gray-500">Aucun membre trouvé</p>
+            <p className="text-sm font-manrope text-gray-500">Aucun membre trouve</p>
           </div>
         )}
       </div>
@@ -465,8 +645,6 @@ export default function EquipePage() {
                 <X size={18} className="text-gray-500" />
               </button>
             </div>
-
-            {/* Type select first */}
             <div>
               <label className="block text-xs font-manrope font-semibold text-gray-500 mb-1">Type *</label>
               <select
@@ -474,17 +652,16 @@ export default function EquipePage() {
                 onChange={(e) => setForm({ ...form, type_contrat: e.target.value as IntervenantType })}
                 className="w-full h-10 rounded-lg border border-gray-200 px-3 text-sm font-manrope focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none"
               >
-                <option value="cdi">Employé (CDI)</option>
-                <option value="cdd">Employé (CDD)</option>
+                <option value="cdi">Employe (CDI)</option>
+                <option value="cdd">Employe (CDD)</option>
                 <option value="apprenti">Apprenti</option>
-                <option value="interimaire">Intérimaire</option>
+                <option value="interimaire">Interimaire</option>
                 <option value="sous-traitant">Sous-traitant</option>
               </select>
             </div>
-
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-manrope font-semibold text-gray-500 mb-1">Prénom</label>
+                <label className="block text-xs font-manrope font-semibold text-gray-500 mb-1">Prenom</label>
                 <input
                   type="text"
                   value={form.prenom}
@@ -502,9 +679,8 @@ export default function EquipePage() {
                 />
               </div>
             </div>
-
             <div>
-              <label className="block text-xs font-manrope font-semibold text-gray-500 mb-1">Métier</label>
+              <label className="block text-xs font-manrope font-semibold text-gray-500 mb-1">Metier</label>
               <input
                 type="text"
                 value={form.metier}
@@ -512,7 +688,6 @@ export default function EquipePage() {
                 className="w-full h-10 rounded-lg border border-gray-200 px-3 text-sm font-manrope focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none"
               />
             </div>
-
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-manrope font-semibold text-gray-500 mb-1">Email</label>
@@ -524,7 +699,7 @@ export default function EquipePage() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-manrope font-semibold text-gray-500 mb-1">Téléphone</label>
+                <label className="block text-xs font-manrope font-semibold text-gray-500 mb-1">Telephone</label>
                 <input
                   type="text"
                   value={form.telephone}
@@ -533,7 +708,6 @@ export default function EquipePage() {
                 />
               </div>
             </div>
-
             <div className="flex justify-end gap-3 pt-2">
               <button
                 onClick={() => { setShowModal(false); resetForm() }}
@@ -546,11 +720,111 @@ export default function EquipePage() {
                 disabled={saving || !form.prenom || !form.nom}
                 className="h-10 px-5 rounded-lg bg-[#f59e0b] hover:bg-[#f08c1c] disabled:opacity-50 text-white text-sm font-syne font-bold transition-colors"
               >
-                {saving ? 'Enregistrement...' : 'Créer'}
+                {saving ? 'Enregistrement...' : 'Creer'}
               </button>
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal: Modifier un membre */}
+      {editingIntervenant && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 p-6 space-y-5 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-syne font-bold text-[#0f1a3a]">Modifier le membre</h2>
+              <button onClick={() => setEditingIntervenant(null)} className="p-1 rounded-lg hover:bg-gray-100 transition-colors">
+                <X size={18} className="text-gray-500" />
+              </button>
+            </div>
+            <div>
+              <label className="block text-xs font-manrope font-semibold text-gray-500 mb-1">Type *</label>
+              <select
+                value={editForm.type_contrat}
+                onChange={(e) => setEditForm({ ...editForm, type_contrat: e.target.value as IntervenantType })}
+                className="w-full h-10 rounded-lg border border-gray-200 px-3 text-sm font-manrope focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none"
+              >
+                <option value="cdi">Employe (CDI)</option>
+                <option value="cdd">Employe (CDD)</option>
+                <option value="apprenti">Apprenti</option>
+                <option value="interimaire">Interimaire</option>
+                <option value="sous-traitant">Sous-traitant</option>
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-manrope font-semibold text-gray-500 mb-1">Prenom</label>
+                <input
+                  type="text"
+                  value={editForm.prenom}
+                  onChange={(e) => setEditForm({ ...editForm, prenom: e.target.value })}
+                  className="w-full h-10 rounded-lg border border-gray-200 px-3 text-sm font-manrope focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-manrope font-semibold text-gray-500 mb-1">Nom</label>
+                <input
+                  type="text"
+                  value={editForm.nom}
+                  onChange={(e) => setEditForm({ ...editForm, nom: e.target.value })}
+                  className="w-full h-10 rounded-lg border border-gray-200 px-3 text-sm font-manrope focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-manrope font-semibold text-gray-500 mb-1">Metier</label>
+              <input
+                type="text"
+                value={editForm.metier}
+                onChange={(e) => setEditForm({ ...editForm, metier: e.target.value })}
+                className="w-full h-10 rounded-lg border border-gray-200 px-3 text-sm font-manrope focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-manrope font-semibold text-gray-500 mb-1">Email</label>
+                <input
+                  type="email"
+                  value={editForm.email}
+                  onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                  className="w-full h-10 rounded-lg border border-gray-200 px-3 text-sm font-manrope focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-manrope font-semibold text-gray-500 mb-1">Telephone</label>
+                <input
+                  type="text"
+                  value={editForm.telephone}
+                  onChange={(e) => setEditForm({ ...editForm, telephone: e.target.value })}
+                  className="w-full h-10 rounded-lg border border-gray-200 px-3 text-sm font-manrope focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                onClick={() => setEditingIntervenant(null)}
+                className="h-10 px-5 rounded-lg border border-gray-200 text-sm font-syne font-bold text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleUpdate}
+                disabled={editSaving || !editForm.prenom || !editForm.nom}
+                className="h-10 px-5 rounded-lg bg-[#5ab4e0] hover:bg-[#4a9fc9] disabled:opacity-50 text-white text-sm font-syne font-bold transition-colors"
+              >
+                {editSaving ? 'Enregistrement...' : 'Enregistrer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Historique */}
+      {historiqueIntervenant && (
+        <ModalHistorique
+          intervenant={historiqueIntervenant}
+          onClose={() => setHistoriqueIntervenant(null)}
+        />
       )}
     </div>
   )

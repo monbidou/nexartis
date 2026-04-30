@@ -175,6 +175,31 @@ export default function DashboardPage() {
     return String(notesClient).split(' | ').reverse().find(p => p.includes('@'))?.trim() || '';
   };
 
+  // Devis acceptes (signes) sans aucune intervention planifiee -- priorite 1
+  // NOTE: mis EN PREMIER pour garantir la visibilite meme quand il y a beaucoup d'autres items
+  const devisAcceptesAPlanifier = devis.filter((d: Record<string, unknown>) => {
+    if (d.statut !== 'signe') return false
+    const hasPlanningForDevis = planning.some((p: Record<string, unknown>) => p.devis_id === d.id)
+    const hasPlanningForChantier = d.chantier_id
+      ? planning.some((p: Record<string, unknown>) => p.chantier_id === d.chantier_id)
+      : false
+    return !hasPlanningForDevis && !hasPlanningForChantier
+  })
+  for (const d of devisAcceptesAPlanifier) {
+    const cName = clientName(d.client_id) || (d.notes_client as string)?.split(' | ')[0] || ''
+    todoItems.push({
+      title: `Devis ${d.numero} -- accepte`,
+      desc: `${cName} · a planifier`,
+      amount: d.montant_ttc ? formatEuro(Number(d.montant_ttc)) : '',
+      dotColor: '#10b981', amountColor: '#10b981',
+      tag: 'Planifier', tagBg: '#ecfdf5', tagColor: '#059669',
+      href: d.chantier_id ? `/dashboard/chantiers/${d.chantier_id}` : `/dashboard/devis/${d.id}`,
+      actionHref: d.chantier_id
+        ? `/dashboard/planning?chantier_id=${d.chantier_id}&devis_id=${d.id}`
+        : `/dashboard/chantiers/nouveau?devis_id=${d.id}`,
+    })
+  }
+
   // Factures en retard
   const facturesEnRetard = factures.filter((f: Record<string, unknown>) => f.statut === 'en_retard');
   for (const f of facturesEnRetard) {
@@ -268,34 +293,6 @@ export default function DashboardPage() {
       href: `/dashboard/devis/${d.id}`,
       actionHref: `/dashboard/devis/${d.id}?relance=1${email ? `&email=${encodeURIComponent(email)}` : ''}`,
     });
-  }
-
-  // Devis acceptés (signés) sans aucune intervention planifiée → à planifier
-  // (un devis peut avoir un chantier auto-créé mais aucune intervention dedans)
-  const devisAcceptesAPlanifier = devis.filter((d: Record<string, unknown>) => {
-    if (d.statut !== 'signe') return false
-    // Vérifier qu'aucune intervention planning n'existe pour ce devis
-    // (soit liée directement via planning.devis_id, soit via planning.chantier_id si chantier existe)
-    const hasPlanningForDevis = planning.some((p: Record<string, unknown>) => p.devis_id === d.id)
-    const hasPlanningForChantier = d.chantier_id
-      ? planning.some((p: Record<string, unknown>) => p.chantier_id === d.chantier_id)
-      : false
-    return !hasPlanningForDevis && !hasPlanningForChantier
-  })
-  for (const d of devisAcceptesAPlanifier) {
-    const cName = clientName(d.client_id) || (d.notes_client as string)?.split(' | ')[0] || ''
-    todoItems.push({
-      title: `Devis ${d.numero} — accepté`,
-      desc: `${cName} · à planifier`,
-      amount: d.montant_ttc ? formatEuro(Number(d.montant_ttc)) : '',
-      dotColor: '#10b981', amountColor: '#10b981',
-      tag: 'Planifier', tagBg: '#ecfdf5', tagColor: '#059669',
-      // Si chantier existe → on l'ouvre directement, sinon on propose d'en créer un
-      href: d.chantier_id ? `/dashboard/chantiers/${d.chantier_id}` : `/dashboard/devis/${d.id}`,
-      actionHref: d.chantier_id
-        ? `/dashboard/planning?chantier_id=${d.chantier_id}&devis_id=${d.id}`
-        : `/dashboard/chantiers/nouveau?devis_id=${d.id}`,
-    })
   }
 
   // Interventions planning du jour ou en retard
