@@ -678,7 +678,17 @@ function PlanningPageInner() {
     if (!draggedId) return
     setDragOverCell(null)
     const intervention = planningData.find(p => (p as R).id === draggedId) as R
-    if (!intervention) return
+    if (!intervention) {
+      setDraggedId(null)
+      return
+    }
+    // Securite : refuser le drop sur samedi/dimanche si mode 5 jours
+    const targetDay = new Date(dateStr).getDay() // 0 = dimanche, 6 = samedi
+    if (!showWeekend && (targetDay === 0 || targetDay === 6)) {
+      showToast('Activez le mode 7 jours pour planifier sur samedi/dimanche')
+      setDraggedId(null)
+      return
+    }
     const startTime = (intervention.creneau as string) === 'apres_midi' ? '13:00' : '08:00'
     const endTime = (intervention.creneau as string) === 'matin' ? '12:00' : '17:00'
     try {
@@ -688,9 +698,9 @@ function PlanningPageInner() {
         date_fin: `${dateStr}T${endTime}:00`,
       })
       refetch()
-      showToast('Intervention déplacée ✓')
+      showToast('Intervention deplacee')
     } catch {
-      showToast('Erreur lors du déplacement')
+      showToast('Erreur lors du deplacement')
     }
     setDraggedId(null)
   }
@@ -896,6 +906,33 @@ function PlanningPageInner() {
       </header>
 
       <div className="px-3 sm:px-6 py-3 sm:py-4 space-y-4">
+
+        {/* ════════════════════════════════════════════════════════════
+            BANNIERE "INTERVENTIONS CACHEES SUR WEEKEND" (mode 5 jours)
+        ════════════════════════════════════════════════════════════ */}
+        {!showWeekend && (() => {
+          const weekendCount = planningData.filter(p => {
+            const d = new Date((p as R).date_debut as string).getDay()
+            return d === 0 || d === 6
+          }).length
+          if (weekendCount === 0) return null
+          return (
+            <div className="bg-[#fff7ed] border-2 border-[#fdba74] rounded-2xl px-5 py-3 flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-[#e87a2a] shrink-0" />
+                <p className="text-sm font-bold text-[#9a3412]">
+                  {weekendCount} intervention{weekendCount > 1 ? 's' : ''} planifiee{weekendCount > 1 ? 's' : ''} le weekend, masquee{weekendCount > 1 ? 's' : ''} en mode 5 jours
+                </p>
+              </div>
+              <button
+                onClick={() => setShowWeekend(true)}
+                className="px-4 py-1.5 bg-[#e87a2a] text-white text-xs font-bold rounded-full shadow-sm hover:bg-[#f09050] transition-all"
+              >
+                Afficher 7 jours
+              </button>
+            </div>
+          )
+        })()}
 
         {/* ══════════════════════════════════════════════════════════════
             BANNIÈRE "À PLANIFIER" — Devis acceptés non planifiés
