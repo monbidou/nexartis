@@ -537,9 +537,6 @@ export default function DashboardPage() {
                 transition: 'all 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.3s',
               }}>{entrepriseNom}</span>
             </h1>
-            <p className="font-manrope text-xs mt-1.5" style={{color: '#9ca3af'}}>
-              Version bêta — Un bug ? Une suggestion ? Écrivez-nous à <a href="mailto:contact.nexartis@gmail.com" className="underline hover:text-[#5ab4e0] transition-colors">contact.nexartis@gmail.com</a>
-            </p>
           </div>
           <div className="flex gap-2.5">
             <Link href="/dashboard/devis/nouveau"
