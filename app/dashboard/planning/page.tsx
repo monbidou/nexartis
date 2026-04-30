@@ -625,21 +625,6 @@ export default function PlanningPage() {
             <h1 className="text-lg sm:text-xl font-extrabold text-[#0f1a3a] tracking-tight font-jakarta shrink-0">
               {isSociete ? 'Planning' : 'Planning'}
             </h1>
-            {/* Alerte orange : devis acceptés non planifiés */}
-            {unplannedDevis.length > 0 && (
-              <a
-                href="#a-planifier"
-                onClick={(e) => {
-                  e.preventDefault()
-                  document.getElementById('a-planifier')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                }}
-                className="inline-flex items-center gap-1.5 bg-[#e87a2a] text-white rounded-full px-3 py-1.5 text-xs font-bold shadow-sm hover:bg-[#f09050] transition-all animate-pulse"
-                title="Cliquer pour voir les devis à planifier"
-              >
-                <FileText className="w-3.5 h-3.5" />
-                {unplannedDevis.length} devis à planifier
-              </a>
-            )}
             {/* Profile toggle — hidden when profile is filled, auto-detected */}
             {profilRempli ? (
               <div className="hidden sm:flex items-center gap-1.5 bg-[#f6f8fb] rounded-full px-3 py-1.5 text-xs font-semibold text-[#64748b]">
