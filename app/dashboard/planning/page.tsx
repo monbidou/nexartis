@@ -200,6 +200,19 @@ function PlanningPageInner() {
     }).catch(() => { selfCreatingRef.current = false })
   }, [isSociete, l2, intervenants, entreprise])
 
+  // ── Sync mIntervenant en mode Solo : force la pre-selection de "soi"
+  // quand le modal est ouvert, quel que soit l'ordre de chargement.
+  useEffect(() => {
+    if (!showModal) return
+    if (isSociete) return
+    if (mIntervenant) return
+    if (selfIntervenantId) {
+      setMIntervenant(selfIntervenantId)
+    } else if (intervenants.length > 0) {
+      setMIntervenant((intervenants[0] as R).id as string)
+    }
+  }, [showModal, isSociete, mIntervenant, selfIntervenantId, intervenants])
+
   // ── Weekend toggle: read from localStorage on mount ──
   useEffect(() => {
     if (typeof window !== 'undefined') {
