@@ -146,6 +146,9 @@ function PlanningPageInner() {
   // Conflict confirmation modal state
   const [showConflitConfirm, setShowConflitConfirm] = useState(false)
   const [conflitConfirmMessage, setConflitConfirmMessage] = useState('')
+  // Solo mode: ID of the self-intervenant (artisan himself)
+  const [selfIntervenantId, setSelfIntervenantId] = useState<string | null>(null)
+  const selfCreatingRef = useRef(false)
 
   const loading = l1 || l2 || l3
 
@@ -160,6 +163,42 @@ function PlanningPageInner() {
       autoDetectedRef.current = true
     }
   }, [entreprise])
+
+  // ── Solo mode: resolve or auto-create the self-intervenant ──
+  // Runs when intervenants are loaded and we are in Solo mode.
+  // Identifies the self-intervenant as the first non-subcontractor in the list.
+  // If none exists, creates one from the entreprise data (or user email).
+  useEffect(() => {
+    if (isSociete) return
+    if (l2) return // wait for intervenants to load
+    if (selfCreatingRef.current) return
+
+    const existing = intervenants.find(
+      iv => (iv as R).type_contrat !== 'sous-traitant'
+    ) as R | undefined
+
+    if (existing) {
+      setSelfIntervenantId(existing.id as string)
+      return
+    }
+
+    // No self-intervenant yet — create one from entreprise info
+    selfCreatingRef.current = true
+    const nomSelf = (entreprise?.nom as string) || 'Artisan'
+    const metierSelf = (entreprise?.metier as string) || ''
+    insertRow('intervenants', {
+      prenom: '',
+      nom: nomSelf,
+      metier: metierSelf,
+      type_contrat: 'cdi',
+      actif: true,
+    }).then(created => {
+      if (created) {
+        setSelfIntervenantId((created as R).id as string)
+      }
+      selfCreatingRef.current = false
+    }).catch(() => { selfCreatingRef.current = false })
+  }, [isSociete, l2, intervenants, entreprise])
 
   // ── Weekend toggle: read from localStorage on mount ──
   useEffect(() => {
@@ -466,9 +505,9 @@ function PlanningPageInner() {
 
   // ── Modal ──
   const openModal = (dateStr?: string, intervenantId?: string, devisId?: string) => {
-    // BUG D FIX : en mode Solo, auto-sélectionner l'unique intervenant affiché
-    // pour éviter les interventions orphelines (sans intervenant_id)
-    const defaultIvId = intervenantId ?? (!isSociete && intervenants.length > 0 ? (intervenants[0] as R).id as string : '')
+    // Solo mode: default to self-intervenant (pre-select silently, sélecteur caché)
+    // Société mode: default to the intervenantId passed (from grid click) or empty
+    const defaultIvId = intervenantId ?? (!isSociete ? (selfIntervenantId ?? (intervenants.length > 0 ? (intervenants[0] as R).id as string : '')) : '')
     setMDevis(''); setMClient(''); setMIntervenant(defaultIvId); setMChantier('')
     setMDate(dateStr ?? fmtISO(new Date())); setMDateFin(dateStr ?? fmtISO(new Date()))
     setMCreneau('journee'); setMObjet(''); setMNotes(''); setMStatut('planifie')
@@ -1512,11 +1551,42 @@ function PlanningPageInner() {
               {/* Intervenant + Créneau */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1.5">Intervenant *</label>
-                  <select value={mIntervenant} onChange={e => { setMIntervenant(e.target.value); setShowConflitConfirm(false); setConflitConfirmMessage('') }} className="w-full px-3.5 py-2.5 border border-[#e6ecf2] rounded-xl text-sm bg-white focus:border-[#5ab4e0] focus:ring-2 focus:ring-[#5ab4e0]/10 outline-none transition-all" required>
-                    <option value="">— Choisir</option>
-                    {intervenants.map(iv => { const r = iv as R; return <option key={r.id as string} value={r.id as string}>{String(r.prenom ?? '')} {String(r.nom ?? '')} — {String(r.metier ?? '')}</option> })}
-                  </select>
+                  {/* Mode Société : sélecteur complet */}
+                  {isSociete && (
+                    <>
+                      <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1.5">Intervenant *</label>
+                      <select value={mIntervenant} onChange={e => { setMIntervenant(e.target.value); setShowConflitConfirm(false); setConflitConfirmMessage('') }} className="w-full px-3.5 py-2.5 border border-[#e6ecf2] rounded-xl text-sm bg-white focus:border-[#5ab4e0] focus:ring-2 focus:ring-[#5ab4e0]/10 outline-none transition-all" required>
+                        <option value="">— Choisir</option>
+                        {intervenants.map(iv => { const r = iv as R; return <option key={r.id as string} value={r.id as string}>{String(r.prenom ?? '')} {String(r.nom ?? '')} — {String(r.metier ?? '')}</option> })}
+                      </select>
+                    </>
+                  )}
+
+                  {/* Mode Solo sans sous-traitants : badge read-only "Vous" */}
+                  {!isSociete && !soloHasSubcontractors && (
+                    <>
+                      <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1.5">Intervenant</label>
+                      <div className="w-full px-3.5 py-2.5 border border-[#5ab4e0]/30 rounded-xl text-sm bg-[#5ab4e0]/[.04] text-[#1a6fb5] font-semibold flex items-center gap-2">
+                        <HardHat className="w-3.5 h-3.5 text-[#5ab4e0]" />
+                        Vous (artisan)
+                      </div>
+                    </>
+                  )}
+
+                  {/* Mode Solo avec sous-traitants : toggle Moi / sous-traitant */}
+                  {!isSociete && soloHasSubcontractors && (
+                    <>
+                      <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1.5">Intervenant *</label>
+                      <select value={mIntervenant} onChange={e => { setMIntervenant(e.target.value); setShowConflitConfirm(false); setConflitConfirmMessage('') }} className="w-full px-3.5 py-2.5 border border-[#e6ecf2] rounded-xl text-sm bg-white focus:border-[#5ab4e0] focus:ring-2 focus:ring-[#5ab4e0]/10 outline-none transition-all" required>
+                        {displayedIntervenants.map((iv) => {
+                          const r = iv as R
+                          const isMe = r.id === selfIntervenantId
+                          const label = isMe ? 'Moi (artisan)' : `${String(r.prenom ?? '')} ${String(r.nom ?? '')}`.trim()
+                          return <option key={r.id as string} value={r.id as string}>{label}{!isMe ? ` — ${String(r.metier ?? '')}` : ''}</option>
+                        })}
+                      </select>
+                    </>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1.5">Créneau</label>
