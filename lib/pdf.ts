@@ -937,9 +937,10 @@ export function generateDevisPdf(data: DevisData): string {
   // ── TOTAUX (à droite) ──
   // Hauteur estimée : récap (~30mm) + NET (11+2) + acompte éventuel (15) + signatures (~32) ≈ 95mm
   const hasAcompte = !!(data.acompte_pourcent && data.acompte_pourcent > 0)
-  const NEEDED_BOTTOM = hasAcompte ? 100 : 85
+  const NEEDED_BOTTOM = hasAcompte ? 85 : 72
   if (y + NEEDED_BOTTOM > 270) { doc.addPage(); y = 20 }
 
+  y += 6 // marge respiration entre tableau et totaux
   const tvaGroups = computeTvaGroups(lignes)
   const totalsStartY = y
   const acompteTTC = hasAcompte ? data.montant_ttc * ((data.acompte_pourcent as number) / 100) : undefined
@@ -1138,6 +1139,7 @@ export function generateFacturePdf(data: FactureData): string {
   const NEEDED_BOTTOM = hasReste ? 65 : 52
   if (y + NEEDED_BOTTOM > 270) { doc.addPage(); y = 20 }
 
+  y += 8 // marge respiration entre tableau et totaux
   const tvaGroups = computeTvaGroups(lignes)
   const totalsStartY = y
   drawTotals(doc, {

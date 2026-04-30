@@ -676,7 +676,7 @@ export default function DashboardLayout({
         className="transition-all duration-200 md:ml-16 lg:ml-64"
       >
         {/* Bandeau version bêta */}
-        <div className="bg-[#1a1a2e] px-4 py-2 flex items-center justify-center gap-2 flex-wrap text-center">
+        <div className="bg-[#1a1a2e] px-4 py-2 flex items-center justify-center gap-2 flex-wrap text-center print:hidden">
           <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#5ab4e0]/20 text-[#5ab4e0] text-[10px] font-syne font-bold uppercase tracking-wider shrink-0">Bêta</span>
           <p className="font-manrope text-xs text-gray-300">
             Version en cours de développement — Un bug ou une suggestion ? Écrivez-nous à{' '}
