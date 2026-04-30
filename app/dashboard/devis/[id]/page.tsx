@@ -593,7 +593,7 @@ export default function DevisDetailPage() {
             )}
 
             {/* ═══ CONDITIONS + TOTAUX : 2 colonnes côte à côte ═══ */}
-            <div className="print-bottom grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
+            <div className="print-bottom grid grid-cols-1 md:grid-cols-2 gap-4 mb-2 mt-6">
               {/* Gauche : conditions de paiement + mentions légales + déchets (discret en bas) */}
               <div className="space-y-2">
                 {/* Conditions de paiement — en premier, c'est le plus important */}

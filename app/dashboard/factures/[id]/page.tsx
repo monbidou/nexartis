@@ -456,7 +456,7 @@ export default function FactureDetailPage() {
             )}
 
             {/* TOTAUX */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 mt-8">
               <div>
                 {(facture.conditions_paiement || facture.notes) && (
                   <div>
