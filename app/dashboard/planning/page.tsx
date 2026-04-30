@@ -4,7 +4,7 @@ import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import {
   Plus, ChevronLeft, ChevronRight, CalendarDays, X, FileText,
   Search, AlertTriangle, Users, Briefcase, Clock, HardHat,
-  MapPin, Eye, Maximize2, Minimize2, Check, Trash2
+  MapPin, Eye, Maximize2, Minimize2, Check, Trash2, Pencil
 } from 'lucide-react'
 import {
   usePlanning, useIntervenants, useClients, useChantiers, useDevis,
@@ -133,6 +133,8 @@ export default function PlanningPage() {
   const [mHeureDebut, setMHeureDebut] = useState('08:00')
   const [mHeureFin, setMHeureFin] = useState('17:00')
   const [mConflitWarning, setMConflitWarning] = useState<string | null>(null)
+  const [editMode, setEditMode] = useState(false)
+  const [editId, setEditId] = useState<string | null>(null)
 
   const loading = l1 || l2 || l3
 
@@ -439,6 +441,7 @@ export default function PlanningPage() {
     setMDate(dateStr ?? fmtISO(new Date())); setMDateFin(dateStr ?? fmtISO(new Date()))
     setMCreneau('journee'); setMObjet(''); setMNotes(''); setMStatut('planifie')
     setMHeureDebut('08:00'); setMHeureFin('17:00'); setMConflitWarning(null)
+    setEditMode(false); setEditId(null)
     // Auto-fill from devis if provided
     if (devisId) {
       setMDevis(devisId)
@@ -449,6 +452,28 @@ export default function PlanningPage() {
         if (devis.objet) setMObjet(String(devis.objet))
       }
     }
+    setShowModal(true)
+  }
+
+  // ── Open modal in EDIT mode ──
+  const openEditModal = (intervention: R) => {
+    const dateDebut = ((intervention.date_debut as string) ?? '').split('T')[0]
+    const dateFin = ((intervention.date_fin as string) ?? dateDebut).split('T')[0]
+    setEditMode(true)
+    setEditId(intervention.id as string)
+    setMDevis((intervention.devis_id as string) ?? '')
+    setMClient((intervention.client_id as string) ?? '')
+    setMIntervenant((intervention.intervenant_id as string) ?? '')
+    setMChantier((intervention.chantier_id as string) ?? '')
+    setMDate(dateDebut)
+    setMDateFin(dateFin)
+    setMCreneau((intervention.creneau as Creneau) ?? 'journee')
+    setMObjet(String(intervention.titre ?? intervention.description_travaux ?? ''))
+    setMNotes(String(intervention.notes ?? ''))
+    setMStatut((intervention.statut as string) ?? 'planifie')
+    setMHeureDebut(String(intervention.heure_debut ?? '08:00'))
+    setMHeureFin(String(intervention.heure_fin ?? '17:00'))
+    setMConflitWarning(null)
     setShowModal(true)
   }
 
@@ -498,7 +523,7 @@ export default function PlanningPage() {
         endTime = mCreneau === 'matin' ? '12:00' : '17:00'
       }
 
-      await insertRow('planning_interventions', {
+      const payload = {
         intervenant_id: mIntervenant,
         client_id: mClient || null,
         chantier_id: mChantier || null,
@@ -512,10 +537,19 @@ export default function PlanningPage() {
         creneau: mCreneau,
         statut: mStatut,
         notes: mNotes || null,
-      })
-      setShowModal(false)
-      refetch()
-      showToast('Intervention créée ✓')
+      }
+      if (editMode && editId) {
+        await updateRow('planning_interventions', editId, payload)
+        setShowModal(false)
+        setEditMode(false); setEditId(null)
+        refetch()
+        showToast('Intervention modifiée ✓')
+      } else {
+        await insertRow('planning_interventions', payload)
+        setShowModal(false)
+        refetch()
+        showToast('Intervention créée ✓')
+      }
     } catch {
       showToast('Erreur lors de la création')
     } finally { setSubmitting(false) }
@@ -1195,6 +1229,13 @@ export default function PlanningPage() {
 
             {/* Actions en bas du panel */}
             <div className="px-5 py-4 border-t border-[#e6ecf2] flex-shrink-0 space-y-2">
+              {/* Modifier */}
+              <button
+                onClick={() => { closePanel(); openEditModal(panelIntervention) }}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#5ab4e0]/10 border border-[#5ab4e0]/30 text-[#1a6fb5] text-sm font-manrope font-semibold hover:bg-[#5ab4e0]/20 transition"
+              >
+                <Pencil className="w-4 h-4" /> Modifier
+              </button>
               {/* Statut */}
               <div className="flex gap-2">
                 {panelIntervention.statut !== 'termine' && (
@@ -1248,11 +1289,11 @@ export default function PlanningPage() {
 
       {/* ── MODAL: New Intervention ── */}
       {showModal && (
-        <div className="fixed inset-0 bg-[#0f1a3a]/35 z-50 flex items-center justify-center" onClick={e => { if (e.target === e.currentTarget) setShowModal(false) }}>
+        <div className="fixed inset-0 bg-[#0f1a3a]/35 z-50 flex items-center justify-center" onClick={e => { if (e.target === e.currentTarget) { setShowModal(false); setEditMode(false); setEditId(null) } }}>
           <div className="bg-white rounded-2xl w-full max-w-[540px] mx-4 max-h-[85vh] overflow-y-auto shadow-lg animate-[modalIn_.3s_ease]">
             <div className="px-6 py-5 border-b border-[#e6ecf2] flex items-center justify-between">
-              <h3 className="text-[17px] font-extrabold text-[#0f1a3a]">Nouvelle intervention</h3>
-              <button onClick={() => setShowModal(false)} className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#f6f8fb] text-[#64748b] hover:bg-[#fee2e2] hover:text-[#ef4444] transition-all">
+              <h3 className="text-[17px] font-extrabold text-[#0f1a3a]">{editMode ? "Modifier l'intervention" : 'Nouvelle intervention'}</h3>
+              <button onClick={() => { setShowModal(false); setEditMode(false); setEditId(null) }} className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#f6f8fb] text-[#64748b] hover:bg-[#fee2e2] hover:text-[#ef4444] transition-all">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -1360,7 +1401,7 @@ export default function PlanningPage() {
               </div>
 
               {/* Client — auto-rempli si devis sélectionné, sinon saisie manuelle */}
-              {!mDevis && (
+              {(!mDevis || editMode) && (
                 <div>
                   <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1.5">Client</label>
                   <select value={mClient} onChange={e => {
@@ -1378,7 +1419,7 @@ export default function PlanningPage() {
               )}
 
               {/* Chantier — visible en saisie libre, filtré par client si sélectionné */}
-              {!mDevis && (
+              {(!mDevis || editMode) && (
                 <div>
                   <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
                     <HardHat className="w-3.5 h-3.5" />Chantier
@@ -1405,7 +1446,7 @@ export default function PlanningPage() {
               )}
 
               {/* Description — auto-remplie si devis, sinon saisie */}
-              {!mDevis && (
+              {(!mDevis || editMode) && (
                 <div>
                   <label className="block text-xs font-bold text-[#64748b] uppercase tracking-wider mb-1.5">Description des travaux *</label>
                   <input type="text" value={mObjet} onChange={e => setMObjet(e.target.value)} placeholder="Ex: Pose tableau électrique + câblage" className="w-full px-3.5 py-2.5 border border-[#e6ecf2] rounded-xl text-sm focus:border-[#5ab4e0] focus:ring-2 focus:ring-[#5ab4e0]/10 outline-none transition-all placeholder:text-[#7b8ba3]" required />
@@ -1424,10 +1465,10 @@ export default function PlanningPage() {
               </div>
             </div>
             <div className="px-6 py-4 border-t border-[#e6ecf2] flex justify-end gap-3">
-              <button onClick={() => setShowModal(false)} className="px-5 py-2.5 border border-[#e6ecf2] rounded-xl text-sm font-semibold text-[#1e293b] hover:border-[#5ab4e0] hover:text-[#5ab4e0] transition-all">Annuler</button>
+              <button onClick={() => { setShowModal(false); setEditMode(false); setEditId(null) }} className="px-5 py-2.5 border border-[#e6ecf2] rounded-xl text-sm font-semibold text-[#1e293b] hover:border-[#5ab4e0] hover:text-[#5ab4e0] transition-all">Annuler</button>
               <button onClick={submitIntervention} disabled={submitting || !mIntervenant || !mDate || !mObjet}
                 className="px-5 py-2.5 bg-gradient-to-r from-[#e87a2a] to-[#f09050] text-white rounded-xl text-sm font-semibold shadow-[0_4px_15px_rgba(232,122,42,.3)] hover:shadow-[0_6px_20px_rgba(232,122,42,.4)] hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-                {submitting ? 'Création...' : "Créer l'intervention"}
+                {submitting ? (editMode ? 'Modification...' : 'Création...') : (editMode ? "Enregistrer les modifications" : "Créer l'intervention")}
               </button>
             </div>
           </div>
