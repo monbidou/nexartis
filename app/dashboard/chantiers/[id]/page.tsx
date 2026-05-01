@@ -59,7 +59,11 @@ function getMonday(d: Date): Date {
   const diff = date.getDate() - day + (day === 0 ? -6 : 1)
   date.setDate(diff); date.setHours(0, 0, 0, 0); return date
 }
-function fmtISO(d: Date): string { return d.toISOString().split('T')[0] }
+// fmtISO en LOCAL (jamais toISOString() qui décale en UTC et fait perdre 1 jour
+// selon le fuseau horaire). Bug récurrent documenté dans la mémoire projet.
+function fmtISO(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
 function isSameDay(d1: Date, d2: Date) { return fmtISO(d1) === fmtISO(d2) }
 
 // -------------------------------------------------------------------
@@ -84,7 +88,14 @@ export default function ChantierDetailPage() {
 
   // State
   const [activeTab, setActiveTab] = useState<TabKey>('resume')
-  const [ganttStart, setGanttStart] = useState(() => getMonday(new Date()))
+  // Fenetre Gantt = J-2 a J+7 (10 jours), centree sur aujourd'hui avec
+  // 2 jours de contexte passe pour voir les interventions des jours d'avant.
+  const [ganttStart, setGanttStart] = useState(() => {
+    const d = new Date()
+    d.setHours(0, 0, 0, 0)
+    d.setDate(d.getDate() - 2)
+    return d
+  })
   const [newNote, setNewNote] = useState('')
   const [newNoteCat, setNewNoteCat] = useState('info')
   const [toast, setToast] = useState<string | null>(null)
@@ -222,12 +233,16 @@ export default function ChantierDetailPage() {
     return { deviseTotal, factureTotal, encaisse, reste, devisCount, devisFactures, pctDevis, pctValeur, pctEncaissement, totalST, totalAchats, depenses, marge, margePct }
   }, [chantier, chantierDevis, stPaiements, chantierAchats])
 
-  // ── Gantt data ── (affiche 14 jours = 2 semaines pour visibilité)
+  // ── Gantt data ── (affiche 10 jours pour des cases plus larges et lisibles)
   const ganttDays = useMemo(() => {
     const days: { label: string; date: Date; dateStr: string; isToday: boolean }[] = []
-    for (let i = 0; i < 14; i++) {
+    for (let i = 0; i < 10; i++) {
       const d = new Date(ganttStart); d.setDate(d.getDate() + i)
-      days.push({ label: DAYS[i % 7], date: d, dateStr: fmtISO(d), isToday: isSameDay(d, new Date()) })
+      // DAYS commence a Lundi = index 0. getDay() retourne 0 pour Dimanche, 1 pour Lundi, etc.
+      // On normalise : Lundi=0, Mardi=1, ..., Dimanche=6
+      const dow = d.getDay()
+      const dayIdx = dow === 0 ? 6 : dow - 1
+      days.push({ label: DAYS[dayIdx], date: d, dateStr: fmtISO(d), isToday: isSameDay(d, new Date()) })
     }
     return days
   }, [ganttStart])
@@ -514,14 +529,29 @@ export default function ChantierDetailPage() {
           <div className="px-5 py-4 border-b border-[#e6ecf2] flex items-center justify-between">
             <h3 className="text-[15px] font-extrabold text-[#0f1a3a] tracking-tight">Planning des phases</h3>
             <div className="flex items-center gap-2">
-              <button onClick={() => { const d = new Date(ganttStart); d.setDate(d.getDate() - 7); setGanttStart(d) }}
+              <button
+                onClick={() => { const d = new Date(ganttStart); d.setDate(d.getDate() - 5); setGanttStart(d) }}
+                title="Reculer de 5 jours"
                 className="w-8 h-8 flex items-center justify-center border border-[#e6ecf2] rounded-lg text-[#64748b] hover:text-[#5ab4e0] hover:border-[#5ab4e0] transition-all">
                 <ChevronLeft className="w-3.5 h-3.5" />
               </button>
+              <button
+                onClick={() => {
+                  const d = new Date()
+                  d.setHours(0, 0, 0, 0)
+                  d.setDate(d.getDate() - 2)
+                  setGanttStart(d)
+                }}
+                title="Recentrer sur aujourd'hui"
+                className="px-2 h-8 flex items-center justify-center border border-[#e6ecf2] rounded-lg text-[10px] font-bold text-[#64748b] hover:text-[#5ab4e0] hover:border-[#5ab4e0] transition-all uppercase tracking-wider">
+                Aujourd&apos;hui
+              </button>
               <span className="text-xs font-semibold text-[#0f1a3a] min-w-[100px] text-center">
-                {ganttStart.getDate()} {MONTHS[ganttStart.getMonth()].substring(0, 3)} — {new Date(ganttStart.getTime() + 13 * 86400000).getDate()} {MONTHS[new Date(ganttStart.getTime() + 13 * 86400000).getMonth()].substring(0, 3)}
+                {ganttStart.getDate()} {MONTHS[ganttStart.getMonth()].substring(0, 3)} — {new Date(ganttStart.getTime() + 9 * 86400000).getDate()} {MONTHS[new Date(ganttStart.getTime() + 9 * 86400000).getMonth()].substring(0, 3)}
               </span>
-              <button onClick={() => { const d = new Date(ganttStart); d.setDate(d.getDate() + 7); setGanttStart(d) }}
+              <button
+                onClick={() => { const d = new Date(ganttStart); d.setDate(d.getDate() + 5); setGanttStart(d) }}
+                title="Avancer de 5 jours"
                 className="w-8 h-8 flex items-center justify-center border border-[#e6ecf2] rounded-lg text-[#64748b] hover:text-[#5ab4e0] hover:border-[#5ab4e0] transition-all">
                 <ChevronRight className="w-3.5 h-3.5" />
               </button>
@@ -530,13 +560,26 @@ export default function ChantierDetailPage() {
 
           <div className="px-5 py-4">
             {/* Header */}
-            <div className="grid grid-cols-[220px_repeat(14,1fr)] mb-1.5">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[#7b8ba3]">Phase / Intervenant</span>
-              {ganttDays.map(d => (
-                <span key={d.dateStr} className={`text-[10px] font-bold uppercase tracking-wider text-center ${d.isToday ? 'text-[#5ab4e0] font-extrabold' : 'text-[#7b8ba3]'}`}>
-                  {d.label} {d.date.getDate()}
-                </span>
-              ))}
+            <div className="grid grid-cols-[220px_repeat(10,1fr)] mb-2 pb-2 border-b border-[#e6ecf2]">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#7b8ba3] self-end pb-1">Phase / Intervenant</span>
+              {ganttDays.map(d => {
+                const isWeekend = d.date.getDay() === 0 || d.date.getDay() === 6
+                return (
+                  <div key={d.dateStr} className="flex flex-col items-center justify-end gap-0.5 px-1">
+                    <span className={`text-[10px] font-bold uppercase tracking-wider ${d.isToday ? 'text-[#5ab4e0]' : isWeekend ? 'text-[#cbd5e1]' : 'text-[#7b8ba3]'}`}>
+                      {d.label}
+                    </span>
+                    <span className={`text-[15px] font-extrabold leading-none ${d.isToday ? 'text-[#5ab4e0]' : isWeekend ? 'text-[#cbd5e1]' : 'text-[#1e293b]'}`}>
+                      {d.date.getDate()}
+                    </span>
+                    {d.isToday && (
+                      <span className="text-[8px] font-bold text-[#5ab4e0] uppercase tracking-wider mt-0.5">
+                        Aujourd&apos;hui
+                      </span>
+                    )}
+                  </div>
+                )
+              })}
             </div>
 
             {/* Phases */}
@@ -561,7 +604,9 @@ export default function ChantierDetailPage() {
                 const cur = new Date(startD)
                 let safety = 0
                 while (cur <= last && safety < 60) {
-                  const k = cur.toISOString().split('T')[0]
+                  // ⚠️ utiliser fmtISO local (PAS toISOString) sinon decalage timezone
+                  // qui peut faire disparaitre une journee complete (bug recurrent).
+                  const k = fmtISO(cur)
                   if (!dayMap.has(k)) dayMap.set(k, pi)
                   cur.setDate(cur.getDate() + 1)
                   safety++
@@ -579,7 +624,7 @@ export default function ChantierDetailPage() {
               const devisAmt = linkedDevis ? formatEur(Number(linkedDevis.montant_ttc ?? 0)) : ''
 
               return (
-                <div key={phase.ivId} className="grid grid-cols-[220px_repeat(14,1fr)] mb-2 min-h-[72px] items-stretch">
+                <div key={phase.ivId} className="grid grid-cols-[220px_repeat(10,1fr)] mb-2 min-h-[72px] items-stretch">
                   {/* Label */}
                   <div className="py-3 pr-3 flex flex-col gap-1.5">
                     <div className="flex items-center gap-2 text-sm font-bold text-[#1e293b]">
@@ -1056,7 +1101,7 @@ export default function ChantierDetailPage() {
         </div>
       )}
 
-      {/* ── TOAST ── */}
+      {/* TOAST */}
       {toast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-[#0f1a3a] text-white px-7 py-3.5 rounded-xl text-sm font-semibold shadow-lg z-[999] flex items-center gap-2.5 animate-[slideUp_.4s_ease]">
           <Check className="w-5 h-5 text-[#22c55e]" />

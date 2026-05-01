@@ -338,10 +338,10 @@ export function renderChantierPdfHtml(data: ChantierPdfData): string {
   .doc-num { font-size: 13px; font-weight: 700; color: #0f172a; margin-top: 2px; }
   .doc-date { font-size: 10px; color: #64748b; margin-top: 4px; }
 
-  .chantier-title { margin-bottom: 26px; }
-  .chantier-label { font-size: 9px; letter-spacing: 1.6px; text-transform: uppercase; color: #64748b; font-weight: 700; margin-bottom: 6px; }
-  .chantier-name { font-size: 24px; font-weight: 800; color: #0f172a; line-height: 1.2; letter-spacing: -0.5px; }
-  .chantier-desc { font-size: 13px; color: #475569; margin-top: 6px; line-height: 1.5; }
+  .chantier-title { margin: 18px 0 30px; }
+  .chantier-label { font-size: 9px; letter-spacing: 1.6px; text-transform: uppercase; color: #64748b; font-weight: 700; margin-bottom: 12px; padding-left: 14px; border-left: 3px solid #5ab4e0; }
+  .chantier-name { font-size: 26px; font-weight: 800; color: #0f172a; line-height: 1.15; letter-spacing: -0.6px; padding-left: 14px; }
+  .chantier-desc { font-size: 13px; color: #475569; margin-top: 8px; padding-left: 14px; line-height: 1.5; }
 
   .two-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 28px; }
   .info-card { background: #f8fafc; border-radius: 10px; padding: 14px 16px; }
@@ -368,28 +368,35 @@ export function renderChantierPdfHtml(data: ChantierPdfData): string {
     letter-spacing: 1.6px; margin: 28px 0 12px; padding-bottom: 8px; border-bottom: 1px solid #e2e8f0;
   }
 
-  .calendar { background: white; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; }
-  .cal-header {
-    display: grid; grid-template-columns: 50px repeat(7, 1fr);
-    background: #f8fafc; border-bottom: 1px solid #e2e8f0;
+  .calendar { background: white; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.02); }
+  .cal-week-block { border-bottom: 1px solid #e2e8f0; }
+  .cal-week-block:last-child { border-bottom: none; }
+  .cal-week-header {
+    display: grid; grid-template-columns: 70px repeat(7, 1fr);
+    background: #0f172a; color: white;
   }
-  .cal-cell-h { padding: 8px 3px; font-size: 9px; font-weight: 700; text-align: center; color: #64748b; border-right: 1px solid #e2e8f0; }
-  .cal-cell-h:last-child { border-right: none; }
-  .cal-cell-h.weekend { background: #f1f5f9; color: #94a3b8; }
-  .cal-cell-h .day-num { display: block; font-size: 12px; color: inherit; margin-top: 2px; font-weight: 800; }
-  .cal-week-label { padding: 8px 4px; font-size: 9px; font-weight: 700; color: white; background: #0f172a; text-align: center; border-right: 1px solid #e2e8f0; }
-  .cal-row { display: grid; grid-template-columns: 50px repeat(7, 1fr); position: relative; min-height: 44px; border-bottom: 1px solid #f1f5f9; }
-  .cal-row:last-child { border-bottom: none; }
-  .cal-day-cell { border-right: 1px solid #f1f5f9; position: relative; }
+  .cal-week-tag { padding: 10px 8px; font-size: 9px; font-weight: 800; letter-spacing: 1px; display: flex; align-items: center; justify-content: center; border-right: 1px solid rgba(255,255,255,0.08); }
+  .cal-day-h { padding: 8px 4px; text-align: center; border-right: 1px solid rgba(255,255,255,0.08); position: relative; }
+  .cal-day-h:last-child { border-right: none; }
+  .cal-day-h.weekend { background: rgba(255,255,255,0.04); }
+  .cal-day-h.today { background: #5ab4e0; }
+  .cal-day-h .dow { font-size: 9px; font-weight: 700; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.6px; }
+  .cal-day-h .dnum { display: block; font-size: 13px; font-weight: 800; margin-top: 2px; }
+  .cal-day-h.today .dow,
+  .cal-day-h.today .dnum { opacity: 1; color: white; }
+  .cal-row { display: grid; grid-template-columns: 70px repeat(7, 1fr); position: relative; min-height: 56px; }
+  .cal-week-label { padding: 8px 4px; font-size: 9px; font-weight: 700; color: #475569; background: #f8fafc; text-align: center; border-right: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: center; }
+  .cal-day-cell { border-right: 1px solid #f1f5f9; position: relative; padding: 6px 4px; }
   .cal-day-cell.weekend { background: #f8fafc; }
   .cal-day-cell:last-child { border-right: none; }
   .phase-bar {
-    position: absolute; top: 6px; bottom: 6px; left: 3px; right: 3px;
-    border-radius: 5px; padding: 4px 8px; color: white; font-size: 9px;
-    font-weight: 700; line-height: 1.2; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    border-radius: 6px; padding: 8px 10px; color: white; font-size: 10px;
+    font-weight: 700; line-height: 1.3; box-shadow: 0 2px 4px rgba(0,0,0,0.08);
     display: flex; flex-direction: column; justify-content: center; overflow: hidden;
+    height: 100%; min-height: 44px;
   }
-  .phase-bar .phase-days { font-size: 8px; font-weight: 500; opacity: 0.85; margin-top: 1px; }
+  .phase-bar .phase-bar-title { font-size: 10px; font-weight: 800; line-height: 1.2; }
+  .phase-bar .phase-days { font-size: 8px; font-weight: 500; opacity: 0.9; margin-top: 3px; letter-spacing: 0.3px; }
 
   .phases-detail { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 11px; margin-top: 14px; }
   .phases-detail thead th { padding: 8px 10px; text-align: left; font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: #64748b; font-weight: 700; border-bottom: 2px solid #0f172a; }
@@ -436,13 +443,10 @@ export function renderChantierPdfHtml(data: ChantierPdfData): string {
   .contact-card-name { font-size: 13px; font-weight: 800; margin-bottom: 8px; }
   .contact-card-line { font-size: 10px; color: #cbd5e1; margin-top: 3px; }
 
-  .signatures-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 30px; }
-  .sig-block { border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; min-height: 110px; position: relative; }
-  .sig-block.client { background: #f8fafc; }
-  .sig-label { font-size: 9px; letter-spacing: 1.1px; text-transform: uppercase; color: #64748b; font-weight: 700; margin-bottom: 8px; }
-  .sig-content { font-size: 10px; color: #475569; }
-  .sig-date { font-size: 10px; color: #0f172a; font-weight: 700; margin-top: 4px; }
-  .sig-client-line { font-size: 9px; color: #64748b; padding-bottom: 14px; border-bottom: 1px solid #cbd5e1; margin-top: 8px; }
+  .artisan-stamp { margin-top: 24px; padding: 14px 16px; border: 1px solid #e2e8f0; border-radius: 10px; max-width: 280px; background: #f8fafc; }
+  .sig-label { font-size: 9px; letter-spacing: 1.1px; text-transform: uppercase; color: #64748b; font-weight: 700; margin-bottom: 6px; }
+  .sig-content { font-size: 12px; color: #0f172a; font-weight: 700; }
+  .sig-date { font-size: 10px; color: #475569; font-weight: 600; margin-top: 4px; }
 
   .brand-footer { margin-top: 28px; padding-top: 12px; border-top: 1px solid #f1f5f9; text-align: center; font-size: 8px; color: #94a3b8; letter-spacing: 0.5px; }
   .brand-footer strong { color: #64748b; font-weight: 700; }
@@ -569,19 +573,12 @@ export function renderChantierPdfHtml(data: ChantierPdfData): string {
     </div>
   </div>
 
-  <!-- SIGNATURES -->
-  <div class="signatures-row">
-    <div class="sig-block">
-      <div class="sig-label">L'artisan</div>
-      <div class="sig-content">${artisanName}</div>
-      <div class="sig-date">${today}</div>
-    </div>
-    <div class="sig-block client">
-      <div class="sig-label">Bon pour accord — Le client</div>
-      <div class="sig-content">${clientName}</div>
-      <div class="sig-client-line"><strong>Date :</strong></div>
-      <div class="sig-client-line"><strong>Signature :</strong></div>
-    </div>
+  <!-- TAMPON ARTISAN (sans bloc "bon pour accord" cote client : ce document
+       est uniquement informatif, pas un contrat a signer) -->
+  <div class="artisan-stamp">
+    <div class="sig-label">L'artisan</div>
+    <div class="sig-content">${artisanName}</div>
+    <div class="sig-date">${today}</div>
   </div>
 
   <div class="brand-footer">
@@ -594,6 +591,14 @@ export function renderChantierPdfHtml(data: ChantierPdfData): string {
 }
 
 // ============ CALENDRIER — rendu semaine par semaine ============
+// Helper local pour eviter les bugs timezone sur les dates
+function fmtISOLocal(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+function isSameDayLocal(d1: Date, d2: Date): boolean {
+  return fmtISOLocal(d1) === fmtISOLocal(d2)
+}
+
 function renderCalendar(
   phases: Array<{ date_debut: string; date_fin?: string | null; titre?: string | null; color: typeof PHASE_COLORS[0] }>,
   dateDebut: string | null | undefined,
@@ -603,9 +608,11 @@ function renderCalendar(
 
   const start = new Date(dateDebut)
   const end = new Date(dateFin)
+  const today = new Date()
 
   // Ramener start au lundi de sa semaine
   const firstMonday = new Date(start)
+  firstMonday.setHours(0, 0, 0, 0)
   const dow = firstMonday.getDay()
   const diffToMonday = dow === 0 ? -6 : 1 - dow
   firstMonday.setDate(firstMonday.getDate() + diffToMonday)
@@ -617,36 +624,50 @@ function renderCalendar(
     const week: Date[] = []
     for (let i = 0; i < 7; i++) {
       const d = new Date(cur)
+      d.setHours(0, 0, 0, 0)
       week.push(d)
       cur.setDate(cur.getDate() + 1)
     }
     weeks.push(week)
   }
 
-  // Map date -> phase
+  // Map date locale (fmtISO) -> phase. CRITIQUE : utiliser fmtISO local
+  // (jamais toISOString) pour eviter de perdre une journee a cause du fuseau.
   const phaseMap = new Map<string, typeof phases[0]>()
   phases.forEach(p => {
     const pStart = new Date(p.date_debut)
-    const pEnd = p.date_fin ? new Date(p.date_fin) : pStart
+    const pEnd = p.date_fin ? new Date(p.date_fin) : new Date(p.date_debut)
+    pStart.setHours(0, 0, 0, 0)
+    pEnd.setHours(0, 0, 0, 0)
     const c = new Date(pStart)
-    while (c <= pEnd) {
-      const key = c.toISOString().split('T')[0]
+    let safety = 0
+    while (c <= pEnd && safety < 90) {
+      const key = fmtISOLocal(c)
       if (!phaseMap.has(key)) phaseMap.set(key, p)
       c.setDate(c.getDate() + 1)
+      safety++
     }
   })
 
   const DAYS_SHORT = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
+  const MONTHS_SHORT = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc']
 
   let html = '<div class="calendar">'
-  weeks.forEach((week, wIdx) => {
+  weeks.forEach((week) => {
     const weekNum = getWeekNumber(week[0])
-    // Header
-    html += `<div class="cal-header" ${wIdx > 0 ? 'style="border-top:1px solid #e2e8f0;"' : ''}>`
-    html += `<div class="cal-cell-h" style="background:#0f172a;color:white;">S${weekNum}</div>`
+    const weekStart = week[0]
+    const weekTag = `S${weekNum}<br><span style="font-size:8px;font-weight:600;opacity:.7;letter-spacing:0;">${weekStart.getDate()} ${MONTHS_SHORT[weekStart.getMonth()]}</span>`
+
+    html += '<div class="cal-week-block">'
+
+    // Header de semaine (dans le bandeau noir : label semaine + jours)
+    html += '<div class="cal-week-header">'
+    html += `<div class="cal-week-tag">${weekTag}</div>`
     week.forEach((day, dIdx) => {
       const isWE = dIdx >= 5
-      html += `<div class="cal-cell-h ${isWE ? 'weekend' : ''}">${DAYS_SHORT[dIdx]}<span class="day-num">${String(day.getDate()).padStart(2, '0')}</span></div>`
+      const isToday = isSameDayLocal(day, today)
+      const cls = ['cal-day-h', isWE ? 'weekend' : '', isToday ? 'today' : ''].filter(Boolean).join(' ')
+      html += `<div class="${cls}"><span class="dow">${DAYS_SHORT[dIdx]}</span><span class="dnum">${String(day.getDate()).padStart(2, '0')}</span></div>`
     })
     html += '</div>'
 
@@ -658,7 +679,7 @@ function renderCalendar(
     let i = 0
     while (i < 7) {
       const day = week[i]
-      const key = day.toISOString().split('T')[0]
+      const key = fmtISOLocal(day)
       const phase = phaseMap.get(key)
       const isWE = i >= 5
       const inChantier = day >= start && day <= end
@@ -667,7 +688,7 @@ function renderCalendar(
         // Trouver la fin de la run
         let j = i
         while (j < 7) {
-          const k = week[j].toISOString().split('T')[0]
+          const k = fmtISOLocal(week[j])
           if (phaseMap.get(k) !== phase || week[j] > end) break
           j++
         }
@@ -675,13 +696,15 @@ function renderCalendar(
         const duree = daysBetween(phase.date_debut, phase.date_fin || phase.date_debut)
         const phaseTitle = escapeHtml(phase.titre) || 'Phase'
         const phaseDates = `${formatDateShort(phase.date_debut)}${phase.date_fin && phase.date_fin !== phase.date_debut ? ' → ' + formatDateShort(phase.date_fin) : ''}`
-        html += `<div class="cal-day-cell" style="grid-column: span ${span};"><div class="phase-bar" style="background:${phase.color.bg};">${phaseTitle}<span class="phase-days">${phaseDates} · ${duree}j</span></div></div>`
+        html += `<div class="cal-day-cell" style="grid-column: span ${span};"><div class="phase-bar" style="background:${phase.color.bg};"><span class="phase-bar-title">${phaseTitle}</span><span class="phase-days">${phaseDates} · ${duree}j</span></div></div>`
         i = j
       } else {
         html += `<div class="cal-day-cell ${isWE ? 'weekend' : ''}"></div>`
         i++
       }
     }
+    html += '</div>'
+
     html += '</div>'
   })
   html += '</div>'
