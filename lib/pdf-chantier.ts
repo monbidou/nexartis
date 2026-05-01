@@ -138,6 +138,8 @@ export interface ChantierPdfData {
   notes: ChantierNote[]
   /** Notes datées par intervention (V2). Filtrer côté API : exclure 'note_artisan' qui est privé. */
   interventionNotes?: InterventionNoteForPdf[]
+  /** Si fourni, ajoute une page de garde "Pacte de chantier" en page 1 (avant le planning). */
+  pacteTexte?: string | null
 }
 
 // ============ HELPERS ============
@@ -348,6 +350,28 @@ export function generateChantierPlanningPdf(data: ChantierPdfData): string {
   const pageW = 210
   const contentW = pageW - 2 * M
   let y = 12
+
+  // ============ PAGE DE GARDE — PACTE DE CHANTIER (V2 optionnel) ============
+  // Si l'artisan a coché "Inclure le Pacte" lors de l'export, on commence
+  // par cette page (engagement mutuel signé). Sinon, on saute direct au
+  // planning normal.
+  const pacteTexte = (data.pacteTexte || '').trim()
+  if (pacteTexte) {
+    drawPacteCoverPage(doc, {
+      pageW,
+      M,
+      contentW,
+      pacteTexte,
+      artisanNom: entreprise.nom || 'Artisan',
+      artisanLogo: entreprise.logo_url || null,
+      clientNom: client
+        ? `${client.civilite || ''} ${client.prenom || ''} ${client.nom || ''}`.replace(/\s+/g, ' ').trim()
+        : 'Client',
+      chantierTitre: chantier.titre || 'Chantier',
+    })
+    doc.addPage()
+    y = 12
+  }
 
   // Palette helpers
   const setDraw = (c: [number, number, number]) => doc.setDrawColor(c[0], c[1], c[2])
@@ -1319,6 +1343,7 @@ function drawCalendarByPhases(
     doc.line(x, rowY, x + width, rowY)
 
     setFill(phase.color)
+    setFill(phase.color)
     doc.roundedRect(x + 2, rowY + 4, 3, 4, 0.5, 0.5, 'F')
     doc.setFontSize(7)
     doc.setFont('helvetica', 'bold')
@@ -1346,4 +1371,163 @@ function drawCalendarByPhases(
   doc.roundedRect(x, calStartY, width, curY - calStartY, 1.5, 1.5, 'S')
 
   return curY
+}
+
+// ============ PAGE DE GARDE — PACTE DE CHANTIER (V2 optionnel) ============
+// Dessine une page A4 complète : header artisan, gros titre "PACTE DE CHANTIER",
+// sous-titre = nom du chantier, encart "Entre / Et", texte du pacte (multi-lignes),
+// 2 cadres signature côte-à-côte (artisan + client) avec date.
+function drawPacteCoverPage(
+  doc: jsPDF,
+  ctx: {
+    pageW: number
+    M: number
+    contentW: number
+    pacteTexte: string
+    artisanNom: string
+    artisanLogo: string | null
+    clientNom: string
+    chantierTitre: string
+  },
+): void {
+  const { pageW, M, contentW, pacteTexte, artisanNom, artisanLogo, clientNom, chantierTitre } = ctx
+  const setFill = (c: [number, number, number]) => doc.setFillColor(c[0], c[1], c[2])
+  const setText = (c: [number, number, number]) => doc.setTextColor(c[0], c[1], c[2])
+  const setDraw = (c: [number, number, number]) => doc.setDrawColor(c[0], c[1], c[2])
+
+  let y = 16
+
+  // ── Logo + nom artisan en haut (compact) ──
+  if (artisanLogo && artisanLogo.startsWith('data:image')) {
+    try {
+      const fmt = artisanLogo.includes('image/png') ? 'PNG' : 'JPEG'
+      const ip = doc.getImageProperties(artisanLogo)
+      const ratio = ip.width / ip.height
+      let lw = 18
+      let lh = lw / ratio
+      if (lh > 18) { lh = 18; lw = lh * ratio }
+      doc.addImage(artisanLogo, fmt, M, y, lw, lh)
+    } catch { /* ignore */ }
+  }
+  doc.setFontSize(9)
+  doc.setFont('helvetica', 'bold')
+  setText([15, 23, 42])
+  doc.text(artisanNom, M + 22, y + 6)
+  doc.setFontSize(7)
+  doc.setFont('helvetica', 'normal')
+  setText([100, 116, 139])
+  doc.text(new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }), pageW - M, y + 6, { align: 'right' })
+  y += 22
+
+  // ── Trait séparateur ──
+  setDraw([90, 180, 224])
+  doc.setLineWidth(0.5)
+  doc.line(M, y, pageW - M, y)
+  y += 14
+
+  // ── Badge "PACTE DE CHANTIER" ──
+  doc.setFontSize(7)
+  doc.setFont('helvetica', 'bold')
+  setFill([90, 180, 224])
+  const badge = 'PACTE DE CHANTIER'
+  const badgeW = doc.getTextWidth(badge) + 6
+  doc.roundedRect(M, y, badgeW, 6, 1, 1, 'F')
+  doc.setTextColor(255, 255, 255)
+  doc.text(badge, M + badgeW / 2, y + 4.2, { align: 'center' })
+  y += 12
+
+  // ── Gros titre = nom du chantier ──
+  doc.setFontSize(22)
+  doc.setFont('helvetica', 'bold')
+  setText([15, 23, 42])
+  const titreLines = doc.splitTextToSize(chantierTitre, contentW)
+  doc.text(titreLines, M, y + 7)
+  y += titreLines.length * 8 + 4
+
+  // ── Encart "Entre [Artisan] et [Client]" ──
+  setFill([248, 250, 252])
+  const entreH = 18
+  doc.roundedRect(M, y, contentW, entreH, 2, 2, 'F')
+  doc.setFontSize(8)
+  doc.setFont('helvetica', 'bold')
+  setText([100, 116, 139])
+  doc.text('ENTRE', M + 4, y + 5)
+  doc.setFontSize(11)
+  doc.setFont('helvetica', 'bold')
+  setText([15, 23, 42])
+  doc.text(artisanNom, M + 4, y + 11)
+  doc.setFontSize(8)
+  doc.setFont('helvetica', 'bold')
+  setText([100, 116, 139])
+  doc.text('ET', M + contentW / 2, y + 5)
+  doc.setFontSize(11)
+  doc.setFont('helvetica', 'bold')
+  setText([15, 23, 42])
+  doc.text(clientNom, M + contentW / 2, y + 11)
+  y += entreH + 8
+
+  // ── Corps : texte du pacte ──
+  doc.setFontSize(9.5)
+  doc.setFont('helvetica', 'normal')
+  setText([30, 41, 59])
+  const pacteLines = doc.splitTextToSize(pacteTexte, contentW - 4)
+  doc.text(pacteLines, M + 2, y + 4)
+  y += pacteLines.length * 4 + 8
+
+  // ── Si on déborde, on tronque (la page de garde tient sur 1 page A4) ──
+  // Hauteur dispo restante = 297 (A4) - y - 60 (espace pour signatures + footer)
+  const sigZoneStart = Math.max(y, 220)
+
+  // ── 2 cadres signature côte-à-côte ──
+  const sigW = (contentW - 6) / 2
+  const sigH = 38
+
+  // Artisan
+  setDraw([226, 232, 240])
+  doc.setLineWidth(0.3)
+  doc.roundedRect(M, sigZoneStart, sigW, sigH, 1.5, 1.5, 'S')
+  doc.setFontSize(7)
+  doc.setFont('helvetica', 'bold')
+  setText([100, 116, 139])
+  doc.text('L\'ARTISAN', M + 4, sigZoneStart + 5)
+  doc.setFontSize(9)
+  doc.setFont('helvetica', 'bold')
+  setText([15, 23, 42])
+  doc.text(artisanNom, M + 4, sigZoneStart + 11)
+  // Lignes signature
+  doc.setFontSize(7)
+  doc.setFont('helvetica', 'bold')
+  setText([100, 116, 139])
+  doc.text('Date :', M + 4, sigZoneStart + 19)
+  setDraw([203, 213, 225])
+  doc.line(M + 16, sigZoneStart + 19, M + sigW - 4, sigZoneStart + 19)
+  doc.text('Signature :', M + 4, sigZoneStart + 30)
+  doc.line(M + 22, sigZoneStart + 30, M + sigW - 4, sigZoneStart + 30)
+
+  // Client
+  const cX = M + sigW + 6
+  setFill([248, 250, 252])
+  doc.roundedRect(cX, sigZoneStart, sigW, sigH, 1.5, 1.5, 'F')
+  doc.setFontSize(7)
+  doc.setFont('helvetica', 'bold')
+  setText([100, 116, 139])
+  doc.text('LE CLIENT', cX + 4, sigZoneStart + 5)
+  doc.setFontSize(9)
+  doc.setFont('helvetica', 'bold')
+  setText([15, 23, 42])
+  doc.text(clientNom, cX + 4, sigZoneStart + 11)
+  doc.setFontSize(7)
+  doc.setFont('helvetica', 'bold')
+  setText([100, 116, 139])
+  doc.text('Date :', cX + 4, sigZoneStart + 19)
+  setDraw([203, 213, 225])
+  doc.line(cX + 16, sigZoneStart + 19, cX + sigW - 4, sigZoneStart + 19)
+  doc.text('Signature :', cX + 4, sigZoneStart + 30)
+  doc.line(cX + 22, sigZoneStart + 30, cX + sigW - 4, sigZoneStart + 30)
+
+  // ── Brand footer en bas de page de garde ──
+  doc.setFontSize(6)
+  doc.setFont('helvetica', 'normal')
+  setText([148, 163, 184])
+  doc.text('Document généré avec Nexartis · www.nexartis.fr', pageW / 2, 290, { align: 'center' })
 }

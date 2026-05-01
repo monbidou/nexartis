@@ -12,7 +12,17 @@ import {
 // elle ne peut pas être prerendered statiquement par Next.js.
 export const dynamic = 'force-dynamic'
 
-export async function GET(req: NextRequest) {
+// =============================================================
+// Logique partagée GET / POST.
+// GET  : export simple (pas de pacte de chantier).
+// POST : export avec options (withPacte + pacteTexte personnalisé).
+//        Body: { withPacte: boolean, pacteTexte: string }
+// =============================================================
+async function handleExport(
+  req: NextRequest,
+  chantierId: string,
+  opts: { withPacte: boolean; pacteTexte: string },
+) {
   try {
     // ✅ SÉCURITÉ : Rate limiting (5 exports par minute par IP)
     const ip = getClientIp(req)
@@ -23,11 +33,6 @@ export async function GET(req: NextRequest) {
     // ✅ SÉCURITÉ : Utilisateur connecté
     const user = await getAuthenticatedUser()
     if (!user) return unauthorizedError()
-
-    // Récupérer l'ID du chantier depuis la query string
-    const { searchParams } = new URL(req.url)
-    const chantierId = searchParams.get('id')
-    if (!chantierId) return secureError('ID du chantier manquant')
 
     // ✅ SÉCURITÉ : Valider que c'est bien un UUID
     if (!isValidUUID(chantierId)) return secureError('ID du chantier invalide')
@@ -80,9 +85,7 @@ export async function GET(req: NextRequest) {
       .select('id, prenom, nom, metier, type_contrat')
       .eq('user_id', user.id)
 
-    // Charger les devis du chantier (chaque devis = 1 phase dans le PDF client)
-    // V2 : on inclut montant_acompte / acompte_verse / modalites_paiement pour
-    // alimenter la nouvelle section "Échéancier de paiement" du PDF.
+    // Charger les devis du chantier (V2 : inclut acompte/modalites)
     const { data: devis } = await supabase
       .from('devis')
       .select('id, numero, objet, description, montant_ttc, montant_acompte, acompte_verse, modalites_paiement')
@@ -99,8 +102,7 @@ export async function GET(req: NextRequest) {
       .eq('visible_in_pdf', true)
       .order('created_at', { ascending: true })
 
-    // V2 : charger les notes datées attachées aux interventions de ce chantier.
-    // On EXCLUT les notes type 'note_artisan' (privées, jamais dans le PDF client).
+    // V2 : charger les notes datées attachées aux interventions (sans note_artisan)
     const interventionIds = (interventions || []).map(i => i.id).filter(Boolean) as string[]
     let interventionNotesData: { id: string; intervention_id: string; type: string; texte: string }[] = []
     if (interventionIds.length > 0) {
@@ -113,7 +115,6 @@ export async function GET(req: NextRequest) {
         .order('created_at', { ascending: true })
       interventionNotesData = rawNotes ?? []
     }
-    // Map intervention_id -> date_debut pour le tri chronologique dans le PDF
     const ivDateMap = new Map<string, string>()
     ;(interventions || []).forEach(iv => {
       if (iv.id && iv.date_debut) ivDateMap.set(iv.id as string, iv.date_debut as string)
@@ -126,8 +127,21 @@ export async function GET(req: NextRequest) {
       date_intervention: ivDateMap.get(n.intervention_id) ?? null,
     }))
 
-    // Préparer les données (V2 : champs PDF étendus — préparation, non inclus,
-    // modalités personnalisées, pacte de chantier — passés au générateur)
+    // V2 (Pacte) : si l'artisan a inclus un pacte personnalisé via la modal,
+    // on le sauvegarde côté chantier pour la prochaine édition + on le passe
+    // au générateur PDF.
+    let pacteTexteFinal: string | null = null
+    if (opts.withPacte && opts.pacteTexte.trim()) {
+      pacteTexteFinal = opts.pacteTexte.trim()
+      // Sauvegarder pour pouvoir ré-éditer lors d'un prochain export
+      await supabase
+        .from('chantiers')
+        .update({ pacte_chantier_texte: pacteTexteFinal })
+        .eq('id', chantierId)
+        .eq('user_id', user.id)
+    }
+
+    // Préparer les données pour le générateur PDF
     const pdfData: ChantierPdfData = {
       entreprise: entreprise || {},
       chantier: {
@@ -152,13 +166,11 @@ export async function GET(req: NextRequest) {
       devis: devis || [],
       notes: notes || [],
       interventionNotes,
+      pacteTexte: pacteTexteFinal,
     }
 
     // Générer le PDF
     const pdfDataUri = generateChantierPlanningPdf(pdfData)
-
-    // Le datauristring ressemble à "data:application/pdf;filename=generated.pdf;base64,XXXXX..."
-    // On extrait uniquement le base64
     const base64 = pdfDataUri.substring(pdfDataUri.indexOf('base64,') + 7)
     const pdfBuffer = Buffer.from(base64, 'base64')
 
@@ -187,4 +199,29 @@ export async function GET(req: NextRequest) {
     console.error('Export chantier PDF error:', error)
     return secureError('Erreur lors de la génération du PDF', 500)
   }
+}
+
+// ============== GET (export simple, sans pacte) ==============
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url)
+  const chantierId = searchParams.get('id')
+  if (!chantierId) return secureError('ID du chantier manquant')
+  return handleExport(req, chantierId, { withPacte: false, pacteTexte: '' })
+}
+
+// ============== POST (export avec options) ==============
+// Body : { id: string, withPacte?: boolean, pacteTexte?: string }
+export async function POST(req: NextRequest) {
+  let body: { id?: string; withPacte?: boolean; pacteTexte?: string } = {}
+  try {
+    body = await req.json()
+  } catch {
+    return secureError('Body JSON invalide')
+  }
+  const chantierId = body.id || ''
+  if (!chantierId) return secureError('ID du chantier manquant')
+  return handleExport(req, chantierId, {
+    withPacte: Boolean(body.withPacte),
+    pacteTexte: typeof body.pacteTexte === 'string' ? body.pacteTexte : '',
+  })
 }

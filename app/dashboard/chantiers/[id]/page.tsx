@@ -15,6 +15,7 @@ import {
 } from '@/lib/hooks'
 import { createClient } from '@/lib/supabase/client'
 import { createFactureFromDevis } from '@/lib/services/devis-automatisms'
+import { generatePacteTemplate } from '@/lib/pacte-chantier'
 
 // -------------------------------------------------------------------
 // Types & helpers
@@ -120,6 +121,10 @@ export default function ChantierDetailPage() {
   const [editModalitesPerso, setEditModalitesPerso] = useState('')
   const [editSaving, setEditSaving] = useState(false)
   const [exportingPdf, setExportingPdf] = useState(false)
+  // Modal d'export PDF (V2 — option Pacte de chantier)
+  const [showExportModal, setShowExportModal] = useState(false)
+  const [exportWithPacte, setExportWithPacte] = useState(false)
+  const [exportPacteTexte, setExportPacteTexte] = useState('')
 
   const showToast = useCallback((msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2500) }, [])
 
@@ -405,10 +410,61 @@ export default function ChantierDetailPage() {
   }
 
   // ── Export PDF ──
+  // Ouvre la modal d'options (checkbox Pacte de chantier) au lieu d'exporter direct.
+  const openExportModal = async () => {
+    if (!chantier) return
+    // Charger le profil entreprise (pour engagements/modalités utilisés dans le template)
+    let ent: Record<string, unknown> | null = null
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data } = await supabase
+          .from('entreprises')
+          .select('nom, engagements_default')
+          .eq('user_id', user.id)
+          .single()
+        ent = data
+      }
+    } catch { /* ignore — on génère sans profil si erreur */ }
+
+    // Si l'artisan a déjà sauvegardé un pacte personnalisé, on le pré-charge.
+    // Sinon on génère un template à partir du profil + chantier.
+    const existing = (chantier.pacte_chantier_texte as string | null)?.trim()
+    const clientName = client
+      ? `${client.civilite ?? ''} ${client.prenom ?? ''} ${client.nom ?? ''}`.replace(/\s+/g, ' ').trim()
+      : ''
+    const tpl = existing || generatePacteTemplate({
+      artisanNom: ent?.nom as string | null | undefined,
+      clientNom: clientName,
+      chantierTitre: chantier.titre as string | null,
+      dateDebut: chantier.date_debut as string | null,
+      dateFin: chantier.date_fin_prevue as string | null,
+      engagements: ent?.engagements_default as string | null | undefined,
+      preparationClient: chantier.preparation_client as string | null,
+    })
+    // Par défaut, la case est DÉCOCHÉE (Jerem voulait que ce soit un choix conscient).
+    // Mais si un pacte personnalisé existe déjà, on coche par défaut (l'artisan a déjà
+    // signalé qu'il l'utilise).
+    setExportWithPacte(Boolean(existing))
+    setExportPacteTexte(tpl)
+    setShowExportModal(true)
+  }
+
+  // Lancement effectif de l'export après validation de la modal.
   const handleExportPDF = async () => {
+    if (!chantier) return
     setExportingPdf(true)
     try {
-      const res = await fetch(`/api/export-chantier-pdf?id=${id}`)
+      const res = await fetch('/api/export-chantier-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id,
+          withPacte: exportWithPacte,
+          pacteTexte: exportWithPacte ? exportPacteTexte : '',
+        }),
+      })
       if (!res.ok) throw new Error('Erreur export')
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)
@@ -417,9 +473,10 @@ export default function ChantierDetailPage() {
       a.download = `chantier-${String(chantier?.titre ?? 'export').replace(/\s+/g, '-').toLowerCase()}.pdf`
       a.click()
       URL.revokeObjectURL(url)
-      showToast('PDF téléchargé ✓')
+      setShowExportModal(false)
+      showToast(exportWithPacte ? 'PDF avec Pacte téléchargé ✓' : 'PDF téléchargé ✓')
     } catch (_err) {
-      showToast('Erreur export PDF — fonctionnalité bientôt disponible')
+      showToast('Erreur lors de l\'export PDF')
     } finally {
       setExportingPdf(false)
     }
@@ -457,7 +514,7 @@ export default function ChantierDetailPage() {
           <Link href="/dashboard/planning" className="flex items-center gap-2 px-4 py-2 border border-[#e6ecf2] rounded-xl text-sm font-semibold text-[#1e293b] hover:border-[#5ab4e0] hover:text-[#5ab4e0] transition-all">
             <Clock className="w-4 h-4" />Planning
           </Link>
-          <button onClick={handleExportPDF} disabled={exportingPdf}
+          <button onClick={openExportModal} disabled={exportingPdf}
             className="flex items-center gap-2 px-4 py-2 border border-[#e6ecf2] rounded-xl text-sm font-semibold text-[#1e293b] hover:border-[#5ab4e0] hover:text-[#5ab4e0] transition-all disabled:opacity-50">
             <Download className="w-4 h-4" />{exportingPdf ? 'Export...' : 'Exporter PDF'}
           </button>
@@ -1052,6 +1109,101 @@ export default function ChantierDetailPage() {
         )}
       </div>
 
+      {/* ── MODAL EXPORT PDF (V2 — option Pacte de chantier) ── */}
+      {showExportModal && (
+        <div
+          className="fixed inset-0 bg-[#0f1a3a]/35 z-50 flex items-center justify-center p-4"
+          onClick={(e) => { if (e.target === e.currentTarget && !exportingPdf) setShowExportModal(false) }}
+        >
+          <div className="bg-white rounded-2xl w-full max-w-[640px] shadow-lg animate-[modalIn_.3s_ease] flex flex-col max-h-[92vh]">
+            <div className="px-6 py-5 border-b border-[#e6ecf2] flex items-center justify-between flex-shrink-0">
+              <div>
+                <h3 className="text-[17px] font-extrabold text-[#0f1a3a]">Exporter le PDF de planification</h3>
+                <p className="text-[12px] text-[#7b8ba3] mt-0.5">Choisissez les options avant la génération</p>
+              </div>
+              <button
+                onClick={() => setShowExportModal(false)}
+                disabled={exportingPdf}
+                className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#f6f8fb] text-[#64748b] hover:bg-[#fee2e2] hover:text-[#ef4444] transition-all disabled:opacity-40"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="px-6 py-5 space-y-4 overflow-y-auto">
+              <div className={`rounded-xl border-2 transition-all ${exportWithPacte ? 'border-[#5ab4e0] bg-[#5ab4e0]/[.04]' : 'border-[#e6ecf2]'}`}>
+                <label className="flex items-start gap-3 px-4 py-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={exportWithPacte}
+                    onChange={(e) => setExportWithPacte(e.target.checked)}
+                    className="mt-1 w-4 h-4 accent-[#5ab4e0] cursor-pointer"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[14px] font-bold text-[#0f1a3a]">Inclure le Pacte de chantier</span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#e87a2a]/15 text-[#e87a2a]">Recommandé gros chantier</span>
+                    </div>
+                    <p className="text-[12px] text-[#64748b] leading-snug">
+                      Ajoute une page de garde signée par les deux parties (engagement mutuel artisan + client). Idéal pour rassurer le client sur les chantiers de rénovation lourde. Décoché par défaut.
+                    </p>
+                  </div>
+                </label>
+
+                {exportWithPacte && (
+                  <div className="px-4 pb-4 pt-1 border-t border-[#e6ecf2]/50">
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[#7b8ba3] mb-2">
+                      Texte du pacte (modifiable)
+                    </label>
+                    <textarea
+                      value={exportPacteTexte}
+                      onChange={(e) => setExportPacteTexte(e.target.value)}
+                      rows={14}
+                      className="w-full rounded-lg border border-[#e6ecf2] bg-white px-3 py-2.5 text-[12px] leading-snug font-mono focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0]/20 outline-none transition-all resize-y"
+                    />
+                    <p className="mt-1.5 text-[10px] text-[#94a3b8] italic leading-snug">
+                      Pré-rempli automatiquement à partir de votre profil et du chantier. Le texte est sauvegardé pour vos prochains exports.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-xl bg-[#f6f8fb] px-4 py-3">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-[#7b8ba3] mb-1.5">Le PDF contiendra</p>
+                <ul className="text-[12px] text-[#1e293b] space-y-1">
+                  {exportWithPacte && (
+                    <li className="flex items-center gap-1.5"><span className="text-[#5ab4e0] font-bold">+</span> Page de garde — Pacte de chantier signé</li>
+                  )}
+                  <li className="flex items-center gap-1.5"><span className="text-[#22c55e] font-bold">✓</span> Identité artisan &amp; client + lieu du chantier</li>
+                  <li className="flex items-center gap-1.5"><span className="text-[#22c55e] font-bold">✓</span> Périmètre Inclus / Non inclus + Préparation</li>
+                  <li className="flex items-center gap-1.5"><span className="text-[#22c55e] font-bold">✓</span> Calendrier visuel + tableau des phases</li>
+                  <li className="flex items-center gap-1.5"><span className="text-[#22c55e] font-bold">✓</span> Notes du chantier + Modalités + Engagements</li>
+                  <li className="flex items-center gap-1.5"><span className="text-[#22c55e] font-bold">✓</span> Échéancier de paiement + Garanties</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-[#e6ecf2] flex justify-end gap-3 flex-shrink-0">
+              <button
+                onClick={() => setShowExportModal(false)}
+                disabled={exportingPdf}
+                className="px-4 py-2.5 border border-[#e6ecf2] rounded-xl text-sm font-semibold text-[#64748b] hover:border-[#ef4444] hover:text-[#ef4444] transition-all disabled:opacity-40"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleExportPDF}
+                disabled={exportingPdf || (exportWithPacte && !exportPacteTexte.trim())}
+                className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#e87a2a] to-[#f09050] text-white rounded-xl text-sm font-bold hover:shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Download className="w-4 h-4" />
+                {exportingPdf ? 'Génération en cours...' : 'Générer le PDF'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── MODAL MODIFIER ── */}
       {editMode && (
         <div className="fixed inset-0 bg-[#0f1a3a]/35 z-50 flex items-center justify-center" onClick={e => { if (e.target === e.currentTarget) setEditMode(false) }}>
@@ -1098,7 +1250,6 @@ export default function ChantierDetailPage() {
                 </div>
               </div>
 
-              {/* === Champs PDF V2 — section dédiée === */}
               <div className="pt-3 mt-1 border-t border-[#e6ecf2]">
                 <h4 className="text-[11px] font-bold uppercase tracking-wider text-[#5ab4e0] mb-3">
                   Informations pour le PDF client
@@ -1169,7 +1320,6 @@ export default function ChantierDetailPage() {
         </div>
       )}
 
-      {/* TOAST */}
       {toast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-[#0f1a3a] text-white px-7 py-3.5 rounded-xl text-sm font-semibold shadow-lg z-[999] flex items-center gap-2.5 animate-[slideUp_.4s_ease]">
           <Check className="w-5 h-5 text-[#22c55e]" />
