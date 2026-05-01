@@ -81,9 +81,11 @@ export async function GET(req: NextRequest) {
       .eq('user_id', user.id)
 
     // Charger les devis du chantier (chaque devis = 1 phase dans le PDF client)
+    // V2 : on inclut montant_acompte / acompte_verse / modalites_paiement pour
+    // alimenter la nouvelle section "Échéancier de paiement" du PDF.
     const { data: devis } = await supabase
       .from('devis')
-      .select('id, numero, objet, description, montant_ttc')
+      .select('id, numero, objet, description, montant_ttc, montant_acompte, acompte_verse, modalites_paiement')
       .eq('chantier_id', chantierId)
       .eq('user_id', user.id)
       .is('deleted_at', null)
@@ -97,7 +99,8 @@ export async function GET(req: NextRequest) {
       .eq('visible_in_pdf', true)
       .order('created_at', { ascending: true })
 
-    // Préparer les données
+    // Préparer les données (V2 : champs PDF étendus — préparation, non inclus,
+    // modalités personnalisées, pacte de chantier — passés au générateur)
     const pdfData: ChantierPdfData = {
       entreprise: entreprise || {},
       chantier: {
@@ -111,6 +114,10 @@ export async function GET(req: NextRequest) {
         date_debut: chantier.date_debut,
         date_fin_prevue: chantier.date_fin_prevue,
         acces_info: chantier.acces_info,
+        preparation_client: chantier.preparation_client,
+        non_inclus: chantier.non_inclus,
+        modalites_personnalisees: chantier.modalites_personnalisees,
+        pacte_chantier_texte: chantier.pacte_chantier_texte,
       },
       client,
       interventions: interventions || [],

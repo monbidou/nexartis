@@ -114,6 +114,10 @@ export default function ChantierDetailPage() {
   const [editDateFin, setEditDateFin] = useState('')
   const [editAdresse, setEditAdresse] = useState('')
   const [editVille, setEditVille] = useState('')
+  // Champs PDF V2 — pour la fiche client envoyée
+  const [editPreparationClient, setEditPreparationClient] = useState('')
+  const [editNonInclus, setEditNonInclus] = useState('')
+  const [editModalitesPerso, setEditModalitesPerso] = useState('')
   const [editSaving, setEditSaving] = useState(false)
   const [exportingPdf, setExportingPdf] = useState(false)
 
@@ -368,6 +372,9 @@ export default function ChantierDetailPage() {
     setEditDateFin(chantier?.date_fin_prevue ? String(chantier.date_fin_prevue).split('T')[0] : '')
     setEditAdresse(String(chantier?.adresse_chantier ?? ''))
     setEditVille(String(chantier?.ville_chantier ?? ''))
+    setEditPreparationClient(String(chantier?.preparation_client ?? ''))
+    setEditNonInclus(String(chantier?.non_inclus ?? ''))
+    setEditModalitesPerso(String(chantier?.modalites_personnalisees ?? ''))
     setEditMode(true)
   }
 
@@ -382,6 +389,10 @@ export default function ChantierDetailPage() {
         date_fin_prevue: editDateFin || undefined,
         adresse_chantier: editAdresse.trim() || undefined,
         ville_chantier: editVille.trim() || undefined,
+        // Champs PDF V2 — note : on envoie '' si vide pour pouvoir effacer un texte
+        preparation_client: editPreparationClient.trim() || null,
+        non_inclus: editNonInclus.trim() || null,
+        modalites_personnalisees: editModalitesPerso.trim() || null,
       })
       setEditMode(false)
       showToast('Chantier mis à jour ✓')
@@ -1084,6 +1095,63 @@ export default function ChantierDetailPage() {
                   <label className="text-[11px] font-bold uppercase tracking-wider text-[#7b8ba3] mb-1.5 block">Ville</label>
                   <input type="text" value={editVille} onChange={e => setEditVille(e.target.value)}
                     className="w-full px-3.5 py-2.5 border border-[#e6ecf2] rounded-xl text-sm focus:border-[#5ab4e0] outline-none transition-all" />
+                </div>
+              </div>
+
+              {/* === Champs PDF V2 — section dédiée === */}
+              <div className="pt-3 mt-1 border-t border-[#e6ecf2]">
+                <h4 className="text-[11px] font-bold uppercase tracking-wider text-[#5ab4e0] mb-3">
+                  Informations pour le PDF client
+                </h4>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-[#7b8ba3] mb-1.5 block">
+                      Préparation à la charge du client
+                    </label>
+                    <textarea
+                      value={editPreparationClient}
+                      onChange={e => setEditPreparationClient(e.target.value)}
+                      rows={3}
+                      placeholder={'Ex :\n• Vider la pièce des meubles\n• Couper le compteur d\'eau\n• Prévoir un stationnement pour le camion'}
+                      className="w-full px-3.5 py-2.5 border border-[#e6ecf2] rounded-xl text-sm focus:border-[#5ab4e0] focus:ring-2 focus:ring-[#5ab4e0]/10 outline-none transition-all resize-none"
+                    />
+                    <p className="mt-1 text-[10px] text-[#94a3b8]">
+                      S&apos;affiche dans la section &laquo;&nbsp;Préparation à votre charge&nbsp;&raquo; du PDF.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-[#7b8ba3] mb-1.5 block">
+                      Non inclus dans le forfait <span className="text-[#f97316]">(anti-litige)</span>
+                    </label>
+                    <textarea
+                      value={editNonInclus}
+                      onChange={e => setEditNonInclus(e.target.value)}
+                      rows={3}
+                      placeholder={'Ex :\n• Peinture du portail\n• Évacuation des gravats hors démolition\n• Modification du système d\'arrosage'}
+                      className="w-full px-3.5 py-2.5 border border-[#e6ecf2] rounded-xl text-sm focus:border-[#5ab4e0] focus:ring-2 focus:ring-[#5ab4e0]/10 outline-none transition-all resize-none"
+                    />
+                    <p className="mt-1 text-[10px] text-[#94a3b8]">
+                      Ce que le client pourrait imaginer comme inclus mais qui ne l&apos;est PAS. Source n°1 des litiges.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-[#7b8ba3] mb-1.5 block">
+                      Modalités d&apos;intervention spécifiques à ce chantier
+                    </label>
+                    <textarea
+                      value={editModalitesPerso}
+                      onChange={e => setEditModalitesPerso(e.target.value)}
+                      rows={2}
+                      placeholder="Laisser vide pour utiliser les modalités par défaut de votre profil."
+                      className="w-full px-3.5 py-2.5 border border-[#e6ecf2] rounded-xl text-sm focus:border-[#5ab4e0] focus:ring-2 focus:ring-[#5ab4e0]/10 outline-none transition-all resize-none"
+                    />
+                    <p className="mt-1 text-[10px] text-[#94a3b8]">
+                      Si rempli, écrase les modalités par défaut de votre profil pour ce chantier uniquement.
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>

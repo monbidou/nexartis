@@ -489,6 +489,9 @@ function DocumentsSection({
   const [mentionsLegales, setMentionsLegales] = useState('')
   const [docColor, setDocColor] = useState('#5ab4e0')
   const [logoOnDocs, setLogoOnDocs] = useState(true)
+  // PDF chantier V2 : modalites d'intervention + engagements par defaut
+  const [modalitesDefault, setModalitesDefault] = useState('')
+  const [engagementsDefault, setEngagementsDefault] = useState('')
   const [saving, setSaving] = useState(false)
   const [success, setSuccess] = useState<string | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
@@ -500,6 +503,8 @@ function DocumentsSection({
       setConditionsPaiement((entreprise.conditions_paiement as string) ?? '')
       setMentionsLegales((entreprise.mentions_legales_custom as string) ?? '')
       setDocColor((entreprise.couleur_principale as string) ?? '#5ab4e0')
+      setModalitesDefault((entreprise.modalites_intervention_default as string) ?? '')
+      setEngagementsDefault((entreprise.engagements_default as string) ?? '')
     }
   }, [entreprise])
 
@@ -514,6 +519,8 @@ function DocumentsSection({
         conditions_paiement: conditionsPaiement,
         mentions_legales_custom: mentionsLegales || null,
         couleur_principale: docColor,
+        modalites_intervention_default: modalitesDefault || null,
+        engagements_default: engagementsDefault || null,
       })
       setSuccess('Paramètres de documents enregistrés avec succès.')
     } catch (err) {
@@ -605,6 +612,50 @@ function DocumentsSection({
         </div>
 
         <ToggleSwitch label="Logo sur les documents" checked={logoOnDocs} onChange={setLogoOnDocs} />
+
+        {/* === PDF CHANTIER V2 === */}
+        <div className="pt-6 mt-2 border-t border-gray-100">
+          <h3 className="font-syne font-bold text-base text-[#1a1a2e] mb-1">
+            PDF planification de chantier
+          </h3>
+          <p className="font-manrope text-xs text-[#6b7280] mb-4">
+            Ces paramètres apparaissent automatiquement sur tous vos PDF de planification chantier envoyés au client. Vous pouvez les écraser au cas par cas dans la fiche d&apos;un chantier spécifique.
+          </p>
+
+          {/* Modalités d'intervention par défaut */}
+          <div className="mb-5">
+            <label className="block font-manrope font-medium text-sm text-gray-700 mb-1.5">
+              Modalités d&apos;intervention par défaut
+            </label>
+            <textarea
+              value={modalitesDefault}
+              onChange={(e) => setModalitesDefault(e.target.value)}
+              rows={5}
+              placeholder={'Horaires : 8h - 17h, du lundi au vendredi\nPause déjeuner : 12h - 13h\nPas d\'intervention les week-ends et jours fériés\nInformation préalable en cas de retard ou modification'}
+              className="w-full rounded-lg border border-gray-200 px-4 py-3 font-manrope text-sm text-[#1a1a2e] focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none resize-none"
+            />
+            <p className="mt-1.5 font-manrope text-xs text-[#94a3b8]">
+              Indiquez vos horaires habituels, jours d&apos;intervention, pauses, règles générales. Ce que vos clients doivent savoir avant le démarrage du chantier.
+            </p>
+          </div>
+
+          {/* Engagements qualité par défaut */}
+          <div className="mb-2">
+            <label className="block font-manrope font-medium text-sm text-gray-700 mb-1.5">
+              Mes engagements qualité
+            </label>
+            <textarea
+              value={engagementsDefault}
+              onChange={(e) => setEngagementsDefault(e.target.value)}
+              rows={5}
+              placeholder={'• Site nettoyé chaque fin de journée\n• Photos d\'avancement envoyées régulièrement\n• Réponse à vos questions sous 24h ouvrées\n• Information immédiate par SMS en cas d\'imprévu\n• Respect des dates communiquées (sauf intempéries documentées)'}
+              className="w-full rounded-lg border border-gray-200 px-4 py-3 font-manrope text-sm text-[#1a1a2e] focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none resize-none"
+            />
+            <p className="mt-1.5 font-manrope text-xs text-[#94a3b8]">
+              Ce sur quoi vous vous engagez systématiquement (photos, propreté, communication). Affiché en évidence dans le PDF chantier — c&apos;est ce qui vous différencie d&apos;un concurrent qui n&apos;ose pas l&apos;écrire.
+            </p>
+          </div>
+        </div>
       </div>
 
       <SaveButton onClick={handleSave} saving={saving} />

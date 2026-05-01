@@ -41,6 +41,10 @@ interface Entreprise {
   email?: string | null
   logo_url?: string | null
   decennale_numero?: string | null
+  /** Modalités d'intervention par défaut (horaires, jours, week-ends) */
+  modalites_intervention_default?: string | null
+  /** Engagements qualité par défaut (photos, nettoyage, réponse 24h, etc.) */
+  engagements_default?: string | null
 }
 
 interface Chantier {
@@ -54,6 +58,14 @@ interface Chantier {
   date_debut?: string | null
   date_fin_prevue?: string | null
   acces_info?: string | null
+  /** Liste des choses que le client doit préparer avant le démarrage */
+  preparation_client?: string | null
+  /** Ce qui n'est PAS inclus dans le forfait (anti-litige) */
+  non_inclus?: string | null
+  /** Modalités personnalisées qui écrasent les modalités du profil */
+  modalites_personnalisees?: string | null
+  /** Texte personnalisé du Pacte de chantier (si l'option est cochée à l'export) */
+  pacte_chantier_texte?: string | null
 }
 
 interface Client {
@@ -91,6 +103,12 @@ interface DevisForPdf {
   objet?: string | null
   description?: string | null
   montant_ttc?: number | null
+  /** Montant de l'acompte demandé sur le devis (en €) */
+  montant_acompte?: number | null
+  /** True si l'acompte a été payé par le client */
+  acompte_verse?: boolean | null
+  /** Modalités de paiement libres (texte) */
+  modalites_paiement?: string | null
 }
 
 interface ChantierNote {
@@ -171,6 +189,57 @@ function generateRef(chantierId: string): string {
 function ensureSpace(doc: jsPDF, y: number, needed: number): number {
   if (y + needed > 285) { doc.addPage(); return 15 }
   return y
+}
+
+// ============ HELPERS NOUVELLES SECTIONS PDF V2 ============
+
+/**
+ * Dessine un titre de section : "TITRE EN MAJUSCULES" + ligne séparatrice.
+ * Retourne le nouveau y après le titre.
+ */
+function drawSectionTitle(doc: jsPDF, x: number, y: number, w: number, label: string): number {
+  doc.setFontSize(8)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(15, 23, 42) // NAVY
+  doc.text(label.toUpperCase(), x, y)
+  doc.setDrawColor(226, 232, 240) // GREY_BORDER
+  doc.line(x, y + 2, x + w, y + 2)
+  return y + 6
+}
+
+/**
+ * Dessine un bloc d'info simple : fond gris + barre verticale colorée + texte multi-lignes.
+ * Retourne le nouveau y après le bloc.
+ */
+function drawInfoBlock(
+  doc: jsPDF,
+  x: number,
+  y: number,
+  w: number,
+  texte: string,
+  accentColor: [number, number, number],
+  bgColor: [number, number, number] = [248, 250, 252],
+): number {
+  const lines = doc.splitTextToSize(texte, w - 8)
+  const h = Math.max(10, lines.length * 4 + 6)
+  // Fond
+  doc.setFillColor(bgColor[0], bgColor[1], bgColor[2])
+  doc.roundedRect(x, y, w, h, 1.2, 1.2, 'F')
+  // Barre verticale gauche
+  doc.setFillColor(accentColor[0], accentColor[1], accentColor[2])
+  doc.rect(x, y, 1.2, h, 'F')
+  // Texte
+  doc.setFontSize(8.5)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(30, 41, 59)
+  doc.text(lines, x + 5, y + 4.5)
+  return y + h + 4
+}
+
+/** Calcule la hauteur estimée d'un drawInfoBlock (utile pour ensureSpace avant). */
+function estimateInfoBlockHeight(doc: jsPDF, w: number, texte: string): number {
+  const lines = doc.splitTextToSize(texte, w - 8)
+  return Math.max(10, lines.length * 4 + 6) + 4
 }
 
 // ============ PHASES = GROUPEMENT PAR DEVIS ============
@@ -359,29 +428,48 @@ export function generateChantierPlanningPdf(data: ChantierPdfData): string {
   y += 7
 
   // ============ TITRE CHANTIER ============
+  // Petit espace de respiration entre le header artisan et le titre,
+  // + barre verticale bleue à gauche pour donner de l'identité visuelle.
+  y += 4
+  const titreBlockY = y
+
+  // Barre verticale bleue (couleur Nexartis)
+  setFill([90, 180, 224]) // #5ab4e0
+  doc.rect(M, y - 1, 1.2, 16, 'F')
+
+  // Label "PLANIFICATION DE CHANTIER"
   doc.setFontSize(6.5)
   doc.setFont('helvetica', 'bold')
   setText(MUTED)
-  doc.text('PLANIFICATION DE CHANTIER', M, y)
-  y += 5
+  doc.text('PLANIFICATION DE CHANTIER', M + 4, y + 2)
+  y += 6
 
+  // Nom du chantier (gros titre)
   doc.setFontSize(18)
   doc.setFont('helvetica', 'bold')
   setText(NAVY)
-  const titreLines = doc.splitTextToSize(chantier.titre || 'Chantier', contentW)
-  doc.text(titreLines, M, y)
-  y += titreLines.length * 7
+  const titreLines = doc.splitTextToSize(chantier.titre || 'Chantier', contentW - 4)
+  doc.text(titreLines, M + 4, y + 4)
+  y += titreLines.length * 7 + 1
 
+  // Description optionnelle
   const desc = chantier.description_client || chantier.description
   if (desc) {
     doc.setFontSize(9)
     doc.setFont('helvetica', 'normal')
     setText(SLATE)
-    const descLines = doc.splitTextToSize(desc, contentW)
-    doc.text(descLines, M, y)
-    y += descLines.length * 4
+    const descLines = doc.splitTextToSize(desc, contentW - 4)
+    doc.text(descLines, M + 4, y + 1)
+    y += descLines.length * 4 + 1
   }
-  y += 6
+
+  // Etendre la barre verticale jusqu'a la fin du titre si elle est plus longue
+  const titreBlockH = y - titreBlockY
+  if (titreBlockH > 16) {
+    setFill([90, 180, 224])
+    doc.rect(M, titreBlockY - 1, 1.2, titreBlockH + 1, 'F')
+  }
+  y += 8
 
   // ============ CLIENT + LIEU (2 colonnes) ============
   const boxW = (contentW - 4) / 2
@@ -499,6 +587,80 @@ export function generateChantierPlanningPdf(data: ChantierPdfData): string {
 
   y += sumH + 10
 
+  // ============ PÉRIMÈTRE DE LA PRESTATION (NEW V2) ============
+  // Liste auto des phases (= "Inclus") + champ libre côté chantier (= "Non inclus")
+  // Source n°1 des litiges : éviter "je pensais que c'était compris".
+  const phasesForInclus = buildPhases(interventions, devis)
+  const inclusItems = phasesForInclus.map(p => p.titre).filter(Boolean)
+  const nonInclusTexte = (chantier.non_inclus || '').trim()
+
+  if (inclusItems.length > 0 || nonInclusTexte) {
+    y = ensureSpace(doc, y, 50)
+    y = drawSectionTitle(doc, M, y, contentW, 'Périmètre de la prestation')
+
+    const colW = (contentW - 4) / 2
+    const colStartY = y
+
+    // Bloc INCLUS (gauche, vert)
+    if (inclusItems.length > 0) {
+      const lineH = 3.7
+      const inclusH = Math.max(18, 8 + inclusItems.length * lineH + 3)
+      // Fond vert pâle
+      setFill([240, 253, 244])
+      doc.roundedRect(M, y, colW, inclusH, 1.2, 1.2, 'F')
+      // Barre verticale verte
+      setFill([16, 185, 129])
+      doc.rect(M, y, 1.2, inclusH, 'F')
+      // Titre
+      doc.setFontSize(7)
+      doc.setFont('helvetica', 'bold')
+      setText([6, 78, 59])
+      doc.text('✓ INCLUS DANS LE FORFAIT', M + 4, y + 4.5)
+      // Items
+      doc.setFontSize(8)
+      doc.setFont('helvetica', 'normal')
+      setText([15, 23, 42])
+      let iy = y + 9
+      inclusItems.forEach(item => {
+        doc.setFillColor(16, 185, 129)
+        doc.circle(M + 5, iy - 1, 0.6, 'F')
+        const itemLines = doc.splitTextToSize(item, colW - 10)
+        doc.text(itemLines, M + 8, iy)
+        iy += itemLines.length * lineH
+      })
+    }
+
+    // Bloc NON INCLUS (droite, orange)
+    if (nonInclusTexte) {
+      const colX = M + colW + 4
+      const niLines = doc.splitTextToSize(nonInclusTexte, colW - 8)
+      const niH = Math.max(18, 8 + niLines.length * 3.7 + 3)
+      // Fond orange pâle
+      setFill([255, 247, 237])
+      doc.roundedRect(colX, y, colW, niH, 1.2, 1.2, 'F')
+      // Barre verticale orange
+      setFill([249, 115, 22])
+      doc.rect(colX, y, 1.2, niH, 'F')
+      // Titre
+      doc.setFontSize(7)
+      doc.setFont('helvetica', 'bold')
+      setText([124, 45, 18])
+      doc.text('✗ NON INCLUS (sur devis séparé)', colX + 4, y + 4.5)
+      // Texte
+      doc.setFontSize(8)
+      doc.setFont('helvetica', 'normal')
+      setText([15, 23, 42])
+      doc.text(niLines, colX + 4, y + 9)
+    }
+
+    // Hauteur max des deux blocs
+    const inclusH = inclusItems.length > 0
+      ? Math.max(18, 8 + inclusItems.length * 3.7 + 3) : 0
+    const niLines2 = nonInclusTexte ? doc.splitTextToSize(nonInclusTexte, (contentW / 2 - 4) - 8) : []
+    const niH = nonInclusTexte ? Math.max(18, 8 + niLines2.length * 3.7 + 3) : 0
+    y = colStartY + Math.max(inclusH, niH) + 8
+  }
+
   // ============ CALENDRIER ============
   // PHASES = REGROUPEMENT PAR DEVIS (= corps de métier)
   // Ex : "Plomberie" = toutes les interventions du devis plomberie sur plusieurs jours
@@ -547,17 +709,18 @@ export function generateChantierPlanningPdf(data: ChantierPdfData): string {
         ? `${fmtDateShort(phase.firstDay)} au ${fmtDateShort(phase.lastDay)}`
         : phase.firstDay ? fmtDateShort(phase.firstDay) : '—'
       const dureeJours = phase.days.size
+      // Colonne "Présence client" supprimée — remplacée par la section
+      // dédiée "À noter pour vous" plus bas (alimentée par les notes datées en V2).
       return [
         phase.titre,
         `${dateRange}\n${dureeJours}j de présence`,
         intervenantsListe,
-        'À confirmer',
       ]
     })
 
     autoTable(doc, {
       startY: y,
-      head: [['Phase', 'Dates', 'Équipe', 'Présence client']],
+      head: [['Phase', 'Dates', 'Équipe']],
       body: tableBody,
       theme: 'plain',
       styles: { fontSize: 8, cellPadding: 3, textColor: [15, 23, 42] },
@@ -570,10 +733,9 @@ export function generateChantierPlanningPdf(data: ChantierPdfData): string {
         lineColor: NAVY,
       },
       columnStyles: {
-        0: { cellWidth: contentW * 0.38 },
-        1: { cellWidth: contentW * 0.18 },
-        2: { cellWidth: contentW * 0.24 },
-        3: { cellWidth: contentW * 0.2 },
+        0: { cellWidth: contentW * 0.5 },
+        1: { cellWidth: contentW * 0.22 },
+        2: { cellWidth: contentW * 0.28 },
       },
       bodyStyles: { lineWidth: { bottom: 0.1 }, lineColor: [241, 245, 249] },
       margin: { left: M, right: M },
@@ -597,6 +759,36 @@ export function generateChantierPlanningPdf(data: ChantierPdfData): string {
 
     y = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? y
     y += 8
+  }
+
+  // ============ PRÉPARATION À VOTRE CHARGE (NEW V2) ============
+  const preparationTexte = (chantier.preparation_client || '').trim()
+  if (preparationTexte) {
+    y = ensureSpace(doc, y, estimateInfoBlockHeight(doc, contentW, preparationTexte) + 8)
+    y = drawSectionTitle(doc, M, y, contentW, 'Préparation à votre charge avant le démarrage')
+    y = drawInfoBlock(doc, M, y, contentW, preparationTexte, [148, 163, 184])
+    y += 4
+  }
+
+  // ============ NOS ENGAGEMENTS (NEW V2 — paramètre profil) ============
+  const engagementsTexte = (entreprise.engagements_default || '').trim()
+  if (engagementsTexte) {
+    y = ensureSpace(doc, y, estimateInfoBlockHeight(doc, contentW, engagementsTexte) + 8)
+    y = drawSectionTitle(doc, M, y, contentW, 'Nos engagements sur ce chantier')
+    // Bleu Nexartis pour les engagements (positif, qualité)
+    y = drawInfoBlock(doc, M, y, contentW, engagementsTexte, [59, 130, 246], [239, 246, 255])
+    y += 4
+  }
+
+  // ============ MODALITÉS D'INTERVENTION (NEW V2 — chantier > profil par défaut) ============
+  const modalitesTexte = ((chantier.modalites_personnalisees || '').trim()
+    || (entreprise.modalites_intervention_default || '').trim())
+  if (modalitesTexte) {
+    y = ensureSpace(doc, y, estimateInfoBlockHeight(doc, contentW, modalitesTexte) + 8)
+    y = drawSectionTitle(doc, M, y, contentW, 'Modalités d\'intervention')
+    // Jaune ambré (info pratique)
+    y = drawInfoBlock(doc, M, y, contentW, modalitesTexte, [234, 179, 8], [254, 252, 232])
+    y += 4
   }
 
   // ============ ÉQUIPE ASSIGNÉE ============
@@ -665,6 +857,115 @@ export function generateChantierPlanningPdf(data: ChantierPdfData): string {
     })
     const nbRows = Math.ceil(uniqueIvIds.length / 3)
     y += nbRows * (memH + 4) + 4
+  }
+
+  // ============ ÉCHÉANCIER DE PAIEMENT (NEW V2) ============
+  // Recap visuel acompte / solde basé sur les devis liés au chantier.
+  const totalDevisTtc = (devis || []).reduce((sum, d) => sum + (Number(d.montant_ttc) || 0), 0)
+  const totalAcompte = (devis || []).reduce((sum, d) => sum + (Number(d.montant_acompte) || 0), 0)
+  const acompteVerse = (devis || []).some(d => d.acompte_verse)
+
+  if (totalDevisTtc > 0) {
+    y = ensureSpace(doc, y, 50)
+    y = drawSectionTitle(doc, M, y, contentW, 'Échéancier de paiement')
+
+    const eFmt = (n: number) => n.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0 })
+    const rowH = 12
+    const echeancierStartY = y
+
+    // Cadre principal
+    setDraw(GREY_BORDER)
+    doc.setLineWidth(0.3)
+    let rowY = y
+
+    // Ligne ACOMPTE (si présent)
+    if (totalAcompte > 0) {
+      setFill([255, 255, 255])
+      doc.rect(M, rowY, contentW, rowH, 'F')
+      // Pastille step
+      const stepX = M + 5
+      const stepY = rowY + rowH / 2
+      if (acompteVerse) {
+        setFill([209, 250, 229])
+        doc.circle(stepX, stepY, 3, 'F')
+        setText([6, 95, 70])
+        doc.setFontSize(9)
+        doc.setFont('helvetica', 'bold')
+        doc.text('✓', stepX, stepY + 1.2, { align: 'center' })
+      } else {
+        setFill([241, 245, 249])
+        doc.circle(stepX, stepY, 3, 'F')
+        setText([71, 85, 105])
+        doc.setFontSize(8)
+        doc.setFont('helvetica', 'bold')
+        doc.text('1', stepX, stepY + 1, { align: 'center' })
+      }
+      // Label
+      const pct = Math.round((totalAcompte / totalDevisTtc) * 100)
+      doc.setFontSize(9)
+      doc.setFont('helvetica', 'bold')
+      setText(NAVY)
+      doc.text(`Acompte ${pct}%`, M + 12, rowY + 5)
+      doc.setFontSize(7.5)
+      doc.setFont('helvetica', 'normal')
+      setText(MUTED)
+      doc.text(acompteVerse ? 'Versé à la signature du devis' : 'À verser à la signature du devis', M + 12, rowY + 9)
+      // Montant à droite
+      doc.setFontSize(11)
+      doc.setFont('helvetica', 'bold')
+      setText(NAVY)
+      doc.text(eFmt(totalAcompte), M + contentW - 4, rowY + 7, { align: 'right' })
+      // Ligne séparatrice
+      setDraw([241, 245, 249])
+      doc.line(M, rowY + rowH, M + contentW, rowY + rowH)
+      rowY += rowH
+    }
+
+    // Ligne SOLDE
+    setFill([255, 255, 255])
+    doc.rect(M, rowY, contentW, rowH, 'F')
+    const stepX2 = M + 5
+    const stepY2 = rowY + rowH / 2
+    setFill([241, 245, 249])
+    doc.circle(stepX2, stepY2, 3, 'F')
+    setText([71, 85, 105])
+    doc.setFontSize(8)
+    doc.setFont('helvetica', 'bold')
+    doc.text(totalAcompte > 0 ? '2' : '1', stepX2, stepY2 + 1, { align: 'center' })
+    // Label
+    const soldePct = totalAcompte > 0 ? Math.round(((totalDevisTtc - totalAcompte) / totalDevisTtc) * 100) : 100
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'bold')
+    setText(NAVY)
+    doc.text(`Solde${totalAcompte > 0 ? ` ${soldePct}%` : ''}`, M + 12, rowY + 5)
+    doc.setFontSize(7.5)
+    doc.setFont('helvetica', 'normal')
+    setText(MUTED)
+    doc.text('À régler à la réception (sous 8j par virement, chèque ou espèces)', M + 12, rowY + 9)
+    doc.setFontSize(11)
+    doc.setFont('helvetica', 'bold')
+    setText(NAVY)
+    doc.text(eFmt(totalDevisTtc - totalAcompte), M + contentW - 4, rowY + 7, { align: 'right' })
+    rowY += rowH
+
+    // Ligne TOTAL (bandeau navy)
+    setFill(NAVY)
+    doc.rect(M, rowY, contentW, 9, 'F')
+    doc.setFontSize(8)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(148, 163, 184)
+    doc.text('TOTAL TTC', M + 4, rowY + 6)
+    doc.setFontSize(12)
+    doc.setTextColor(255, 255, 255)
+    doc.text(eFmt(totalDevisTtc), M + contentW - 4, rowY + 6.2, { align: 'right' })
+    rowY += 9
+
+    // Cadre extérieur (sur tout le bloc)
+    setDraw(GREY_BORDER)
+    doc.setLineWidth(0.3)
+    doc.roundedRect(M, echeancierStartY, contentW, rowY - echeancierStartY, 1.5, 1.5, 'S')
+
+    y = rowY + 6
   }
 
   // ============ NOTES VISIBLES ============
@@ -818,49 +1119,31 @@ export function generateChantierPlanningPdf(data: ChantierPdfData): string {
 
   y = Math.max(gy + 14, y + contactCardH + 2)
 
-  // ============ SIGNATURES ============
-  y = ensureSpace(doc, y, 35)
-  const sigW = (contentW - 4) / 2
-  const sigH = 28
+  // ============ TAMPON ARTISAN ============
+  // Plus de bloc "Bon pour accord client" : ce document est INFORMATIF
+  // (récap planning), pas un contrat à signer. Seul le tampon artisan reste.
+  y = ensureSpace(doc, y, 22)
+  const stampW = 70
+  const stampH = 18
+  setFill(GREY_LIGHT)
+  doc.roundedRect(M, y, stampW, stampH, 1.5, 1.5, 'F')
 
-  // Artisan
-  setDraw(GREY_BORDER)
-  doc.setLineWidth(0.3)
-  doc.roundedRect(M, y, sigW, sigH, 1.5, 1.5, 'S')
   doc.setFontSize(6.5)
   doc.setFont('helvetica', 'bold')
   setText(MUTED)
-  doc.text('L\'ARTISAN', M + 3, y + 4)
-  doc.setFontSize(8)
-  doc.setFont('helvetica', 'normal')
-  setText(SLATE)
-  doc.text(entreprise.nom || 'Artisan', M + 3, y + 8)
+  doc.text("L'ARTISAN", M + 3, y + 4)
+
+  doc.setFontSize(9)
   doc.setFont('helvetica', 'bold')
   setText(NAVY)
-  doc.text(today, M + 3, y + 12)
+  doc.text(entreprise.nom || 'Artisan', M + 3, y + 9)
 
-  // Client
-  const sigCX = M + sigW + 4
-  setFill(GREY_LIGHT)
-  doc.roundedRect(sigCX, y, sigW, sigH, 1.5, 1.5, 'F')
-  doc.setFontSize(6.5)
-  doc.setFont('helvetica', 'bold')
-  setText(MUTED)
-  doc.text('BON POUR ACCORD — LE CLIENT', sigCX + 3, y + 4)
-  doc.setFontSize(8)
+  doc.setFontSize(7)
   doc.setFont('helvetica', 'normal')
   setText(SLATE)
-  doc.text(clientName, sigCX + 3, y + 8)
-  setText(MUTED)
-  doc.setFontSize(7)
-  doc.setFont('helvetica', 'bold')
-  doc.text('Date :', sigCX + 3, y + 14)
-  setDraw([203, 213, 225])
-  doc.line(sigCX + 3, y + 18, sigCX + sigW - 3, y + 18)
-  doc.text('Signature :', sigCX + 3, y + 22)
-  doc.line(sigCX + 3, y + 26, sigCX + sigW - 3, y + 26)
+  doc.text(today, M + 3, y + 13)
 
-  y += sigH + 6
+  y += stampH + 6
 
   // ============ BRAND FOOTER ============
   y = ensureSpace(doc, y, 8)
@@ -891,19 +1174,17 @@ function drawCalendarByPhases(
   const setDraw = (c: [number, number, number]) => doc.setDrawColor(c[0], c[1], c[2])
   const setFill = (c: [number, number, number]) => doc.setFillColor(c[0], c[1], c[2])
 
-  const labelColW = 50          // largeur colonne nom de phase
+  const labelColW = 50
   const headerH = 10
   const phaseRowH = 12
   const start = new Date(dateDebut); start.setHours(0, 0, 0, 0)
   const end = new Date(dateFin); end.setHours(0, 0, 0, 0)
 
-  // Ramener au lundi de la semaine de start
   const firstMonday = new Date(start)
   const dow = firstMonday.getDay()
   const diffToMonday = dow === 0 ? -6 : 1 - dow
   firstMonday.setDate(firstMonday.getDate() + diffToMonday)
 
-  // Construire les semaines (max 8 pour tenir sur la page)
   const weeks: Date[][] = []
   const cur = new Date(firstMonday)
   while (cur <= end && weeks.length < 8) {
@@ -916,7 +1197,6 @@ function drawCalendarByPhases(
   }
   if (weeks.length === 0) return y
 
-  // Une grille = labelCol + (7 * weeks.length) jours
   const totalDayCols = 7 * weeks.length
   const dayW = (width - labelColW) / totalDayCols
   const DAYS_SHORT = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
@@ -924,7 +1204,6 @@ function drawCalendarByPhases(
   let curY = y
   const calStartY = y
 
-  // ─── Header semaines ───
   setFill([15, 23, 42])
   doc.rect(x, curY, labelColW, headerH, 'F')
   doc.setFontSize(7)
@@ -942,7 +1221,6 @@ function drawCalendarByPhases(
     doc.setTextColor(100, 116, 139)
     const wn = getWeekNumber(week[0])
     doc.text(`S${wn} - ${week[0].getDate()}/${week[0].getMonth() + 1}`, weekX + weekW / 2, curY + 4, { align: 'center' })
-    // Lettres jours dessous
     week.forEach((day, di) => {
       const dx = weekX + di * dayW
       const isWE = di >= 5
@@ -953,10 +1231,8 @@ function drawCalendarByPhases(
   })
   curY += headerH
 
-  // ─── Une ligne par phase ───
   phases.forEach((phase, pi) => {
     const rowY = curY
-    // Label phase à gauche
     if (pi % 2 === 1) {
       setFill([248, 250, 252])
       doc.rect(x, rowY, width, phaseRowH, 'F')
@@ -965,7 +1241,6 @@ function drawCalendarByPhases(
     doc.setLineWidth(0.1)
     doc.line(x, rowY, x + width, rowY)
 
-    // Pastille couleur + nom de phase
     setFill(phase.color)
     doc.roundedRect(x + 2, rowY + 4, 3, 4, 0.5, 0.5, 'F')
     doc.setFontSize(7)
@@ -974,10 +1249,10 @@ function drawCalendarByPhases(
     const titreFit = doc.splitTextToSize(phase.titre, labelColW - 8)[0] || phase.titre
     doc.text(titreFit, x + 7, rowY + 7)
 
-    // Une barre par jour de présence
     weeks.forEach((week, wi) => {
       week.forEach((day, di) => {
-        const dayKey = day.toISOString().split('T')[0]
+        // ⚠️ Local format pour eviter le bug timezone (toISOString décale en UTC)
+        const dayKey = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`
         const isPresent = phase.days.has(dayKey)
         if (isPresent) {
           const dx = x + labelColW + (wi * 7 + di) * dayW
@@ -990,188 +1265,6 @@ function drawCalendarByPhases(
     curY += phaseRowH
   })
 
-  // Cadre extérieur
-  setDraw([226, 232, 240])
-  doc.setLineWidth(0.3)
-  doc.roundedRect(x, calStartY, width, curY - calStartY, 1.5, 1.5, 'S')
-
-  return curY
-}
-
-// Note : l'ancienne fonction drawCalendar (rendu par tranches contiguës) a été
-// remplacée par drawCalendarByPhases (1 ligne par phase, 1 barre par jour réel)
-// pour matcher la vision client : voir clairement quels jours il y a du monde.
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function _drawCalendarLegacy(
-  doc: jsPDF,
-  x: number,
-  y: number,
-  width: number,
-  phases: Array<{ date_debut: string; date_fin?: string | null; titre?: string | null; color: [number, number, number] }>,
-  dateDebut: string,
-  dateFin: string
-): number {
-  const setDraw = (c: [number, number, number]) => doc.setDrawColor(c[0], c[1], c[2])
-  const setFill = (c: [number, number, number]) => doc.setFillColor(c[0], c[1], c[2])
-
-  // Configuration
-  const weekColW = 12 // largeur colonne "Semaine"
-  const dayW = (width - weekColW) / 7
-  const headerH = 10
-  const rowH = 14
-
-  const start = new Date(dateDebut); start.setHours(0, 0, 0, 0)
-  const end = new Date(dateFin); end.setHours(0, 0, 0, 0)
-
-  // Lundi de la semaine de début
-  const firstMonday = new Date(start)
-  const dow = firstMonday.getDay()
-  const diffToMonday = dow === 0 ? -6 : 1 - dow
-  firstMonday.setDate(firstMonday.getDate() + diffToMonday)
-
-  // Construire les semaines (max 6 pour tenir sur la page)
-  const weeks: Date[][] = []
-  const cur = new Date(firstMonday)
-  while (cur <= end && weeks.length < 6) {
-    const week: Date[] = []
-    for (let i = 0; i < 7; i++) {
-      week.push(new Date(cur))
-      cur.setDate(cur.getDate() + 1)
-    }
-    weeks.push(week)
-  }
-
-  // Map date -> phase
-  const phaseMap = new Map<string, typeof phases[0]>()
-  phases.forEach(p => {
-    const pStart = new Date(p.date_debut); pStart.setHours(0, 0, 0, 0)
-    const pEnd = p.date_fin ? new Date(p.date_fin) : pStart
-    pEnd.setHours(0, 0, 0, 0)
-    const c = new Date(pStart)
-    while (c <= pEnd) {
-      const key = c.toISOString().split('T')[0]
-      if (!phaseMap.has(key)) phaseMap.set(key, p)
-      c.setDate(c.getDate() + 1)
-    }
-  })
-
-  const DAYS_SHORT = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
-  let curY = y
-
-  // Cadre extérieur global (dessiné à la fin pour être au-dessus)
-  const calStartY = y
-
-  weeks.forEach((week, wIdx) => {
-    // ==== HEADER de semaine ====
-    const weekNum = getWeekNumber(week[0])
-
-    // Cellule "S17"
-    setFill([15, 23, 42])
-    doc.rect(x, curY, weekColW, headerH, 'F')
-    doc.setFontSize(7)
-    doc.setFont('helvetica', 'bold')
-    doc.setTextColor(255, 255, 255)
-    doc.text(`S${weekNum}`, x + weekColW / 2, curY + 6, { align: 'center' })
-
-    // Jours
-    week.forEach((day, dIdx) => {
-      const dx = x + weekColW + dIdx * dayW
-      const isWE = dIdx >= 5
-      if (isWE) {
-        setFill([241, 245, 249])
-        doc.rect(dx, curY, dayW, headerH, 'F')
-      } else {
-        setFill([248, 250, 252])
-        doc.rect(dx, curY, dayW, headerH, 'F')
-      }
-      doc.setFontSize(6)
-      doc.setFont('helvetica', 'bold')
-      doc.setTextColor(isWE ? 148 : 100, isWE ? 163 : 116, isWE ? 184 : 139)
-      doc.text(DAYS_SHORT[dIdx], dx + dayW / 2, curY + 3.5, { align: 'center' })
-      doc.setFontSize(9)
-      doc.setTextColor(15, 23, 42)
-      doc.text(String(day.getDate()).padStart(2, '0'), dx + dayW / 2, curY + 8, { align: 'center' })
-    })
-
-    curY += headerH
-
-    // ==== ROW de jours avec phases ====
-    // Fond des week-ends
-    week.forEach((day, dIdx) => {
-      const dx = x + weekColW + dIdx * dayW
-      if (dIdx >= 5) {
-        setFill([248, 250, 252])
-        doc.rect(dx, curY, dayW, rowH, 'F')
-      }
-    })
-
-    // Parcourir les jours et dessiner les barres de phases par runs contigus
-    let i = 0
-    while (i < 7) {
-      const day = week[i]
-      day.setHours(0, 0, 0, 0)
-      const key = day.toISOString().split('T')[0]
-      const phase = phaseMap.get(key)
-      const inChantier = day >= start && day <= end
-
-      if (phase && inChantier) {
-        let j = i
-        while (j < 7) {
-          const kk = week[j].toISOString().split('T')[0]
-          const pp = phaseMap.get(kk)
-          const inCh = week[j] >= start && week[j] <= end
-          if (pp !== phase || !inCh) break
-          j++
-        }
-        const span = j - i
-        const bx = x + weekColW + i * dayW + 1
-        const bw = span * dayW - 2
-        const by = curY + 2
-        const bh = rowH - 4
-
-        // Dessiner la barre avec couleur
-        setFill(phase.color)
-        doc.roundedRect(bx, by, bw, bh, 1.2, 1.2, 'F')
-
-        // Texte sur la barre
-        doc.setFontSize(7)
-        doc.setFont('helvetica', 'bold')
-        doc.setTextColor(255, 255, 255)
-        const titre = phase.titre || 'Phase'
-        const maxTextW = bw - 3
-        const titreFit = doc.splitTextToSize(titre, maxTextW)[0] || titre
-        doc.text(titreFit, bx + 2, by + 5)
-
-        // Sous-texte dates
-        doc.setFontSize(5.5)
-        doc.setFont('helvetica', 'normal')
-        const pStart = new Date(phase.date_debut)
-        const pEnd = phase.date_fin ? new Date(phase.date_fin) : pStart
-        const dureeP = daysBetween(phase.date_debut, phase.date_fin || phase.date_debut)
-        const sub = phase.date_fin && phase.date_fin !== phase.date_debut
-          ? `${pStart.getDate()}–${pEnd.getDate()} · ${dureeP}j`
-          : `${pStart.getDate()} · 1j`
-        const subFit = doc.splitTextToSize(sub, maxTextW)[0] || sub
-        doc.text(subFit, bx + 2, by + 8.5)
-
-        i = j
-      } else {
-        i++
-      }
-    }
-
-    curY += rowH
-
-    // Trait séparateur de semaine
-    if (wIdx < weeks.length - 1) {
-      setDraw([226, 232, 240])
-      doc.setLineWidth(0.1)
-      doc.line(x, curY, x + width, curY)
-    }
-  })
-
-  // Cadre global
   setDraw([226, 232, 240])
   doc.setLineWidth(0.3)
   doc.roundedRect(x, calStartY, width, curY - calStartY, 1.5, 1.5, 'S')
