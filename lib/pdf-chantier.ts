@@ -1365,10 +1365,20 @@ export function generateChantierPlanningPdf(data: ChantierPdfData): string {
   return doc.output('datauristring')
 }
 
-// ============ CALENDRIER PAR PHASES (vue client) ============
-// Une ligne = une phase (= un devis/corps de métier)
-// Une barre par jour de présence effective (pas continue : si pas de travail
-// le mardi, pas de barre le mardi).
+// ============ CALENDRIER PAR PHASES — V3 (vue client) ============
+// Une ligne = une phase (= un devis/corps de métier).
+//
+// VISUEL OPTION B :
+//   • Background week-end gris clair (jours non travaillés par défaut)
+//   • Barre PÂLE de la couleur de la phase, du firstDay au lastDay
+//     → indique "phase active sur cette plage" (durée totale visible d'un coup d'œil)
+//   • Cases PLEINES couleur vive sur les jours de présence effective
+//     → indique "intervention prévue ce jour précis"
+//   • Légende explicative sous le calendrier pour le client
+//
+// Cette représentation combine le meilleur des deux mondes :
+//   - lecture rapide de la durée totale (barre pâle continue)
+//   - précision sur les jours réels d'intervention (cases pleines)
 function drawCalendarByPhases(
   doc: jsPDF,
   x: number,
@@ -1381,17 +1391,26 @@ function drawCalendarByPhases(
   const setDraw = (c: [number, number, number]) => doc.setDrawColor(c[0], c[1], c[2])
   const setFill = (c: [number, number, number]) => doc.setFillColor(c[0], c[1], c[2])
 
+  // Helper : couleur RVB → version pâle (mélange avec blanc à 80%)
+  const lighten = (c: [number, number, number], pct: number = 0.8): [number, number, number] => [
+    Math.round(c[0] + (255 - c[0]) * pct),
+    Math.round(c[1] + (255 - c[1]) * pct),
+    Math.round(c[2] + (255 - c[2]) * pct),
+  ]
+
   const labelColW = 50
   const headerH = 10
-  const phaseRowH = 12
+  const phaseRowH = 13
   const start = new Date(dateDebut); start.setHours(0, 0, 0, 0)
   const end = new Date(dateFin); end.setHours(0, 0, 0, 0)
 
+  // Ramener au lundi de la semaine de start
   const firstMonday = new Date(start)
   const dow = firstMonday.getDay()
   const diffToMonday = dow === 0 ? -6 : 1 - dow
   firstMonday.setDate(firstMonday.getDate() + diffToMonday)
 
+  // Construire les semaines (max 8 pour tenir sur la page A4)
   const weeks: Date[][] = []
   const cur = new Date(firstMonday)
   while (cur <= end && weeks.length < 8) {
@@ -1411,6 +1430,7 @@ function drawCalendarByPhases(
   let curY = y
   const calStartY = y
 
+  // ── HEADER (label PHASE + semaines + jours) ──
   setFill([15, 23, 42])
   doc.rect(x, curY, labelColW, headerH, 'F')
   doc.setFontSize(7)
@@ -1438,25 +1458,72 @@ function drawCalendarByPhases(
   })
   curY += headerH
 
+  // ── LIGNES DE PHASES ──
   phases.forEach((phase, pi) => {
     const rowY = curY
+
+    // Alternance de fond de ligne (zébrage très léger pour lisibilité)
     if (pi % 2 === 1) {
-      setFill([248, 250, 252])
+      setFill([250, 251, 253])
       doc.rect(x, rowY, width, phaseRowH, 'F')
     }
+    // Trait séparateur très fin entre lignes
     setDraw([241, 245, 249])
     doc.setLineWidth(0.1)
     doc.line(x, rowY, x + width, rowY)
 
+    // ── Background week-ends (sur toutes les lignes) ──
+    weeks.forEach((week, wi) => {
+      week.forEach((day, di) => {
+        if (di >= 5) {
+          const dx = x + labelColW + (wi * 7 + di) * dayW
+          setFill([241, 245, 249])
+          doc.rect(dx, rowY + 0.5, dayW, phaseRowH - 1, 'F')
+        }
+      })
+    })
+
+    // ── Label phase (pastille couleur + nom) ──
     setFill(phase.color)
-    setFill(phase.color)
-    doc.roundedRect(x + 2, rowY + 4, 3, 4, 0.5, 0.5, 'F')
+    doc.roundedRect(x + 2, rowY + 4.5, 3, 4, 0.5, 0.5, 'F')
     doc.setFontSize(7)
     doc.setFont('helvetica', 'bold')
     doc.setTextColor(15, 23, 42)
     const titreFit = doc.splitTextToSize(phase.titre, labelColW - 8)[0] || phase.titre
-    doc.text(titreFit, x + 7, rowY + 7)
+    doc.text(titreFit, x + 7, rowY + 7.5)
 
+    // ── BARRE PÂLE DE LA PHASE (firstDay → lastDay) ──
+    // Indique la PLAGE DE LA PHASE même les jours sans intervention.
+    if (phase.firstDay && phase.lastDay) {
+      const phaseStart = new Date(phase.firstDay)
+      const phaseEnd = new Date(phase.lastDay)
+      phaseStart.setHours(0, 0, 0, 0)
+      phaseEnd.setHours(0, 0, 0, 0)
+
+      // Trouver les positions X de phaseStart et phaseEnd
+      let startX: number | null = null
+      let endX: number | null = null
+      weeks.forEach((week, wi) => {
+        week.forEach((day, di) => {
+          const d = new Date(day); d.setHours(0, 0, 0, 0)
+          if (d.getTime() === phaseStart.getTime()) {
+            startX = x + labelColW + (wi * 7 + di) * dayW
+          }
+          if (d.getTime() === phaseEnd.getTime()) {
+            endX = x + labelColW + (wi * 7 + di) * dayW + dayW
+          }
+        })
+      })
+
+      if (startX !== null && endX !== null && endX > startX) {
+        const palePhaseColor = lighten(phase.color, 0.78)
+        setFill(palePhaseColor)
+        doc.roundedRect(startX + 0.5, rowY + 3, endX - startX - 1, phaseRowH - 6, 1, 1, 'F')
+      }
+    }
+
+    // ── CASES PLEINES (jours de présence effective) ──
+    // Au-dessus de la barre pâle, en couleur vive.
     weeks.forEach((week, wi) => {
       week.forEach((day, di) => {
         const dayKey = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`
@@ -1464,7 +1531,7 @@ function drawCalendarByPhases(
         if (isPresent) {
           const dx = x + labelColW + (wi * 7 + di) * dayW
           setFill(phase.color)
-          doc.roundedRect(dx + 0.5, rowY + 2.5, dayW - 1, phaseRowH - 5, 0.5, 0.5, 'F')
+          doc.roundedRect(dx + 1, rowY + 2.5, dayW - 2, phaseRowH - 5, 1, 1, 'F')
         }
       })
     })
@@ -1472,17 +1539,55 @@ function drawCalendarByPhases(
     curY += phaseRowH
   })
 
+  // ── Cadre extérieur du calendrier ──
   setDraw([226, 232, 240])
   doc.setLineWidth(0.3)
   doc.roundedRect(x, calStartY, width, curY - calStartY, 1.5, 1.5, 'S')
 
+  // ═══════════════════════════════════════════════════════════════
+  // ── LÉGENDE (sous le calendrier) ──
+  // ═══════════════════════════════════════════════════════════════
+  curY += 4
+  const legY = curY
+  // Couleur de référence (la 1re phase, sinon bleu standard)
+  const refColor: [number, number, number] = phases[0]?.color || [37, 99, 235]
+  const refPale = lighten(refColor, 0.78)
+
+  doc.setFontSize(6.5)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(100, 116, 139)
+  doc.text('LECTURE :', x, legY + 3)
+
+  // Sample : couleur pleine
+  let lx = x + 18
+  setFill(refColor)
+  doc.roundedRect(lx, legY, 6, 4, 0.5, 0.5, 'F')
+  doc.setFontSize(7)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(30, 41, 59)
+  doc.text('Intervention prévue ce jour', lx + 8, legY + 3)
+
+  // Sample : couleur pâle
+  lx = x + 78
+  setFill(refPale)
+  doc.roundedRect(lx, legY, 6, 4, 0.5, 0.5, 'F')
+  doc.text('Phase en cours, sans intervention', lx + 8, legY + 3)
+
+  // Sample : week-end
+  lx = x + 152
+  setFill([241, 245, 249])
+  doc.rect(lx, legY, 6, 4, 'F')
+  doc.text('Week-end / non travaillé', lx + 8, legY + 3)
+
+  curY += 8
+
   return curY
 }
 
-// ============ PAGE DE GARDE — PACTE DE CHANTIER (V2 optionnel) ============
-// Dessine une page A4 complète : header artisan, gros titre "PACTE DE CHANTIER",
-// sous-titre = nom du chantier, encart "Entre / Et", texte du pacte (multi-lignes),
-// 2 cadres signature côte-à-côte (artisan + client) avec date.
+
+// ============ PAGE DE GARDE — PACTE DE CHANTIER (rendu en dernière page) ============
+// Dessine une page A4 complète : header artisan, badge PACTE DE CHANTIER,
+// titre chantier, encart "Entre/Et", corps du pacte, bandeau d'info.
 function drawPacteCoverPage(
   doc: jsPDF,
   ctx: {
@@ -1595,7 +1700,7 @@ function drawPacteCoverPage(
   const noticeLines = doc.splitTextToSize(noticeText, contentW - 8)
   doc.text(noticeLines, M + 4, noticeY + 10)
 
-  // ── Brand footer en bas de page de garde ──
+  // ── Brand footer ──
   doc.setFontSize(6)
   doc.setFont('helvetica', 'normal')
   setText([148, 163, 184])
