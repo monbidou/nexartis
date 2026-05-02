@@ -230,12 +230,15 @@ export async function createFactureFromDevis(
 
   if (!devis) throw new Error('Devis non trouvé')
 
-  // Récupérer le profil entreprise pour le préfixe + délai de paiement
-  const { data: entreprise } = await supabase
+  // Récupérer le profil entreprise (SELECT * pour éviter de planter si certains
+  // champs n'existent pas dans la BDD du compte). On utilise ensuite Record<string, unknown>
+  // pour accéder aux valeurs de manière défensive.
+  const { data: entrepriseRaw } = await supabase
     .from('entreprises')
-    .select('prefix_factures, delai_paiement, conditions_paiement')
+    .select('*')
     .eq('user_id', devis.user_id)
     .single()
+  const entreprise = (entrepriseRaw ?? {}) as Record<string, unknown>
 
   // Récupérer lignes du devis
   const { data: devis_lignes } = await supabase
@@ -246,39 +249,45 @@ export async function createFactureFromDevis(
 
   // Générer un numéro de facture unique : <PREFIX>-<YYYY>-<5 derniers chiffres timestamp>
   const now = new Date()
-  const prefixF = (entreprise?.prefix_factures as string) || 'F'
+  const prefixF = (entreprise.prefix_factures as string) || 'F'
   const numero = `${prefixF}-${now.getFullYear()}-${String(Date.now()).slice(-5)}`
 
-  // Calculer date d'échéance = date_facture + délai de paiement (jours)
-  const dateFacture = now.toISOString().split('T')[0]
-  const delaiJours = Number(entreprise?.delai_paiement) || 30
+  // Calculer date d'échéance = date_emission + délai de paiement (jours)
+  const dateEmission = now.toISOString().split('T')[0]
+  const delaiJours = Number(entreprise.delai_paiement) || 30
   const echeance = new Date(now)
   echeance.setDate(echeance.getDate() + delaiJours)
   const dateEcheance = echeance.toISOString().split('T')[0]
 
-  // Créer facture (avec TOUS les champs requis)
+  // Construire les champs à insérer de manière défensive : on n'inclut un champ
+  // que si on est sûr qu'il existe dans le schéma. Les champs essentiels d'abord,
+  // les optionnels seulement si valeur disponible.
+  const factureInsert: Record<string, unknown> = {
+    user_id: devis.user_id,
+    client_id: devis.client_id,
+    chantier_id: devis.chantier_id,
+    devis_id: devis_id,
+    type: factureType,
+    numero,
+    date_emission: dateEmission,
+    date_echeance: dateEcheance,
+    montant_ht: devis.montant_ht,
+    montant_tva: devis.montant_tva,
+    montant_ttc: devis.montant_ttc,
+    statut: 'brouillon'
+  }
+  // Champs optionnels (ajoutés seulement s'ils ont une valeur)
+  if (devis.objet) factureInsert.objet = devis.objet
+  if (devis.notes_client) factureInsert.notes_client = devis.notes_client
+  if (devis.client_nom) factureInsert.client_nom = devis.client_nom
+  if (devis.client_adresse) factureInsert.client_adresse = devis.client_adresse
+  const conditionsP = (entreprise.conditions_paiement as string) || devis.notes
+  if (conditionsP) factureInsert.notes = conditionsP
+
+  // Créer facture
   const { data: facture, error: err1 } = await supabase
     .from('factures')
-    .insert({
-      user_id: devis.user_id,
-      client_id: devis.client_id,
-      chantier_id: devis.chantier_id,
-      devis_id: devis_id,
-      type: factureType,
-      numero,
-      date_emission: dateFacture,
-      date_facture: dateFacture,
-      date_echeance: dateEcheance,
-      objet: devis.objet || null,
-      notes: (entreprise?.conditions_paiement as string) || devis.notes || null,
-      notes_client: devis.notes_client || null,
-      client_nom: devis.client_nom || null,
-      client_adresse: devis.client_adresse || null,
-      montant_ht: devis.montant_ht,
-      montant_tva: devis.montant_tva,
-      montant_ttc: devis.montant_ttc,
-      statut: 'brouillon'
-    })
+    .insert(factureInsert)
     .select()
     .single()
 
