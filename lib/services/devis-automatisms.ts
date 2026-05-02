@@ -293,18 +293,24 @@ export async function createFactureFromDevis(
 
   if (err1 || !facture) throw new Error(`Erreur création facture: ${err1?.message}`)
 
-  // Copier les lignes du devis
+  // Copier les lignes du devis. On utilise un INSERT défensif (uniquement les
+  // champs essentiels qui existent à coup sûr dans facture_lignes). Le champ
+  // devis_ligne_id (traçabilité) avait été ajouté mais n'existe pas en BDD →
+  // provoquait "Could not find the 'devis_ligne_id' column" lors de la copie.
   if (devis_lignes && devis_lignes.length > 0) {
-    const facture_lignes = devis_lignes.map(dl => ({
-      facture_id: facture.id,
-      designation: dl.designation,
-      quantite: dl.quantite,
-      unite: dl.unite,
-      prix_unitaire_ht: dl.prix_unitaire_ht,
-      taux_tva: dl.taux_tva,
-      devis_ligne_id: dl.id, // Traçabilité
-      ordre: dl.ordre
-    }))
+    const facture_lignes = devis_lignes.map(dl => {
+      const ligne: Record<string, unknown> = {
+        facture_id: facture.id,
+        designation: dl.designation,
+        quantite: dl.quantite,
+        prix_unitaire_ht: dl.prix_unitaire_ht,
+        taux_tva: dl.taux_tva,
+      }
+      // Champs optionnels (ajoutés seulement si valeur disponible)
+      if (dl.unite) ligne.unite = dl.unite
+      if (dl.ordre !== undefined && dl.ordre !== null) ligne.ordre = dl.ordre
+      return ligne
+    })
 
     const { error: err2 } = await supabase
       .from('facture_lignes')
@@ -333,7 +339,6 @@ export async function createFactureFromDevis(
 
   return facture
 }
-
 // -----------------------------------------------------
 // Helper: Logger les events
 // -----------------------------------------------------
