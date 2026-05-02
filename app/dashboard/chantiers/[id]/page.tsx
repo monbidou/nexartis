@@ -371,6 +371,12 @@ export default function ChantierDetailPage() {
       // 2. Sinon, on crée la facture
       const facture = await createFactureFromDevis(devisId)
       showToast('Facture créée ✓')
+      // Rafraîchir les données du chantier en tâche de fond (stats finance + barres)
+      // pour que si l'utilisateur revient sur la fiche chantier, les chiffres
+      // soient déjà à jour. La navigation vers la facture se fait juste après.
+      try {
+        refetchPlanning()
+      } catch { /* non bloquant */ }
       const factureId = String((facture as R).id ?? '')
       router.push(`/dashboard/factures/${factureId}`)
     } catch (err) {
@@ -1165,9 +1171,49 @@ export default function ChantierDetailPage() {
 
                 {exportWithPacte && (
                   <div className="px-4 pb-4 pt-1 border-t border-[#e6ecf2]/50">
-                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[#7b8ba3] mb-2">
-                      Texte du pacte (modifiable)
-                    </label>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-[#7b8ba3]">
+                        Texte du pacte (modifiable)
+                      </label>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          // Régénère le template propre depuis le profil + chantier (sans
+                          // les éventuels caractères parasites des anciennes versions sauvegardées).
+                          if (exportPacteTexte.trim() && !confirm('Réinitialiser le texte du pacte au modèle par défaut ? Vos modifications seront perdues.')) return
+                          let ent: Record<string, unknown> | null = null
+                          try {
+                            const supabase = createClient()
+                            const { data: { user } } = await supabase.auth.getUser()
+                            if (user) {
+                              const { data } = await supabase
+                                .from('entreprises')
+                                .select('nom, engagements_default')
+                                .eq('user_id', user.id)
+                                .single()
+                              ent = data
+                            }
+                          } catch { /* ignore */ }
+                          const cName = client
+                            ? `${client.civilite ?? ''} ${client.prenom ?? ''} ${client.nom ?? ''}`.replace(/\s+/g, ' ').trim()
+                            : ''
+                          const fresh = generatePacteTemplate({
+                            artisanNom: ent?.nom as string | null | undefined,
+                            clientNom: cName,
+                            chantierTitre: chantier?.titre as string | null,
+                            dateDebut: chantier?.date_debut as string | null,
+                            dateFin: chantier?.date_fin_prevue as string | null,
+                            engagements: ent?.engagements_default as string | null | undefined,
+                            preparationClient: chantier?.preparation_client as string | null,
+                          })
+                          setExportPacteTexte(fresh)
+                        }}
+                        className="text-[10px] font-bold uppercase tracking-wider text-[#5ab4e0] hover:text-[#3a94c0] transition-colors"
+                        title="Régénère le texte à partir de votre profil + données chantier"
+                      >
+                        ↻ Réinitialiser
+                      </button>
+                    </div>
                     <textarea
                       value={exportPacteTexte}
                       onChange={(e) => setExportPacteTexte(e.target.value)}
@@ -1175,7 +1221,7 @@ export default function ChantierDetailPage() {
                       className="w-full rounded-lg border border-[#e6ecf2] bg-white px-3 py-2.5 text-[12px] leading-snug font-mono focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0]/20 outline-none transition-all resize-y"
                     />
                     <p className="mt-1.5 text-[10px] text-[#94a3b8] italic leading-snug">
-                      Pré-rempli automatiquement à partir de votre profil et du chantier. Le texte est sauvegardé pour vos prochains exports.
+                      Pré-rempli automatiquement à partir de votre profil et du chantier. Le texte est sauvegardé pour vos prochains exports — utilisez «&nbsp;Réinitialiser&nbsp;» pour repartir du modèle.
                     </p>
                   </div>
                 )}

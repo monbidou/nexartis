@@ -370,9 +370,25 @@ export function generateChantierPlanningPdf(data: ChantierPdfData): string {
 
   // ============ PAGE DE GARDE — PACTE DE CHANTIER (V2 optionnel) ============
   // Si l'artisan a coché "Inclure le Pacte" lors de l'export, on commence
-  // par cette page (engagement mutuel signé). Sinon, on saute direct au
-  // planning normal.
-  const pacteTexte = (data.pacteTexte || '').trim()
+  // par cette page (engagement mutuel). Sinon, on saute direct au planning.
+  //
+  // SANITIZE : on enlève les caractères Unicode étendus que helvetica jsPDF
+  // ne peut pas rendre (═, ✓, ✗, etc — ils apparaissent en %P%P ou en ').
+  // Ça permet de récupérer proprement les anciens textes sauvegardés en BDD
+  // qui contenaient ces caractères avant le fix.
+  const sanitizePacteText = (txt: string): string => {
+    return txt
+      .replace(/[═━─┄┈]/g, '')   // séparateurs horizontaux Unicode → rien
+      .replace(/[╔╗╚╝╠╣╦╩╬]/g, '') // coins/jonctions box-drawing → rien
+      .replace(/[║┃]/g, '|')        // séparateurs verticaux → |
+      .replace(/[✓✔]/g, '+')        // checkmarks → +
+      .replace(/[✗✘]/g, '-')        // crosses → -
+      .replace(/le la date de réception/g, 'à la date de réception convenue') // anciens templates
+      .replace(/le la date de livraison/g, 'à la date de livraison convenue')
+      .replace(/\n{3,}/g, '\n\n')   // collapser les sauts de lignes successifs
+      .trim()
+  }
+  const pacteTexte = sanitizePacteText(data.pacteTexte || '')
   if (pacteTexte) {
     drawPacteCoverPage(doc, {
       pageW,

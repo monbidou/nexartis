@@ -208,7 +208,12 @@ export async function handleChantierLivre(payload: DevisChangePayload) {
 
 /**
  * Créer facture depuis devis (avec ou sans chantier)
- * Copie lignes du devis dans la facture
+ * Copie lignes du devis dans la facture.
+ *
+ * Récupère le profil entreprise pour générer un numéro cohérent
+ * (préfixe configurable) et calculer la date d'échéance selon le délai de
+ * paiement par défaut. Sans ces champs (obligatoires en BDD), la création
+ * crashait silencieusement avec "Erreur création facture".
  */
 export async function createFactureFromDevis(
   devis_id: string,
@@ -225,6 +230,13 @@ export async function createFactureFromDevis(
 
   if (!devis) throw new Error('Devis non trouvé')
 
+  // Récupérer le profil entreprise pour le préfixe + délai de paiement
+  const { data: entreprise } = await supabase
+    .from('entreprises')
+    .select('prefix_factures, delai_paiement, conditions_paiement')
+    .eq('user_id', devis.user_id)
+    .single()
+
   // Récupérer lignes du devis
   const { data: devis_lignes } = await supabase
     .from('devis_lignes')
@@ -232,7 +244,19 @@ export async function createFactureFromDevis(
     .eq('devis_id', devis_id)
     .order('ordre')
 
-  // Créer facture
+  // Générer un numéro de facture unique : <PREFIX>-<YYYY>-<5 derniers chiffres timestamp>
+  const now = new Date()
+  const prefixF = (entreprise?.prefix_factures as string) || 'F'
+  const numero = `${prefixF}-${now.getFullYear()}-${String(Date.now()).slice(-5)}`
+
+  // Calculer date d'échéance = date_facture + délai de paiement (jours)
+  const dateFacture = now.toISOString().split('T')[0]
+  const delaiJours = Number(entreprise?.delai_paiement) || 30
+  const echeance = new Date(now)
+  echeance.setDate(echeance.getDate() + delaiJours)
+  const dateEcheance = echeance.toISOString().split('T')[0]
+
+  // Créer facture (avec TOUS les champs requis)
   const { data: facture, error: err1 } = await supabase
     .from('factures')
     .insert({
@@ -241,7 +265,15 @@ export async function createFactureFromDevis(
       chantier_id: devis.chantier_id,
       devis_id: devis_id,
       type: factureType,
-      date_emission: new Date().toISOString().split('T')[0],
+      numero,
+      date_emission: dateFacture,
+      date_facture: dateFacture,
+      date_echeance: dateEcheance,
+      objet: devis.objet || null,
+      notes: (entreprise?.conditions_paiement as string) || devis.notes || null,
+      notes_client: devis.notes_client || null,
+      client_nom: devis.client_nom || null,
+      client_adresse: devis.client_adresse || null,
       montant_ht: devis.montant_ht,
       montant_tva: devis.montant_tva,
       montant_ttc: devis.montant_ttc,
