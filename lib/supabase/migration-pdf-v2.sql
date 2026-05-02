@@ -35,7 +35,7 @@ COMMENT ON COLUMN entreprises.engagements_default IS
 
 -- ── 3. Pré-remplir avec un template par défaut pour les comptes existants ─
 UPDATE entreprises
-SET modalites_intervention_default = E'Horaires : 8h - 17h, du lundi au vendredi\nPause déjeuner : 12h - 13h\nPas d''intervention les week-ends et jours fériés\nInformation préalable en cas de retard ou modification'
+SET modalites_intervention_default = E'Horaires d''intervention : généralement entre 8h et 18h, en semaine\nLes horaires peuvent varier selon les contraintes du chantier (livraisons, contraintes techniques, météo)\nEn cas de retard ou modification, vous serez prévenu(e) au plus tôt'
 WHERE modalites_intervention_default IS NULL;
 
 UPDATE entreprises

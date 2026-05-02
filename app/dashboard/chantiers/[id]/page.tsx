@@ -257,15 +257,28 @@ export default function ChantierDetailPage() {
   }, [ganttStart])
 
   // Group interventions by intervenant for Gantt
+  // FIX bug LUN 4 disparu : on ne skip PLUS les interventions sans intervenant_id.
+  // Les orphelines sont regroupées dans une phase virtuelle "__orphan__" qui
+  // s'affiche avec un libellé "Non assigné" — au lieu de disparaître complètement
+  // du Gantt et de laisser l'artisan se demander pourquoi son chantier semble vide.
   const ganttPhases = useMemo(() => {
+    const ORPHAN_KEY = '__orphan__'
     const map = new Map<string, R[]>()
     chantierInterventions.forEach(pi => {
-      const ivId = pi.intervenant_id as string
-      if (!ivId) return
+      const ivId = (pi.intervenant_id as string) || ORPHAN_KEY
       if (!map.has(ivId)) map.set(ivId, [])
       map.get(ivId)!.push(pi)
     })
     return Array.from(map.entries()).map(([ivId, interventions]) => {
+      if (ivId === ORPHAN_KEY) {
+        // Phase orpheline (intervention sans intervenant assigné)
+        return {
+          ivId,
+          iv: { prenom: 'Non', nom: 'assigné', metier: '—' } as R,
+          interventions,
+          colorIdx: 0,
+        }
+      }
       const iv = intervenantMap.get(ivId) as R | undefined
       const colorIdx = colorMap.get(ivId) ?? 0
       return { ivId, iv, interventions, colorIdx }

@@ -45,6 +45,10 @@ interface Entreprise {
   modalites_intervention_default?: string | null
   /** Engagements qualité par défaut (photos, nettoyage, réponse 24h, etc.) */
   engagements_default?: string | null
+  /** Signature dessinée (data URI image) — uploadée dans Profil → Ma signature */
+  signature_base64?: string | null
+  /** Tampon scanné (data URI image) — uploadé dans Profil → Ma signature */
+  tampon_base64?: string | null
 }
 
 interface Chantier {
@@ -87,6 +91,10 @@ interface PlanningIntervention {
   date_fin?: string | null
   intervenant_id?: string | null
   devis_id?: string | null
+  /** Type de créneau : 'journee' | 'matin' | 'apres_midi' | 'creneau' */
+  creneau?: string | null
+  heure_debut?: string | null
+  heure_fin?: string | null
 }
 
 interface Intervenant {
@@ -274,6 +282,7 @@ interface Phase {
 function buildPhases(
   interventions: PlanningIntervention[],
   devis: DevisForPdf[] | undefined,
+  fallbackTitre?: string | null,
 ): Phase[] {
   const devisMap = new Map<string, DevisForPdf>()
   if (devis) devis.forEach(d => devisMap.set(d.id, d))
@@ -294,9 +303,17 @@ function buildPhases(
     const key = entry[0]
     const ivs = entry[1]
     const devisRow = key === '__orphan__' ? null : devisMap.get(key)
+    // Fallback de titre : objet devis > description devis > numéro devis > titre
+    // intervention (pi.titre, mais SEULEMENT si != "Intervention" générique) >
+    // titre du chantier > "Intervention" en dernier recours.
+    const ivTitre = ivs[0]?.titre as string | undefined
+    const ivTitreClean = ivTitre && ivTitre.toLowerCase() !== 'intervention' ? ivTitre : null
     const titre = devisRow?.objet
       || devisRow?.description
-      || (devisRow?.numero ? `Devis ${devisRow.numero}` : 'Intervention')
+      || (devisRow?.numero ? `Devis ${devisRow.numero}` : null)
+      || ivTitreClean
+      || fallbackTitre
+      || 'Phase de chantier'
     const intervenantIds = new Set<string>()
     const days = new Set<string>()
     const allDates: string[] = []
@@ -507,68 +524,106 @@ export function generateChantierPlanningPdf(data: ChantierPdfData): string {
   }
   y += 8
 
-  // ============ CLIENT + LIEU (2 colonnes) ============
-  const boxW = (contentW - 4) / 2
-  const boxH = 24
-  const boxStartY = y
-
-  // Fond gris clair
-  setFill(GREY_LIGHT)
-  doc.roundedRect(M, y, boxW, boxH, 1.5, 1.5, 'F')
-  doc.roundedRect(M + boxW + 4, y, boxW, boxH, 1.5, 1.5, 'F')
-
-  // Client
-  doc.setFontSize(6.5)
-  doc.setFont('helvetica', 'bold')
-  setText(MUTED)
-  doc.text('CLIENT', M + 3, y + 4)
-
-  doc.setFontSize(9)
-  doc.setTextColor(15, 23, 42)
+  // ============ CLIENT (+ LIEU si adresse différente) ============
+  // Cas standard : chantier chez le client → un seul bloc CLIENT pleine largeur.
+  // Cas spécial : adresse de chantier différente de celle du client → 2 blocs.
   const clientName = client
     ? `${client.civilite || ''} ${client.prenom || ''} ${client.nom || ''}`.replace(/\s+/g, ' ').trim()
     : 'Client non renseigné'
-  doc.setFont('helvetica', 'bold')
-  doc.text(clientName, M + 3, y + 9)
-
-  doc.setFontSize(8)
-  doc.setFont('helvetica', 'normal')
-  setText(SLATE)
-  let cy = y + 13
   const clientAdresse = client ? [client.adresse, client.code_postal, client.ville].filter(Boolean).join(', ') : ''
-  if (clientAdresse) {
-    const lines = doc.splitTextToSize(clientAdresse, boxW - 6)
-    doc.text(lines, M + 3, cy)
-    cy += lines.length * 3.5
-  }
-  if (client?.telephone) { doc.text(client.telephone, M + 3, cy); cy += 3.5 }
-  if (client?.email) { doc.text(client.email, M + 3, cy); cy += 3.5 }
-
-  // Lieu
-  const lx = M + boxW + 4
-  doc.setFontSize(6.5)
-  doc.setFont('helvetica', 'bold')
-  setText(MUTED)
-  doc.text('LIEU DU CHANTIER', lx + 3, y + 4)
-
-  doc.setFontSize(9)
-  doc.setFont('helvetica', 'bold')
-  setText(NAVY)
   const chantierAdresse = [chantier.adresse_chantier, chantier.code_postal_chantier, chantier.ville_chantier]
     .filter(Boolean).join(', ')
-  const adresseLines = doc.splitTextToSize(chantierAdresse || 'Adresse non renseignée', boxW - 6)
-  doc.text(adresseLines, lx + 3, y + 9)
-  let ly = y + 9 + adresseLines.length * 4
+  const lieuDifferent = Boolean(chantierAdresse) && chantierAdresse.toLowerCase() !== clientAdresse.toLowerCase()
 
-  if (chantier.acces_info) {
-    doc.setFontSize(7)
-    doc.setFont('helvetica', 'italic')
+  if (lieuDifferent) {
+    // ── 2 blocs côte-à-côte (Client + Lieu) ──
+    const boxW = (contentW - 4) / 2
+    const boxH = 24
+    const boxStartY = y
+
+    setFill(GREY_LIGHT)
+    doc.roundedRect(M, y, boxW, boxH, 1.5, 1.5, 'F')
+    doc.roundedRect(M + boxW + 4, y, boxW, boxH, 1.5, 1.5, 'F')
+
+    // Client
+    doc.setFontSize(6.5)
+    doc.setFont('helvetica', 'bold')
     setText(MUTED)
-    const accesLines = doc.splitTextToSize(chantier.acces_info, boxW - 6)
-    doc.text(accesLines, lx + 3, ly + 1)
-  }
+    doc.text('CLIENT', M + 3, y + 4)
+    doc.setFontSize(9)
+    doc.setTextColor(15, 23, 42)
+    doc.setFont('helvetica', 'bold')
+    doc.text(clientName, M + 3, y + 9)
+    doc.setFontSize(8)
+    doc.setFont('helvetica', 'normal')
+    setText(SLATE)
+    let cy = y + 13
+    if (clientAdresse) {
+      const lines = doc.splitTextToSize(clientAdresse, boxW - 6)
+      doc.text(lines, M + 3, cy)
+      cy += lines.length * 3.5
+    }
+    if (client?.telephone) { doc.text(client.telephone, M + 3, cy); cy += 3.5 }
+    if (client?.email) { doc.text(client.email, M + 3, cy); cy += 3.5 }
 
-  y = boxStartY + boxH + 8
+    // Lieu (uniquement si différent du client)
+    const lx = M + boxW + 4
+    doc.setFontSize(6.5)
+    doc.setFont('helvetica', 'bold')
+    setText(MUTED)
+    doc.text('LIEU DU CHANTIER', lx + 3, y + 4)
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'bold')
+    setText(NAVY)
+    const adresseLines = doc.splitTextToSize(chantierAdresse, boxW - 6)
+    doc.text(adresseLines, lx + 3, y + 9)
+    let ly = y + 9 + adresseLines.length * 4
+    if (chantier.acces_info) {
+      doc.setFontSize(7)
+      doc.setFont('helvetica', 'italic')
+      setText(MUTED)
+      const accesLines = doc.splitTextToSize(chantier.acces_info, boxW - 6)
+      doc.text(accesLines, lx + 3, ly + 1)
+    }
+
+    y = boxStartY + boxH + 8
+  } else {
+    // ── Bloc CLIENT pleine largeur (cas standard : chantier chez le client) ──
+    const boxH = 22
+    setFill(GREY_LIGHT)
+    doc.roundedRect(M, y, contentW, boxH, 1.5, 1.5, 'F')
+
+    doc.setFontSize(6.5)
+    doc.setFont('helvetica', 'bold')
+    setText(MUTED)
+    doc.text('CLIENT (lieu du chantier)', M + 3, y + 4)
+    doc.setFontSize(9.5)
+    doc.setTextColor(15, 23, 42)
+    doc.setFont('helvetica', 'bold')
+    doc.text(clientName, M + 3, y + 9.5)
+
+    doc.setFontSize(8)
+    doc.setFont('helvetica', 'normal')
+    setText(SLATE)
+    // Adresse + tel + email sur 1 ou 2 lignes selon la place
+    let cy = y + 14
+    if (clientAdresse) {
+      doc.text(clientAdresse, M + 3, cy)
+      cy += 3.5
+    }
+    const contactInfo = [client?.telephone, client?.email].filter(Boolean).join(' · ')
+    if (contactInfo) {
+      doc.text(contactInfo, M + 3, cy)
+    }
+    if (chantier.acces_info) {
+      doc.setFontSize(7)
+      doc.setFont('helvetica', 'italic')
+      setText(MUTED)
+      doc.text(`Accès : ${chantier.acces_info}`, M + 3, y + boxH - 2)
+    }
+
+    y += boxH + 8
+  }
 
   // ============ RÉSUMÉ 3 BLOCS ============
   // Fallback intelligent : si le chantier n'a pas de date_debut/date_fin_prevue
@@ -626,7 +681,7 @@ export function generateChantierPlanningPdf(data: ChantierPdfData): string {
   // ============ PÉRIMÈTRE DE LA PRESTATION (NEW V2) ============
   // Liste auto des phases (= "Inclus") + champ libre côté chantier (= "Non inclus")
   // Source n°1 des litiges : éviter "je pensais que c'était compris".
-  const phasesForInclus = buildPhases(interventions, devis)
+  const phasesForInclus = buildPhases(interventions, devis, chantier.titre)
   const inclusItems = phasesForInclus.map(p => p.titre).filter(Boolean)
   const nonInclusTexte = (chantier.non_inclus || '').trim()
 
@@ -651,7 +706,7 @@ export function generateChantierPlanningPdf(data: ChantierPdfData): string {
       doc.setFontSize(7)
       doc.setFont('helvetica', 'bold')
       setText([6, 78, 59])
-      doc.text('✓ INCLUS DANS LE FORFAIT', M + 4, y + 4.5)
+      doc.text('INCLUS DANS LE FORFAIT', M + 4, y + 4.5)
       // Items
       doc.setFontSize(8)
       doc.setFont('helvetica', 'normal')
@@ -681,7 +736,7 @@ export function generateChantierPlanningPdf(data: ChantierPdfData): string {
       doc.setFontSize(7)
       doc.setFont('helvetica', 'bold')
       setText([124, 45, 18])
-      doc.text('✗ NON INCLUS (sur devis séparé)', colX + 4, y + 4.5)
+      doc.text('NON INCLUS (sur devis séparé)', colX + 4, y + 4.5)
       // Texte
       doc.setFontSize(8)
       doc.setFont('helvetica', 'normal')
@@ -700,7 +755,7 @@ export function generateChantierPlanningPdf(data: ChantierPdfData): string {
   // ============ CALENDRIER ============
   // PHASES = REGROUPEMENT PAR DEVIS (= corps de métier)
   // Ex : "Plomberie" = toutes les interventions du devis plomberie sur plusieurs jours
-  const phases = buildPhases(interventions, devis)
+  const phases = buildPhases(interventions, devis, chantier.titre)
   const ivMap = new Map(intervenants.map(iv => [iv.id, iv]))
 
   if (phases.length > 0 && dateDebut && dateFin) {
@@ -729,34 +784,48 @@ export function generateChantierPlanningPdf(data: ChantierPdfData): string {
     y += 6
 
     const tableBody = phases.map((phase) => {
-      // Liste des intervenants assignés à cette phase
-      const intervenantsListe = Array.from(phase.intervenantIds)
-        .map(id => ivMap.get(id))
-        .filter(Boolean)
-        .map(iv => {
-          const name = `${iv!.prenom || ''} ${iv!.nom || ''}`.trim()
-          const role = iv!.metier || iv!.type_contrat || ''
-          return role ? `${name} (${role})` : name
-        })
-        .join('\n') || '—'
-
       // Plage de dates : firstDay au lastDay
       const dateRange = phase.firstDay && phase.lastDay && phase.firstDay !== phase.lastDay
         ? `${fmtDateShort(phase.firstDay)} au ${fmtDateShort(phase.lastDay)}`
         : phase.firstDay ? fmtDateShort(phase.firstDay) : '—'
       const dureeJours = phase.days.size
-      // Colonne "Présence client" supprimée — remplacée par la section
-      // dédiée "À noter pour vous" plus bas (alimentée par les notes datées en V2).
+
+      // Calcul du créneau horaire à partir des interventions de la phase.
+      // Si toutes les interventions ont le même créneau on l'affiche, sinon on
+      // prend les heures min/max ou on indique "Variable".
+      const horaires = phase.interventions
+        .map(pi => {
+          const c = pi.creneau as string | null | undefined
+          if (c === 'journee') return '8h - 17h env.'
+          if (c === 'matin') return '8h - 12h env.'
+          if (c === 'apres_midi') return '13h - 17h env.'
+          if (c === 'creneau' && pi.heure_debut && pi.heure_fin) {
+            const fmtH = (h: string) => h.replace(':', 'h').replace(/h00$/, 'h')
+            return `${fmtH(pi.heure_debut)} - ${fmtH(pi.heure_fin)} env.`
+          }
+          return null
+        })
+        .filter(Boolean) as string[]
+      const uniqueHoraires = Array.from(new Set(horaires))
+      const horaireCol = uniqueHoraires.length === 0
+        ? 'Selon avancement'
+        : uniqueHoraires.length === 1
+          ? uniqueHoraires[0]
+          : 'Variable'
+
+      // Colonnes : Phase | Date(s) | Jours | Horaire
+      // (Équipe retirée — déjà visible dans la section "Équipe assignée à votre chantier")
       return [
         phase.titre,
-        `${dateRange}\n${dureeJours}j de présence`,
-        intervenantsListe,
+        dateRange,
+        `${dureeJours} jour${dureeJours > 1 ? 's' : ''}`,
+        horaireCol,
       ]
     })
 
     autoTable(doc, {
       startY: y,
-      head: [['Phase', 'Dates', 'Équipe']],
+      head: [['Objet des travaux', 'Date(s)', 'Jours', 'Horaire']],
       body: tableBody,
       theme: 'plain',
       styles: { fontSize: 8, cellPadding: 3, textColor: [15, 23, 42] },
@@ -769,9 +838,10 @@ export function generateChantierPlanningPdf(data: ChantierPdfData): string {
         lineColor: NAVY,
       },
       columnStyles: {
-        0: { cellWidth: contentW * 0.5 },
+        0: { cellWidth: contentW * 0.45 },
         1: { cellWidth: contentW * 0.22 },
-        2: { cellWidth: contentW * 0.28 },
+        2: { cellWidth: contentW * 0.13 },
+        3: { cellWidth: contentW * 0.20 },
       },
       bodyStyles: { lineWidth: { bottom: 0.1 }, lineColor: [241, 245, 249] },
       margin: { left: M, right: M },
@@ -794,7 +864,7 @@ export function generateChantierPlanningPdf(data: ChantierPdfData): string {
     })
 
     y = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? y
-    y += 8
+    y += 4
   }
 
   // ============ À NOTER POUR VOUS (NEW V2 — notes datées par intervention) ============
@@ -992,7 +1062,7 @@ export function generateChantierPlanningPdf(data: ChantierPdfData): string {
         setText([6, 95, 70])
         doc.setFontSize(9)
         doc.setFont('helvetica', 'bold')
-        doc.text('✓', stepX, stepY + 1.2, { align: 'center' })
+        doc.text('OK', stepX, stepY + 1.2, { align: 'center' })
       } else {
         setFill([241, 245, 249])
         doc.circle(stepX, stepY, 3, 'F')
@@ -1160,28 +1230,18 @@ export function generateChantierPlanningPdf(data: ChantierPdfData): string {
   doc.setFont('helvetica', 'normal')
   setText(SLATE)
   let gy = y + 4
+  // Réécriture en TEXTE PLAT (sans bold/normal mixé via getTextWidth qui calcule
+  // mal avec les accents et provoque des chevauchements type "achèvement1 an").
+  // On affiche label + valeur en une seule chaîne, en font normal.
+  doc.setFont('helvetica', 'normal')
+  setText(SLATE)
   if (entreprise.decennale_numero) {
-    doc.setFont('helvetica', 'bold')
-    setText(NAVY)
-    doc.text('Assurance décennale', garX, gy)
-    doc.setFont('helvetica', 'normal')
-    setText(SLATE)
-    doc.text(` : ${entreprise.decennale_numero}`, garX + doc.getTextWidth('Assurance décennale'), gy)
-    gy += 3.5
+    doc.text(`Assurance décennale : ${entreprise.decennale_numero}`, garX, gy)
+    gy += 3.8
   }
-  doc.setFont('helvetica', 'bold')
-  setText(NAVY)
-  doc.text('Garantie biennale', garX, gy)
-  doc.setFont('helvetica', 'normal')
-  setText(SLATE)
-  doc.text(' : 2 ans sur équipements installés.', garX + doc.getTextWidth('Garantie biennale'), gy)
-  gy += 3.5
-  doc.setFont('helvetica', 'bold')
-  setText(NAVY)
-  doc.text('Garantie de parfait achèvement', garX, gy)
-  doc.setFont('helvetica', 'normal')
-  setText(SLATE)
-  doc.text(' : 1 an.', garX + doc.getTextWidth('Garantie de parfait achèvement'), gy)
+  doc.text('Garantie biennale : 2 ans sur équipements installés.', garX, gy)
+  gy += 3.8
+  doc.text('Garantie de parfait achèvement : 1 an sur les travaux.', garX, gy)
   gy += 5
 
   doc.setFillColor(248, 250, 252)
@@ -1221,11 +1281,11 @@ export function generateChantierPlanningPdf(data: ChantierPdfData): string {
   y = Math.max(gy + 14, y + contactCardH + 2)
 
   // ============ TAMPON ARTISAN ============
-  // Plus de bloc "Bon pour accord client" : ce document est INFORMATIF
-  // (récap planning), pas un contrat à signer. Seul le tampon artisan reste.
-  y = ensureSpace(doc, y, 22)
-  const stampW = 70
-  const stampH = 18
+  // Bloc "L'ARTISAN" : Date + Signature (image si l'artisan a uploadé une
+  // signature/tampon dans son profil, sinon ligne vide à signer à la main).
+  y = ensureSpace(doc, y, 32)
+  const stampW = 80
+  const stampH = 28
   setFill(GREY_LIGHT)
   doc.roundedRect(M, y, stampW, stampH, 1.5, 1.5, 'F')
 
@@ -1234,15 +1294,39 @@ export function generateChantierPlanningPdf(data: ChantierPdfData): string {
   setText(MUTED)
   doc.text("L'ARTISAN", M + 3, y + 4)
 
-  doc.setFontSize(9)
-  doc.setFont('helvetica', 'bold')
-  setText(NAVY)
-  doc.text(entreprise.nom || 'Artisan', M + 3, y + 9)
-
+  // Date (formattée)
   doc.setFontSize(7)
+  doc.setFont('helvetica', 'bold')
+  setText(MUTED)
+  doc.text('Date :', M + 3, y + 9)
   doc.setFont('helvetica', 'normal')
-  setText(SLATE)
-  doc.text(today, M + 3, y + 13)
+  setText(NAVY)
+  doc.text(today, M + 14, y + 9)
+
+  // Signature : image si profil l'a, sinon ligne à signer
+  doc.setFontSize(7)
+  doc.setFont('helvetica', 'bold')
+  setText(MUTED)
+  doc.text('Signature :', M + 3, y + 15)
+
+  const signatureSrc = entreprise.signature_base64 || entreprise.tampon_base64
+  if (signatureSrc && signatureSrc.startsWith('data:image')) {
+    try {
+      const fmt = signatureSrc.includes('image/png') ? 'PNG' : 'JPEG'
+      const ip = doc.getImageProperties(signatureSrc)
+      const ratio = ip.width / ip.height
+      let sigW = 36
+      let sigH = sigW / ratio
+      if (sigH > 12) { sigH = 12; sigW = sigH * ratio }
+      doc.addImage(signatureSrc, fmt, M + 18, y + 15.5, sigW, sigH)
+    } catch { /* ignore — fallback ligne vide */ }
+  } else {
+    // Ligne pointillée pour signature manuscrite
+    setDraw([180, 190, 210])
+    doc.setLineDashPattern([0.6, 0.6], 0)
+    doc.line(M + 18, y + 22, M + stampW - 4, y + 22)
+    doc.setLineDashPattern([], 0)
+  }
 
   y += stampH + 6
 
@@ -1474,56 +1558,20 @@ function drawPacteCoverPage(
   doc.text(pacteLines, M + 2, y + 4)
   y += pacteLines.length * 4 + 8
 
-  // ── Si on déborde, on tronque (la page de garde tient sur 1 page A4) ──
-  // Hauteur dispo restante = 297 (A4) - y - 60 (espace pour signatures + footer)
-  const sigZoneStart = Math.max(y, 220)
-
-  // ── 2 cadres signature côte-à-côte ──
-  const sigW = (contentW - 6) / 2
-  const sigH = 38
-
-  // Artisan
-  setDraw([226, 232, 240])
-  doc.setLineWidth(0.3)
-  doc.roundedRect(M, sigZoneStart, sigW, sigH, 1.5, 1.5, 'S')
-  doc.setFontSize(7)
-  doc.setFont('helvetica', 'bold')
-  setText([100, 116, 139])
-  doc.text('L\'ARTISAN', M + 4, sigZoneStart + 5)
-  doc.setFontSize(9)
-  doc.setFont('helvetica', 'bold')
-  setText([15, 23, 42])
-  doc.text(artisanNom, M + 4, sigZoneStart + 11)
-  // Lignes signature
-  doc.setFontSize(7)
-  doc.setFont('helvetica', 'bold')
-  setText([100, 116, 139])
-  doc.text('Date :', M + 4, sigZoneStart + 19)
-  setDraw([203, 213, 225])
-  doc.line(M + 16, sigZoneStart + 19, M + sigW - 4, sigZoneStart + 19)
-  doc.text('Signature :', M + 4, sigZoneStart + 30)
-  doc.line(M + 22, sigZoneStart + 30, M + sigW - 4, sigZoneStart + 30)
-
-  // Client
-  const cX = M + sigW + 6
+  // ── Bandeau d'info "document informatif" (à la place des signatures retirées) ──
+  const noticeY = Math.max(y + 4, 250)
   setFill([248, 250, 252])
-  doc.roundedRect(cX, sigZoneStart, sigW, sigH, 1.5, 1.5, 'F')
-  doc.setFontSize(7)
+  doc.roundedRect(M, noticeY, contentW, 18, 1.5, 1.5, 'F')
+  doc.setFontSize(8)
   doc.setFont('helvetica', 'bold')
   setText([100, 116, 139])
-  doc.text('LE CLIENT', cX + 4, sigZoneStart + 5)
-  doc.setFontSize(9)
-  doc.setFont('helvetica', 'bold')
-  setText([15, 23, 42])
-  doc.text(clientNom, cX + 4, sigZoneStart + 11)
-  doc.setFontSize(7)
-  doc.setFont('helvetica', 'bold')
-  setText([100, 116, 139])
-  doc.text('Date :', cX + 4, sigZoneStart + 19)
-  setDraw([203, 213, 225])
-  doc.line(cX + 16, sigZoneStart + 19, cX + sigW - 4, sigZoneStart + 19)
-  doc.text('Signature :', cX + 4, sigZoneStart + 30)
-  doc.line(cX + 22, sigZoneStart + 30, cX + sigW - 4, sigZoneStart + 30)
+  doc.text('NOTE', M + 4, noticeY + 5.5)
+  doc.setFontSize(8.5)
+  doc.setFont('helvetica', 'normal')
+  setText([30, 41, 59])
+  const noticeText = "Ce document est INFORMATIF. Il poursuit l'objectif de clarifier nos engagements mutuels pour mener ce chantier sereinement. Le devis signé reste le seul document contractuel."
+  const noticeLines = doc.splitTextToSize(noticeText, contentW - 8)
+  doc.text(noticeLines, M + 4, noticeY + 10)
 
   // ── Brand footer en bas de page de garde ──
   doc.setFontSize(6)

@@ -72,9 +72,10 @@ async function handleExport(
     }
 
     // Charger les interventions du chantier (avec devis_id pour regroupement par phase)
+    // V2 : on inclut creneau + heure_debut + heure_fin pour la colonne "Horaire" du PDF
     const { data: interventions } = await supabase
       .from('planning_interventions')
-      .select('id, titre, description_travaux, date_debut, date_fin, intervenant_id, devis_id')
+      .select('id, titre, description_travaux, date_debut, date_fin, intervenant_id, devis_id, creneau, heure_debut, heure_fin')
       .eq('chantier_id', chantierId)
       .eq('user_id', user.id)
       .order('date_debut', { ascending: true })

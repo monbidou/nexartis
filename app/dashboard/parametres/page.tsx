@@ -631,7 +631,7 @@ function DocumentsSection({
               value={modalitesDefault}
               onChange={(e) => setModalitesDefault(e.target.value)}
               rows={5}
-              placeholder={'Horaires : 8h - 17h, du lundi au vendredi\nPause déjeuner : 12h - 13h\nPas d\'intervention les week-ends et jours fériés\nInformation préalable en cas de retard ou modification'}
+              placeholder={'Horaires d\'intervention : généralement entre 8h et 18h, en semaine\nLes horaires peuvent varier selon les contraintes du chantier (livraisons, météo, etc.)\nEn cas de retard ou modification, vous serez prévenu(e) au plus tôt'}
               className="w-full rounded-lg border border-gray-200 px-4 py-3 font-manrope text-sm text-[#1a1a2e] focus:border-[#5ab4e0] focus:ring-1 focus:ring-[#5ab4e0] outline-none resize-none"
             />
             <p className="mt-1.5 font-manrope text-xs text-[#94a3b8]">
