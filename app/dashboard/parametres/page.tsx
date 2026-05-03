@@ -9,12 +9,14 @@ import {
   User,
   Camera,
   PenTool,
+  Palette,
 } from 'lucide-react'
 import {
   useEntreprise,
   useUser,
   LoadingSkeleton,
 } from '@/lib/hooks'
+import ThemeSelector from '@/components/ThemeSelector'
 
 // -------------------------------------------------------------------
 // Types & constants
@@ -27,6 +29,7 @@ type Section =
   | 'notifications'
   | 'compte'
   | 'signature'
+  | 'apparence'
 
 interface NavItem {
   id: Section
@@ -39,6 +42,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'documents', label: 'Documents', icon: FileText },
   { id: 'facturation', label: 'Facturation', icon: Receipt },
   { id: 'signature', label: 'Ma signature', icon: PenTool },
+  { id: 'apparence', label: 'Apparence', icon: Palette },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'compte', label: 'Compte', icon: User },
 ]
@@ -768,6 +772,27 @@ function FacturationSection({
       <SaveButton onClick={handleSave} saving={saving} />
       <SuccessMessage message={success} />
       <ErrorMessage message={errorMsg} />
+    </div>
+  )
+}
+
+// Section "Apparence" : juste le sélecteur de thème de couleur sidebar.
+// Garde le scope volontairement réduit : on ne touche PAS aux devis/factures
+// (risque de rendre les documents illisibles avec certaines couleurs).
+function ApparenceSection() {
+  return (
+    <div className="space-y-5">
+      <div>
+        <h2 className="font-syne font-bold text-xl text-[#1a1a2e]">Apparence</h2>
+        <p className="text-sm text-[#6b7280] font-manrope mt-1">
+          Personnalise l&apos;apparence visuelle de ton tableau de bord.
+        </p>
+      </div>
+      <ThemeSelector />
+      <p className="text-xs text-[#9ca3af] font-manrope italic">
+        Astuce : la couleur ne s&apos;applique qu&apos;à la barre latérale et aux éléments actifs.
+        Les devis et factures gardent leur palette pour rester lisibles côté client.
+      </p>
     </div>
   )
 }
@@ -1687,9 +1712,10 @@ export default function ParametresPage() {
         {activeSection === 'documents' && entreprise && <DocumentsSection entreprise={entreprise} update={update} />}
         {activeSection === 'facturation' && entreprise && <FacturationSection entreprise={entreprise} update={update} />}
         {activeSection === 'signature' && entreprise && <SignatureSection entreprise={entreprise} update={update} />}
+        {activeSection === 'apparence' && <ApparenceSection />}
         {activeSection === 'notifications' && <NotificationsSection />}
         {activeSection === 'compte' && <CompteSection userEmail={user?.email ?? ''} />}
-        {/* Section "Abonnement" déplacée vers la page dédiée /dashboard/abonnement */}
+        {/* Section "Abonnement" deplacee vers la page dediee */}
       </div>
     </div>
   )

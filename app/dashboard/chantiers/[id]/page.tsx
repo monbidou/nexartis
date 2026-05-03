@@ -121,6 +121,7 @@ export default function ChantierDetailPage() {
   const [editModalitesPerso, setEditModalitesPerso] = useState('')
   const [editSaving, setEditSaving] = useState(false)
   const [exportingPdf, setExportingPdf] = useState(false)
+  const [exportingRecap, setExportingRecap] = useState(false)
   // Modal d'export PDF (V2 — option Pacte de chantier)
   const [showExportModal, setShowExportModal] = useState(false)
   const [exportWithPacte, setExportWithPacte] = useState(false)
@@ -527,6 +528,30 @@ export default function ChantierDetailPage() {
     setShowExportModal(true)
   }
 
+  // Téléchargement du PDF "Récap pour client" — document de suivi 2 pages
+  // (récap travaux + financier + timeline notes + garanties + SAV).
+  // Pas de modal : on télécharge directement.
+  const handleExportRecap = async () => {
+    if (!chantier) return
+    setExportingRecap(true)
+    try {
+      const res = await fetch(`/api/export-recap-chantier-pdf?id=${id}`, { method: 'GET' })
+      if (!res.ok) throw new Error('Erreur export récap')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `recap-${String(chantier?.titre ?? 'chantier').replace(/\s+/g, '-').toLowerCase()}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+      showToast('Récap pour client téléchargé ✓')
+    } catch (_err) {
+      showToast('Erreur lors de la génération du récap')
+    } finally {
+      setExportingRecap(false)
+    }
+  }
+
   // Lancement effectif de l'export après validation de la modal.
   const handleExportPDF = async () => {
     if (!chantier) return
@@ -593,6 +618,11 @@ export default function ChantierDetailPage() {
           <button onClick={openExportModal} disabled={exportingPdf}
             className="flex items-center gap-2 px-4 py-2 border border-[#e6ecf2] rounded-xl text-sm font-semibold text-[#1e293b] hover:border-[#5ab4e0] hover:text-[#5ab4e0] transition-all disabled:opacity-50">
             <Download className="w-4 h-4" />{exportingPdf ? 'Export...' : 'Exporter PDF'}
+          </button>
+          <button onClick={handleExportRecap} disabled={exportingRecap}
+            title="Document de récap 2 pages destiné au client : travaux, financier, timeline, garanties, SAV"
+            className="flex items-center gap-2 px-4 py-2 border border-[#e6ecf2] rounded-xl text-sm font-semibold text-[#1e293b] hover:border-[#059669] hover:text-[#059669] transition-all disabled:opacity-50">
+            <FileText className="w-4 h-4" />{exportingRecap ? 'Génération...' : 'Récap client'}
           </button>
           <button onClick={openEditMode}
             className="flex items-center gap-2 px-4 py-2 border border-[#e6ecf2] rounded-xl text-sm font-semibold text-[#1e293b] hover:border-[#e87a2a] hover:text-[#e87a2a] transition-all">

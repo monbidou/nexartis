@@ -1134,12 +1134,26 @@ function NouveauDevisPage() {
                       ★ {p.nom}
                     </button>
                   ))}
-                  {dechetteriesProches.slice(0, 5).map((d, i) => (
-                    <button key={`api-${i}`} type="button" onClick={() => { setDechetsCollecteNom(d.nom); setDechetsCollecteAdresse(`${d.adresse}, ${d.code_postal} ${d.commune}`); setDechetsCollecteType('Déchetterie') }}
-                      className="px-2.5 py-1 rounded-full text-[11px] font-manrope border border-gray-200 text-[#6b7280] hover:border-gray-400 transition-colors">
-                      {d.nom} <span className="text-[#e87a2a]">({d.distance_km} km)</span>
-                    </button>
-                  ))}
+                  {dechetteriesProches.slice(0, 3).map((d, i) => {
+                    // Lien Maps direct avec adresse complète (ouvre Google Maps app sur mobile, web sinon)
+                    const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${d.nom} ${d.adresse} ${d.code_postal} ${d.commune}`)}`
+                    const acceptePro = d.accepte_pro && d.accepte_pro !== 'Non renseigné' && d.accepte_pro.toLowerCase() !== 'non'
+                    return (
+                      <div key={`api-${i}`} className="inline-flex items-center gap-1 rounded-full border border-gray-200 hover:border-gray-400 transition-colors overflow-hidden">
+                        <button type="button" onClick={() => { setDechetsCollecteNom(d.nom); setDechetsCollecteAdresse(`${d.adresse}, ${d.code_postal} ${d.commune}`); setDechetsCollecteType('Déchetterie') }}
+                          className="px-2.5 py-1 text-[11px] font-manrope text-[#6b7280] hover:bg-gray-50 transition-colors">
+                          {d.nom} <span className="text-[#e87a2a] font-semibold">({d.distance_km} km)</span>
+                          {acceptePro && <span title="Accepte les professionnels" className="ml-1 px-1 py-0.5 bg-emerald-100 text-emerald-700 rounded text-[9px] font-bold">PRO</span>}
+                          {d.accepte_construction && <span title="Accepte les déchets de construction (gravats)" className="ml-1 px-1 py-0.5 bg-amber-100 text-amber-700 rounded text-[9px] font-bold">GRAVATS</span>}
+                          {d.accepte_deee && <span title="Accepte les équipements électriques et électroniques" className="ml-1 px-1 py-0.5 bg-blue-100 text-blue-700 rounded text-[9px] font-bold">DEEE</span>}
+                        </button>
+                        <a href={mapsUrl} target="_blank" rel="noopener noreferrer" title="Voir sur Google Maps"
+                          className="px-2 py-1 text-[#5ab4e0] hover:bg-[#5ab4e0]/10 transition-colors border-l border-gray-200">
+                          ↗
+                        </a>
+                      </div>
+                    )
+                  })}
                 </div>
               )}
               {loadingDechetteries && !dechetsCollecteNom && <p className="text-[11px] font-manrope text-[#9ca3af] mb-2 animate-pulse">Recherche des déchetteries proches...</p>}

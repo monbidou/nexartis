@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useUser, useEntreprise } from '@/lib/hooks'
+import { applySidebarTheme } from '@/components/ThemeSelector'
 import {
   Home,
   LayoutGrid,
@@ -293,9 +294,11 @@ function Sidebar({
         <div className={`px-3 mb-2 ${collapsed ? 'px-2' : ''}`} ref={createRef}>
           <button
             onClick={() => setCreateOpen(!createOpen)}
+            style={{ backgroundColor: 'var(--nexartis-accent, #e87a2a)' }}
             className={`
-              w-full h-11 rounded-lg bg-[#e87a2a] hover:bg-[#f09050] text-white font-syne font-bold
-              flex items-center justify-center gap-2 transition-colors duration-100
+              w-full h-11 rounded-lg text-white font-syne font-bold
+              flex items-center justify-center gap-2 transition-all duration-100
+              hover:brightness-110
               ${collapsed ? 'px-0' : ''}
             `}
           >
@@ -366,7 +369,7 @@ function Sidebar({
                   >
                     {/* Active indicator bar */}
                     {active && !collapsed && (
-                      <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-[#e87a2a]" />
+                      <span style={{ backgroundColor: 'var(--nexartis-accent, #e87a2a)' }} className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full" />
                     )}
                     <Icon
                       size={19}
@@ -515,8 +518,9 @@ function MobileBottomNav({
           <Link
             key={item.href}
             href={item.href}
+            style={active ? { color: 'var(--nexartis-accent, #e87a2a)' } : undefined}
             className={`flex flex-col items-center gap-0.5 ${
-              active ? 'text-[#e87a2a]' : 'text-[#6b7280]'
+              active ? '' : 'text-[#6b7280]'
             }`}
           >
             <Icon size={22} />
@@ -547,6 +551,13 @@ export default function DashboardLayout({
   const { entreprise, loading: entrepriseLoading } = useEntreprise()
 
   const isLoading = userLoading || entrepriseLoading
+
+  // Applique le thème de couleur sidebar choisi par l'utilisateur (stocké en localStorage).
+  // À chaque mount du dashboard on lit la valeur et on injecte la CSS variable
+  // `--nexartis-accent` sur <html>. Sans choix → fallback orange Nexartis.
+  useEffect(() => {
+    applySidebarTheme()
+  }, [])
 
   // Vérification expiration période d'essai (14 jours)
   // EXCEPTION : la page /dashboard/abonnement n'est jamais bloquée,

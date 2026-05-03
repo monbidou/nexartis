@@ -1398,6 +1398,45 @@ function drawCalendarByPhases(
     Math.round(c[2] + (255 - c[2]) * pct),
   ]
 
+  // Helper : dessine des hachures diagonales dans un rectangle (clipping manuel à 45°)
+  // Utilisé pour signaler les jours "hors chantier" (avant date début / après date fin).
+  const drawDiagonalStripes = (
+    rx: number,
+    ry: number,
+    rw: number,
+    rh: number,
+    color: [number, number, number] = [148, 163, 184], // slate-400
+    spacing: number = 1.4,
+  ): void => {
+    setDraw(color)
+    doc.setLineWidth(0.15)
+    // On parcourt l'offset diagonal de -rh à rw + rh, et pour chaque trait on
+    // calcule manuellement le clipping aux bords du rectangle (les diagonales
+    // sont à 45°, donc dx = dy quand on rogne).
+    for (let off = -rh; off < rw + rh; off += spacing) {
+      let x1 = rx + off
+      let y1 = ry
+      let x2 = rx + off + rh
+      let y2 = ry + rh
+      // Clip bord gauche
+      if (x1 < rx) {
+        const dx = rx - x1
+        x1 = rx
+        y1 = ry + dx
+      }
+      // Clip bord droit
+      if (x2 > rx + rw) {
+        const dx = x2 - (rx + rw)
+        x2 = rx + rw
+        y2 -= dx
+      }
+      // Garde-fou : ne dessine que si le segment est valide et reste dans la box
+      if (x1 < x2 && y1 < y2 && x1 < rx + rw && x2 > rx) {
+        doc.line(x1, y1, x2, y2)
+      }
+    }
+  }
+
   const labelColW = 50
   const headerH = 10
   const phaseRowH = 13
@@ -1483,6 +1522,22 @@ function drawCalendarByPhases(
       })
     })
 
+    // ── Background "hors chantier" (rayures diagonales) ──
+    // Hachure les jours qui sont AVANT date_debut OU APRÈS date_fin du chantier.
+    // Indique visuellement au client : "ces jours ne font pas partie du chantier"
+    // (sans pour autant masquer le contexte de la semaine).
+    const startMs = start.getTime()
+    const endMs = end.getTime()
+    weeks.forEach((week, wi) => {
+      week.forEach((day, di) => {
+        const dMs = day.getTime()
+        if (dMs < startMs || dMs > endMs) {
+          const dx = x + labelColW + (wi * 7 + di) * dayW
+          drawDiagonalStripes(dx, rowY + 0.5, dayW, phaseRowH - 1)
+        }
+      })
+    })
+
     // ── Label phase (pastille couleur + nom) ──
     setFill(phase.color)
     doc.roundedRect(x + 2, rowY + 4.5, 3, 4, 0.5, 0.5, 'F')
@@ -1558,26 +1613,35 @@ function drawCalendarByPhases(
   doc.setTextColor(100, 116, 139)
   doc.text('LECTURE :', x, legY + 3)
 
-  // Sample : couleur pleine
-  let lx = x + 18
+  // Sample : couleur pleine (intervention prévue)
+  let lx = x + 16
   setFill(refColor)
   doc.roundedRect(lx, legY, 6, 4, 0.5, 0.5, 'F')
   doc.setFontSize(7)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(30, 41, 59)
-  doc.text('Intervention prévue ce jour', lx + 8, legY + 3)
+  doc.text('Intervention prévue', lx + 8, legY + 3)
 
-  // Sample : couleur pâle
-  lx = x + 78
+  // Sample : couleur pâle (phase active sans intervention)
+  lx = x + 60
   setFill(refPale)
   doc.roundedRect(lx, legY, 6, 4, 0.5, 0.5, 'F')
-  doc.text('Phase en cours, sans intervention', lx + 8, legY + 3)
+  doc.text('Phase en cours', lx + 8, legY + 3)
 
   // Sample : week-end
-  lx = x + 152
+  lx = x + 100
   setFill([241, 245, 249])
   doc.rect(lx, legY, 6, 4, 'F')
-  doc.text('Week-end / non travaillé', lx + 8, legY + 3)
+  doc.text('Week-end', lx + 8, legY + 3)
+
+  // Sample : hors chantier (rayé)
+  lx = x + 130
+  // mini cadre + rayures pour bien voir le motif
+  drawDiagonalStripes(lx, legY, 6, 4, [148, 163, 184], 1.0)
+  setDraw([203, 213, 225])
+  doc.setLineWidth(0.2)
+  doc.rect(lx, legY, 6, 4, 'S')
+  doc.text('Hors chantier', lx + 8, legY + 3)
 
   curY += 8
 
