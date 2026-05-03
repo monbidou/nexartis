@@ -214,8 +214,9 @@ function Sidebar({
       )}
 
       <aside
+        style={{ backgroundColor: 'var(--nexartis-sidebar-bg, #0f1a3a)' }}
         className={`
-          fixed top-0 left-0 z-50 h-full bg-[#0f1a3a] flex flex-col overflow-y-auto overflow-x-hidden
+          fixed top-0 left-0 z-50 h-full flex flex-col overflow-y-auto overflow-x-hidden
           transition-all duration-200 ease-in-out
           ${w}
           ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}

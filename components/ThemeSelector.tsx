@@ -33,12 +33,70 @@ export type SidebarThemeId = typeof SIDEBAR_THEMES[number]['id']
 const STORAGE_KEY = 'nexartis-sidebar-theme'
 const DEFAULT_THEME: SidebarThemeId = 'orange'
 
+// ───── Helpers couleur ─────
+// Convertit "#e87a2a" en [r, g, b] ints.
+function hexToRgb(hex: string): [number, number, number] {
+  const h = hex.replace('#', '')
+  return [
+    parseInt(h.slice(0, 2), 16),
+    parseInt(h.slice(2, 4), 16),
+    parseInt(h.slice(4, 6), 16),
+  ]
+}
+
+// Assombrit une couleur en mélangeant avec du noir.
+// amount = 0 → couleur d'origine, amount = 1 → noir pur.
+function darken(hex: string, amount: number): string {
+  const [r, g, b] = hexToRgb(hex)
+  const dr = Math.round(r * (1 - amount))
+  const dg = Math.round(g * (1 - amount))
+  const db = Math.round(b * (1 - amount))
+  return `#${[dr, dg, db].map(c => c.toString(16).padStart(2, '0')).join('')}`
+}
+
+// Luminance perçue (formule simple, suffisante pour décider clair/foncé).
+function luminance(hex: string): number {
+  const [r, g, b] = hexToRgb(hex)
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255
+}
+
 /** Lit le thème stocké et l'applique sur <html>. À appeler au mount du dashboard. */
 export function applySidebarTheme(themeId: SidebarThemeId | null = null): void {
   if (typeof window === 'undefined') return
   const id = themeId || (localStorage.getItem(STORAGE_KEY) as SidebarThemeId) || DEFAULT_THEME
   const theme = SIDEBAR_THEMES.find(t => t.id === id) || SIDEBAR_THEMES[0]
+
+  // Couleur d'origine (utilisée pour les accents : bouton Créer, barre active...)
   document.documentElement.style.setProperty('--nexartis-accent', theme.color)
+
+  // Fond de la sidebar : on assombrit la couleur à 75% pour rester foncé et lisible
+  // même avec une couleur saturée comme jaune ou rouge. Sinon la sidebar entière
+  // serait fluo et insupportable.
+  const sidebarBg = darken(theme.color, 0.75)
+  document.documentElement.style.setProperty('--nexartis-sidebar-bg', sidebarBg)
+
+  // Le fond assombri à 75% est toujours foncé → texte blanc partout.
+  // Mais si jamais on change la stratégie (ex: thème "blanc"), on calcule auto.
+  const textColor = luminance(sidebarBg) > 0.5 ? '#0f172a' : '#ffffff'
+  document.documentElement.style.setProperty('--nexartis-sidebar-text', textColor)
+  // Version semi-transparente pour les textes secondaires (icônes inactives, etc.)
+  const isLightText = textColor === '#ffffff'
+  document.documentElement.style.setProperty(
+    '--nexartis-sidebar-text-muted',
+    isLightText ? 'rgba(255,255,255,0.6)' : 'rgba(15,23,42,0.6)',
+  )
+  document.documentElement.style.setProperty(
+    '--nexartis-sidebar-hover-bg',
+    isLightText ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.08)',
+  )
+  document.documentElement.style.setProperty(
+    '--nexartis-sidebar-active-bg',
+    isLightText ? 'rgba(255,255,255,0.14)' : 'rgba(15,23,42,0.12)',
+  )
+  document.documentElement.style.setProperty(
+    '--nexartis-sidebar-border',
+    isLightText ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.08)',
+  )
 }
 
 /** Sauvegarde + applique un nouveau thème. */
@@ -48,7 +106,7 @@ export function setSidebarTheme(themeId: SidebarThemeId): void {
   applySidebarTheme(themeId)
 }
 
-/** Composant React : grille de boutons couleur à mettre dans la page Paramètres. */
+/** Composant React : grille de boutons couleur a mettre dans la page Parametres. */
 export default function ThemeSelector() {
   const [current, setCurrent] = useState<SidebarThemeId>(DEFAULT_THEME)
 
@@ -66,10 +124,10 @@ export default function ThemeSelector() {
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-5">
       <div className="mb-4">
-        <h3 className="font-syne font-bold text-base text-[#1a1a2e]">Couleur d&apos;accent de la sidebar</h3>
+        <h3 className="font-syne font-bold text-base text-[#1a1a2e]">Couleur de la sidebar</h3>
         <p className="text-xs text-[#6b7280] font-manrope mt-0.5">
-          Personnalise la couleur du bouton &laquo; Créer &raquo; et des éléments actifs de ta navigation.
-          Le choix est sauvegardé sur ton appareil.
+          Personnalise la couleur de ta barre laterale. Le contraste du texte est calcule automatiquement.
+          Le choix est sauvegarde sur ton appareil.
         </p>
       </div>
       <div className="grid grid-cols-4 sm:grid-cols-7 gap-3">
@@ -81,13 +139,8 @@ export default function ThemeSelector() {
               type="button"
               onClick={() => onSelect(theme.id)}
               title={theme.label}
-              aria-label={`Choisir le thème ${theme.label}`}
-              className={`
-                relative aspect-square rounded-xl border-2 transition-all
-                ${isActive
-                  ? 'border-[#1a1a2e] shadow-md scale-105'
-                  : 'border-transparent hover:border-gray-300 hover:scale-105'}
-              `}
+              aria-label={`Choisir le theme ${theme.label}`}
+              className={`relative aspect-square rounded-xl border-2 transition-all ${isActive ? 'border-[#1a1a2e] shadow-md scale-105' : 'border-transparent hover:border-gray-300 hover:scale-105'}`}
               style={{ backgroundColor: theme.color }}
             >
               {isActive && (
@@ -102,7 +155,7 @@ export default function ThemeSelector() {
         })}
       </div>
       <p className="text-[11px] text-[#9ca3af] font-manrope mt-3 italic">
-        Thème actuel : <span className="font-semibold text-[#1a1a2e]">{SIDEBAR_THEMES.find(t => t.id === current)?.label}</span>
+        Theme actuel : <span className="font-semibold text-[#1a1a2e]">{SIDEBAR_THEMES.find(t => t.id === current)?.label}</span>
       </p>
     </div>
   )
